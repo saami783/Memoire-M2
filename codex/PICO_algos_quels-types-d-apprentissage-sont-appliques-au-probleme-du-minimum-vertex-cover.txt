@@ -1,0 +1,55 @@
+﻿==== MÉTA ====
+TITRE COURT : Cartographie des apprentissages pour vertex cover
+QUESTION DE RECHERCHE : Quels types d'apprentissage sont appliqués au problème du minimum vertex cover ?
+DOMAINE / PROBLÈME : Couverture de sommets (Minimum Vertex Cover)
+TYPE DE QUESTION : heuristique / apprentissage automatique
+RÉSUMÉ PICO (2–3 lignes) : Cartographier les approches d'apprentissage (supervisé, renforcement, imitation) appliquées au minimum vertex cover sur des graphes variés, et analyser leurs performances face aux méthodes exactes et heuristiques classiques. Identifier les conditions d'efficacité, de robustesse et de reproductibilité pour guider des recherches en optimisation combinatoire basées sur l'apprentissage.
+==== PICO ====
+PROBLÈMES / INSTANCES (P) :
+- Définition formelle : Graphes non orientés G=(V,E), versions pondérées et non pondérées ; variantes sur graphes bipartis, planaires ou k-réguliers ; objectif minimiser |S| couvrant toutes les arêtes.
+- Paramètres d’échelle : n=|V| jusqu'à 10^6 pour l'entraînement heuristique, m=|E| avec densités 0,01–0,5, distributions de poids uniformes ou corrélées aux degrés.
+- Génération/benchmarks : Synthétiques Erdős–Rényi G(n,p), Barabási–Albert, graphes réguliers ; corpus DIMACS Vertex Cover, SNAP (sociaux, web), réseaux biologiques.
+- Contraintes/propriétés : Connectivité, bornes sur degrés Δ(G), scénarios bipartis et généraux, possibilité de pondérations positives bornées.
+ALGORITHME / MÉTHODE (I) :
+- Description : Apprentissages supervisés (GNN, transformers de graphes) pour prédire les sommets à couvrir ; apprentissage par renforcement (policy gradient, Q-learning) construisant la couverture séquentiellement ; imitation/apprentissage structuré guidé par résolveurs exacts ; embeddings contrastifs pour heuristiques hybrides.
+- Détails clés : Initialisation par heuristiques gloutonnes, curriculum sur tailles croissantes, régularisation pour respecter les contraintes ; critères d'arrêt via convergence validation ou budget d'itérations ; randomisation contrôlée par graines fixes ; tuning hyperparamètres via recherche bayésienne limitée.
+- Ressources : Entraînement sur GPU >=16 Go, inférence CPU multi-cœurs ; mini-batching sur sous-graphes pour mémoire ; budgets temps <24 h par modèle ; possibilité de parallélisme de données.
+COMPARATEUR (C) :
+- Baselines : Résolveurs ILP (CPLEX, Gurobi) sur petites instances, branch-and-bound spécialisés, approximation 2-approx gloutonne, recherche locale (Kernighan–Lin, heuristique de Vertex Cover par élimination), métaheuristiques (colonies de fourmis, algorithmes génétiques).
+- Cadre : Comparaison sur mêmes instances et budgets temps ; warm-start interdit sauf déclaration ; tuning homogène sur validation ; statistiques agrégées sur ≥10 graines pour méthodes apprenantes.
+MESURES / PROPRIÉTÉS (O) :
+- Qualité : Taille |S|, écart relatif à l'optimal, ratio d'approximation garanti, taux de solutions optimales.
+- Efficacité : Temps mur et CPU par instance, complexité empirique vs n,m, consommation mémoire, scalabilité en taille moyenne des graphes.
+- Robustesse : Variance inter-graines, sensibilité aux hyperparamètres, résilience aux perturbations de pondérations.
+- Autres : Taux de convergence, respect des contraintes (couverture complète), analyse d'ablation des composantes du modèle.
+- Horizon : Graphes jusqu'à n=10^6 (heuristiques légères), n<10^4 pour modèles lourds ; budgets inférence <1 h par instance.
+==== DÉLIMITATION DE LA PORTÉE ====
+HYPOTHÈSES/CONTRAINTES SUR LES INSTANCES : Instances non orientées, pondérations positives bornées par 10^3, optima ou bornes LP disponibles pour calibrage, disponibilité de graphes réels (SNAP) et synthétiques.
+BUDGETS/ENVIRONNEMENT : Accès à cluster 4×GPU A100 ou équivalent, nœuds CPU 64 cœurs, stockage <1 To pour données et checkpoints.
+SOUS-PROBLÈMES/PARAMÈTRES : Étude des versions pondérée et non pondérée, comparaison biparti vs général, analyse paramétrée par taille k (FPT), sensibilité à la densité.
+NON-OBJECTIFS : Pas d'étude streaming/dynamique, pas de cas orienté, pas d'intégration directe dans pipelines SAT.
+TYPE(S) D’ÉTUDE CIBLÉ(S) : conception+analyse, benchmark, simulation.
+==== PROTOCOLE D’ÉVALUATION / BENCHMARK (SI EXPÉRIMENTAL) ====
+Jeux d’instances : Partition apprentissage/validation/test sur graphes synthétiques et réels ; sous-ensembles spécifiques pour graphes denses et clairsemés ; inclusion de petites instances avec optimum connu pour supervision.
+Procédure : Pré-traitement (normalisation degrés/poids), entraînement par mini-batch, inférence greedy sur scores ; validation croisée sur familles de graphes ; arrêt anticipé si perte validation stagne.
+Équité de comparaison : Temps limite identique, même matériel, initialisations comparables ; baselines exactes reçoivent mêmes limites ; hyperparamètres sélectionnés via grille commune.
+Analyse statistique : Rapporter moyennes, écarts-types, intervalles de confiance bootstrap ; tests de Wilcoxon pour comparer méthodes ; analyse de corrélation entre densité et performance.
+==== STRATÉGIE DE RECHERCHE BIBLIO (OPTIONNEL) ====
+Mots-clés FR/EN : "apprentissage automatique minimum vertex cover", "graph neural network vertex cover", "reinforcement learning combinatorial optimization".
+Bases : arXiv cs.DS/cs.LG, DBLP, ACM Digital Library, IEEE Xplore, HAL.
+Chaînes booléennes : ("vertex cover" AND ("learning" OR "neural" OR "reinforcement")) AND ("approximation" OR "heuristic").
+Restrictions : Période 2016–2024, conférences NeurIPS/ICLR/AAAI/CPAIOR, journaux Algorithmica, INFORMS JOC.
+==== QUALITÉ & REPRODUCTIBILITÉ ====
+Menaces à la validité : Surajustement aux distributions d'entraînement, manque d'optima pour grandes instances, dépendance au matériel GPU.
+Mesures d’atténuation : Validation croisée familles, génération aléatoire avec graines publiées, journalisation des configurations et code open-source (licence permissive), archivage jeux d'instances.
+==== PLAN D’EXTRACTION (BREF) ====
+Pour chaque étude : capturer problème traité, classe de graphes, type d'apprentissage, complexité déclarée, ratio/écart observé ou prouvé, jeux d'instances, tailles n/m, temps CPU/GPU, mémoire, matériel, disponibilité code/données.
+==== HYPOTHÈSES & INCERTITUDES ====
+- Hypothèse : Les graphes évalués disposent de bornes supérieures/inferieures connues pour calculer les écarts.
+- Hypothèse : Accès aux ressources GPU mentionnées ; sinon comparer uniquement sur ensembles réduits.
+- Incertitude : Disponibilité de benchmarks pondérés standardisés ; nécessité de les générer si absents.
+- Incertitude : Généralisation des modèles appris à des distributions hors entraînement reste à vérifier.
+==== CHECKLIST FINALE ====
+[x] P défini | [x] I clair | [x] C pertinent | [x] O mesurables/prouvables | [x] Métriques/budgets comparables | [x] Reproductibilité (graines, code)
+==== NOM DE FICHIER ====
+PICO_algos_quels-types-d-apprentissage-sont-appliques-au-probleme-du-minimum-vertex-cover.txt
