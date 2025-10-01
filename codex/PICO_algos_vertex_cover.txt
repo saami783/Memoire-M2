@@ -1,0 +1,67 @@
+==== MÉTA ====
+TITRE COURT : Typologies d’apprentissage pour Minimum Vertex Cover
+QUESTION DE RECHERCHE : Quels types d’apprentissage sont appliqués au problème du minimum vertex cover ?
+DOMAINE / PROBLÈME : Théorie des graphes; optimisation combinatoire; Minimum Vertex Cover (MVC)
+TYPE DE QUESTION : Cartographie méthodologique / revue de portée orientée algorithmes apprenants
+RÉSUMÉ PICO (2–3 lignes) : Cartographier et comparer les paradigmes d’apprentissage utilisés pour résoudre ou accélérer la résolution de MVC (et sa variante pondérée). Focus sur les approches de type GNN, RL, imitation, auto‑supervisé et “learning to optimize” intégrées aux heuristiques ou aux solveurs ILP. Évaluer selon faisabilité, qualité de solution (ratio/écart), généralisation et coût.
+
+==== PICO ====
+PROBLÈMES / INSTANCES (P) : Graphes simples non orientés, non signés; versions non pondérée et pondérée (MWVC) du problème Minimum Vertex Cover. Familles d’instances: aléatoires (Erdős–Rényi G(n,p), réguliers d‑réguliers), réseaux à loi de puissance (Barabási–Albert), planaires, séries de benchmarks académiques et réseaux réels (SNAP). Tailles: n ∈ [100, 10^5] selon méthode; distribution in et out‑of‑distribution.
+ALGORITHME / MÉTHODE (I) : Catégories d’apprentissage étudiées:
+- Apprentissage supervisé: GNN/MLP prédisant probabilité d’appartenance au couvert; régression/ordonnancement pour guider des heuristiques; entraînement sur solutions optimales/approximatives.
+- Apprentissage par renforcement (DRL): politiques séquentielles de sélection/suppression de sommets avec récompenses façonnées (validité, taille, parité des arêtes couvertes); policy gradient/DQN; environnement différentiable ou combinatoire.
+- Apprentissage par imitation: clonage comportemental des trajectoires d’un oracle (solveur exact sur petits graphes, heuristique gloutonne) puis déploiement à grande échelle.
+- Auto‑supervisé/contraste: pré‑entraînement d’embeddings de graphes (invariances structurelles, prédiction de voisinage) afin d’amorcer des politiques/heuristiques.
+- Learning‑to‑optimize pour solveurs: apprentissage de stratégies de branchement/coupes, réglage de paramètres et ordre de colonnes pour formulations ILP/CP; apprentissage de séparateurs.
+- Méta‑apprentissage/portefeuilles: sélection ou combinaison de heuristiques selon des descripteurs de graphe; hyper‑heuristiques apprenantes.
+- Relâchements différentiables/énergie: relaxations continues avec pénalités de violation et projection; modèles énergétiques apprenant des fonctions de coût sur couvertures.
+COMPARATEUR (C) : Baselines classiques: heuristique 2‑approx (couplage maximal), heuristiques degré/poids, local search; solveurs exacts (ILP/branch‑and‑bound) à paramétrage par défaut; variantes non apprenantes des mêmes pipelines; ablations (sans pré‑entraînement, sans imitation, sans signaux de validité); méthodes ML antérieures de l’état de l’art.
+MESURES / PROPRIÉTÉS (O) : Validité (taux de couverture des arêtes), taille du couvert; écart d’optimalité (%) vs optimum (si connu) ou meilleure borne; ratio d’approximation empirique; temps d’inférence et temps bout‑en‑bout; mémoire; robustesse OOD (taille/distribution); scalabilité (n, m); stabilité aux graines; pour approches théoriques: garanties de faisabilité, bornes de ratio, complexité d’inférence/entraînement.
+
+==== DÉLIMITATION DE LA PORTÉE ====
+- Inclusion: MVC/MWVC sur graphes simples, méthodes intégrant explicitement un composant appris (politique, score, règle de branchement, métrique).
+- Exclusion: Set Cover général, Vertex Cover sur hypergraphes, travaux purement classiques sans apprentissage; méthodes ne rapportant ni qualité de solution ni faisabilité.
+- Période: 2005–2025; langues anglais/français; code/artefacts privilégiés.
+- Reformulations proposées (plus ciblées): (1) Cartographier les catégories d’apprentissage (supervisé, RL, imitation, L2O) appliquées à MVC/MWVC; (2) Évaluer la généralisation OOD des politiques apprises pour MVC; (3) Mesurer l’apport de l’apprentissage pour solveurs (branching/cuts) sur MVC.
+- Reformulation retenue: cartographier et comparer les paradigmes d’apprentissage appliqués à MVC/MWVC et leurs compromis qualité‑temps‑généralisation.
+
+==== PROTOCOLE D’ÉVALUATION / BENCHMARK (SI EXPÉRIMENTAL) ====
+- Jeux d’instances: ER G(n,p) avec p∈{0.01,0.05,0.1}; d‑réguliers d∈{3,5,10}; BA m∈{2,5}; planaires; réseaux SNAP (collaboration, web, citation) après simplification.
+- Splits: entraînement/validation/test par distribution; tests OOD sur tailles ×2 à ×4 et distributions non vues.
+- Métriques: validité, taille, écart d’optimalité, ratio empirique, temps, mémoire.
+- Protocoles: 5 graines; budgets fixes (inférence et total); arrêt précoce; recherche d’hyperparamètres limitée.
+- Références: 2‑approx, ILP exact avec limite de temps; heuristiques gloutonnes; ML antérieurs.
+- Analyse: courbes qualité‑temps; ablations; sensibilité à n, densité, poids; transfert inter‑distributions.
+
+==== STRATÉGIE DE RECHERCHE BIBLIO (OPTIONNEL) ====
+- Sources: arXiv, NeurIPS/ICLR/ICML, AAAI/IJCAI, CP/CPAIOR, Operations Research, INFORMS Journal on Computing.
+- Requêtes: "vertex cover" AND (learning OR "graph neural network" OR reinforcement OR imitation OR "learning to branch" OR "learning to optimize"); "minimum weighted vertex cover" AND (GNN OR RL); "ILP branching policy learning" AND graph.
+- Termes connexes à filtrer: set cover, dominating set, max cut (retenus seulement si évalués aussi sur MVC).
+- Collecte: code/artefacts, feuilles de résultats, tailles de graphes, garanties.
+
+==== QUALITÉ & REPRODUCTIBILITÉ ====
+- Publier code, seeds, scripts de génération d’instances, listes d’identifiants SNAP; figer versions.
+- Décrire précisément: formulation (ILP/relaxation), signaux de récompense/perte, contraintes de projection, règles de correction de faisabilité.
+- Rapporter budgets de calcul et matériel; fournir checkpoints et instructions d’évaluation.
+- Vérifier validité systématiquement; inclure tests unitaires de contrainte (toute arête couverte).
+- Fournir tableaux complets avec écarts‑types et intervalles de confiance.
+
+==== PLAN D’EXTRACTION (BREF) ====
+- Pour chaque méthode: type d’apprentissage; représentation (GNN, MLP, encodeur‑décodeur); supervision (oracle, exact, heuristique); objectif; point d’intégration (heuristique, solveur, relâchement).
+- Données/instances: distributions, tailles, pondérations; splits; OOD.
+- Résultats: validité, taille/écart, temps, mémoire; garanties théoriques si présentes.
+- Ressources: code, modèles, licences; reproductibilité.
+
+==== HYPOTHÈSES & INCERTITUDES ====
+- Hypothèses: disponibilité d’instances et d’oracles pour petits graphes; accès à solveurs ILP; comparaisons sous budgets équitables.
+- Incertitudes: hétérogénéité des protocoles publiés; métriques non uniformes; méthodes GNN entraînées sur MVC mais rapportant surtout d’autres problèmes; difficulté à estimer l’optimalité sur grands graphes.
+
+==== CHECKLIST FINALE ====
+- Question recentrée et portée définie.
+- Catégories d’apprentissage couvertes et comparateurs fixés.
+- Métriques et protocoles précisés (validité, rapport qualité‑temps).
+- Stratégie biblio et plan d’extraction prêts.
+- Fichier UTF‑8 généré; dernière ligne = nom du fichier.
+
+==== NOM DE FICHIER ====
+PICO_algos_vertex_cover.txt
