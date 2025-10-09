@@ -1,0 +1,41 @@
+ARXIV: requête destinée à la librairie Python api arxiv (passée au paramètre query=).
+
+RÈGLES GÉNÉRALES
+- Une seule ligne par requête.
+- Opérateurs en MAJUSCULES : AND, OR, NOT.
+- Phrases exactes entre guillemets ".
+- Toujours utiliser des parenthèses ( ) pour grouper.
+- Ne PAS inclure tri, pagination ou autres paramètres HTTP dans la chaîne de requête (ils se règlent hors de la requête).
+
+================================================================
+1) ARXIV
+================================================================
+
+1.1 Champs autorisés (principaux)
+- ti:   titre (title)
+- abs:  résumé (abstract)
+- submittedDate: date (date de publication exemple : submittedDate:[20220101 TO 20231231])
+1.2 Opérateurs et groupement
+- Booléens : AND, OR, NOT
+- Groupement : ( )
+
+1.3 Bonnes pratiques
+- Combiner titre et résumé pour la pertinence : (ti:... OR abs:...)
+- Ajouter des synonymes EN avec OR sans en abuser
+- Éviter des requêtes trop longues
+
+1.4 Exemples VALABLES (une seule ligne chacun)
+- Simple :
+  graph theory
+
+- Titre + Résumé :
+  (ti:graph OR abs:graph) AND (ti:learning OR abs:learning)
+
+- Champs multiples (style "tests") :
+  (ti:learning OR ti:algorithm OR ti:model OR abs:learning OR abs:algorithm OR abs:model) AND (ti:graph OR ti:network OR abs:graph OR abs:network)
+
+- Avec filtre de dates :
+  (ti:graph OR abs:graph) AND (ti:learning OR abs:learning)
+
+- Vertex Cover (exemple) :
+  ("minimum vertex cover" OR "vertex cover" OR "couverture de sommets" OR MVC) AND (ti:graph OR abs:graph) AND (ti:learning OR abs:learning OR ti:algorithm OR abs:algorithm)

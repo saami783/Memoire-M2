@@ -1,31 +1,43 @@
 # Repository Guidelines
+
+This repository is a small Python toolchain that generates a PICO file and a matching arXiv boolean query, then downloads the corresponding PDFs.
+
 ## Project Structure & Module Organization
-- `print_question.py` is the primary entry point; it parses CLI arguments and orchestrates the Codex CLI invocation. Keep this responsibility in the module and push new helpers into dedicated functions.
-- Create a `src/` package when adding reusable modules; mirror the hierarchy under `tests/` (for example `src/prompting/utils.py` <-> `tests/prompting/test_utils.py`).
-- Store one-off maintenance scripts under `tools/` with a short README describing usage and dependencies.
+- `main.py`: CLI entrypoint wiring prompts → file generation → PDF download.
+- `utils/`: helpers
+  - `create_pico_file.py`, `create_boolean_queries_file.py`: spawn `codex` and watch files.
+  - `codex_prompts.py`: prompt builders.
+- `arxiv_api.py`: search/download via `arxiv`; tune `OUTPUT_DIR`, `PAGE_SIZE`, `DELAY_SECONDS`.
+- `doc_boolean_queries.txt`: arXiv query syntax reference.
+- Outputs: `PICO_*.txt`, `boolean_queries.txt`, PDFs under `pdf_arxiv_vertex_cover/` (default).
 
 ## Build, Test, and Development Commands
-- Target Python 3.11+; create a virtual environment with `python -m venv .venv` followed by `.\.venv\Scripts\activate`.
-- Dependencies: the project currently uses only the standard library; log any new third-party requirement in `requirements.txt` and regenerate `package-lock.json` if you add Node tooling.
-- Quick run: `python print_question.py "Your research question"` prints the question and triggers PICO generation via Codex.
-- Tests: run `pytest` inside the activated environment; aim for <30 s wall clock time on a recent laptop.
+- Python 3.11+ (3.12 used locally). Setup and deps:
+  - `python -m venv .venv && source .venv/bin/activate`
+  - `pip install arxiv tqdm`
+- Run locally:
+  - `python main.py "Votre question de recherche"`
+- `codex` CLI must be on your `PATH` (used by utils to generate files).
 
 ## Coding Style & Naming Conventions
-- Follow PEP 8 (4-space indentation, lines <=88 chars) and add Google-style docstrings to all public functions.
-- Naming: functions use `snake_case`, classes `CapWords`, modules descriptive (`prompt_formatter.py`).
-- Run `ruff check .` before every pull request and `ruff format` for automatic formatting.
+- PEP 8, 4-space indentation, type hints where reasonable.
+- snake_case for modules/functions; UPPER_SNAKE_CASE for constants (e.g., `OUTPUT_DIR`).
+- Prefer pure functions and small modules in `utils/`.
+- Formatting/linting (recommended):
+  - `pip install black isort flake8`
+  - `black . && isort . && flake8`
 
 ## Testing Guidelines
-- Place tests under `tests/` and name files `test_<feature>.py`.
-- Cover critical paths (argument parsing, prompt formatting, subprocess handling) with unit tests.
-- Tag heavy tests with `@pytest.mark.slow` and isolate external effects with `unittest.mock`.
+- No formal suite yet. Use `pytest`; place tests in `tests/`, mirroring module paths, named `test_*.py`.
+- Mock network (`arxiv.Client`) and filesystem; avoid real arXiv calls in tests.
+- Example: `pytest -q` (run all tests) or `pytest tests/test_arxiv_api.py -q`.
 
 ## Commit & Pull Request Guidelines
-- Commit messages: short imperative summary with a conventional prefix (`feat:`, `fix:`, `docs:`) and body describing the rationale when needed.
-- Pull requests: include a functional summary, the test and lint commands you ran, and link issues (`Closes #12`). Share CLI output snippets when behavior changes.
-- Ask for at least one cross-review and ensure `ruff` and `pytest` both pass before requesting merge.
+- Commits: concise, imperative, present tense (e.g., "Ajoute…", "Refactor: …"), subject ≤ 72 chars.
+- PRs: include purpose, minimal repro/commands, sample outputs, and any config changes (e.g., `OUTPUT_DIR`). Link issues; add screenshots if user-facing.
 
-## Agent-Specific Notes
-- Keep scripts runnable without elevated privileges; avoid `os.system` calls to unaudited commands.
-- Log major steps with the standard `logging` module at `INFO` level for traceability in automated runs.
-- Document any flow requiring tokens or secrets in `docs/configuration.md` using placeholders rather than live credentials.
+## Agent-Specific Notes & Safety
+- File watchers rely on the invariant: the last line of generated files equals the file name; keep this in prompts.
+- Respect arXiv rate limits; adjust `DELAY_SECONDS`/`PAGE_SIZE` cautiously.
+- Do not commit secrets. Generated artifacts (`PICO_*.txt`, PDFs) should be git-ignored if not needed.
+
