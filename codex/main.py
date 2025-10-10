@@ -5,6 +5,7 @@ from utils.codex_prompts import *
 from utils.create_boolean_queries_file import create_boolean_queries_file
 import arxiv
 from arxiv_api import *
+from utils.excel_service import *
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Génère un PICO via Codex puis continue (Unix/macOS).")
@@ -41,6 +42,7 @@ if __name__ == "__main__":
     download_arxiv_pdfs(query)
 
     # prendre en charges d'autres bases de données (implique de modifier le prompt aussi)
+    # Pour le moment ne pas faire la détection des conjectures, mais faire le fichier Excel.
 
     """
     Créer un fichier excel avec : 
@@ -53,6 +55,10 @@ if __name__ == "__main__":
     - Conjecture
     """
 
-    # Pour le moment ne pas faire la détection des conjectures, mais faire le fichier Excel.
+    excel_file = "articles.xlsx"
+
+    create_excel_file(excel_file, "Feuille 1")
+
+    write_artiles_into_excel(excel_file) # @todo coder le traitement de cette fonction
 
 

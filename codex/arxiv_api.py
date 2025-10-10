@@ -5,6 +5,7 @@ from time import sleep
 from tqdm import tqdm
 import re
 import ast
+from utils.excel_service import open_excel_file
 
 OUTPUT_DIR = Path("pdf_arxiv_vertex_cover")
 PAGE_SIZE = 100
@@ -95,3 +96,6 @@ def extract_arxiv_query_py(path: str) -> str:
         raise ValueError("Ligne ARXIV_QUERY_PY introuvable dans le fichier.")
     # Convertit le littéral Python en vraie chaîne (déséchappe les \" etc.)
     return ast.literal_eval(m.group("lit"))
+
+def write_artiles_into_excel(excel_file: str):
+    wb = open_excel_file(excel_file)
