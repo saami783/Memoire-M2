@@ -39,26 +39,13 @@ if __name__ == "__main__":
 
     query = extract_arxiv_query_py(boolean_query_file)
 
-    download_arxiv_pdfs(query)
-
-    # prendre en charges d'autres bases de données (implique de modifier le prompt aussi)
-    # Pour le moment ne pas faire la détection des conjectures, mais faire le fichier Excel.
-
-    """
-    Créer un fichier excel avec : 
-    - Id
-    - Titre de l'article
-    - Auteur
-    - DOI
-    - Date de publication
-    - Lien vers le site
-    - Conjecture
-    """
+    # @todo Prendre en charges d'autres bases de données (implique de modifier le prompt aussi)
+    # @todo Pour le moment ne pas faire la détection des conjectures, mais faire le fichier Excel.
 
     excel_file = "articles.xlsx"
+    sheet_name = "Feuille 1"
+    create_excel_file(excel_file, sheet_name)
 
-    create_excel_file(excel_file, "Feuille 1")
-
-    write_artiles_into_excel(excel_file) # @todo coder le traitement de cette fonction
+    download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name)
 
 
