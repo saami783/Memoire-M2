@@ -110,3 +110,32 @@ def get_prompt_to_generate_boolean_query(
         f"- Vérifie que la DERNIÈRE LIGNE du fichier est exactement : {out_file} "
     )
 
+def get_prompt_to_find_conjectures_in_pdfs(pdf_folder: str, excel_file: str) -> str:
+    return (
+        "RÔLE Tu es un chercheur en mathématiques. "
+        f"OBJECTIF : Identifier et lister les conjectures mathématiques de plusieurs articles scientifiques en PDF dans le dossier {pdf_folder}/. "
+        "CONTRAINTES CRITIQUES "
+        "- Lire attentivement le PDF, repérer les conjectures (formulations, énoncés, hypothèses). "
+        "- Si aucune conjecture n’est trouvée, indiquer explicitement N/A. "
+        "- Ne pas inventer de conjectures ni extrapoler au-delà du contenu du PDF. "
+        "ENTRÉES "
+        f"- DOSSIER PDF : {pdf_folder}/ "
+        f"FORMAT DE SORTIE (FICHIER EXCEL Existant) : {excel_file} "
+        "Dans le fichier Excel il y a une première feuille nommée `Articles` qui contient les colonnes suivantes :"
+        "- Id"
+        "- Titre de l'article"
+        "- Auteur"
+        "- DOI"
+        "- Date de publication"
+        "- Source"
+        "- Lien de l'article"
+        "Et il y a une seconde feuille `Conjectures` qui contient les colonnes suivantes :"
+        "- Article_id"
+        "- Conjecture"
+        "- Page"
+        "La feuille `Articles` est déjà alimentée avec les informations des articles."
+        "Ton objectif est d'écrire dans le fichier Excel chaque conjecture que tu auras trouvé dans les PDF,"
+        "en associant l'article_id. Une ligne représente une conjecture."
+        "Donc s'il y a plusieurs conjectures pour un même article, il faudra ajouter une nouvelle ligne."
+        "Lorsque tu auras fini ta tâche, je veux que tu crée un fichier `DONE_CONJECTURES_ANALYSIS.txt` avec rien dedans."
+    )

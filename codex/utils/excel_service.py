@@ -1,7 +1,7 @@
 from pathlib import Path
 from openpyxl import Workbook, load_workbook
 
-HEADERS = [
+HEADERS_SHEET_ARTICLES = [
     "Id",
     "Titre de l'article",
     "Auteur",
@@ -9,28 +9,46 @@ HEADERS = [
     "Date de publication",
     "Source",
     "Lien de l'article",
-    "Conjecture",
 ]
 
-def create_excel_file(excel_file: str, sheet_name: str = "Sheet1"):
+HEADERS_SHEET_CONJECTURES = [
+    "Article_id",
+    "Conjecture",
+    "Page",
+]
+
+def create_excel_file(excel_file: str, sheet_name: str = "Feuille 1", sheet_name2: str = "Conjectures"):
+    """Crée un Excel s'il n'existe pas, avec deux feuilles et leurs en-têtes."""
     p = Path(excel_file)
     if p.exists():
         return
     wb = Workbook()
-    ws = wb.active
-    ws.title = sheet_name
-    ws.append(HEADERS)
+    # Feuille 1
+    ws1 = wb.active
+    ws1.title = sheet_name
+    ws1.append(HEADERS_SHEET_ARTICLES)
+    # Feuille 2
+    ws2 = wb.create_sheet(title=sheet_name2)
+    ws2.append(HEADERS_SHEET_CONJECTURES)
+
     p.parent.mkdir(parents=True, exist_ok=True)
     wb.save(excel_file)
 
-def open_or_create_excel(excel_file: str, sheet_name: str = "Sheet1"):
+def open_or_create_excel(excel_file: str, sheet_name: str = "Feuille 1", sheet_name2: str = "Conjectures"):
+    """Ouvre le classeur ; s’il n’existe pas, le crée avec les 2 feuilles + en-têtes.
+       Garantit que les deux feuilles existent (sinon les crée)."""
     p = Path(excel_file)
     if not p.exists():
-        create_excel_file(excel_file, sheet_name)
+        create_excel_file(excel_file, sheet_name, sheet_name2)
     wb = load_workbook(excel_file)
+
     if sheet_name not in wb.sheetnames:
-        ws = wb.create_sheet(title=sheet_name)
-        ws.append(HEADERS)
+        ws1 = wb.create_sheet(title=sheet_name)
+        ws1.append(HEADERS_SHEET_ARTICLES)
+    if sheet_name2 not in wb.sheetnames:
+        ws2 = wb.create_sheet(title=sheet_name2)
+        ws2.append(HEADERS_SHEET_CONJECTURES)
+
     return wb
 
 def get_next_excel_id(ws) -> int:
