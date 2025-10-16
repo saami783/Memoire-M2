@@ -111,31 +111,62 @@ def get_prompt_to_generate_boolean_query(
     )
 
 def get_prompt_to_find_conjectures_in_pdfs(pdf_folder: str, excel_file: str) -> str:
-    return (
-        "RÔLE Tu es un chercheur en mathématiques. "
-        f"OBJECTIF : Identifier et lister les conjectures mathématiques de plusieurs articles scientifiques en PDF dans le dossier {pdf_folder}/. "
-        "CONTRAINTES CRITIQUES "
-        "- Lire attentivement le PDF, repérer les conjectures (formulations, énoncés, hypothèses). "
-        "- Si aucune conjecture n’est trouvée, indiquer explicitement N/A. "
-        "- Ne pas inventer de conjectures ni extrapoler au-delà du contenu du PDF. "
-        "ENTRÉES "
-        f"- DOSSIER PDF : {pdf_folder}/ "
-        f"FORMAT DE SORTIE (FICHIER EXCEL Existant) : {excel_file} "
-        "Dans le fichier Excel il y a une première feuille nommée `Articles` qui contient les colonnes suivantes :"
-        "- Id"
-        "- Titre de l'article"
-        "- Auteur"
-        "- DOI"
-        "- Date de publication"
-        "- Source"
-        "- Lien de l'article"
-        "Et il y a une seconde feuille `Conjectures` qui contient les colonnes suivantes :"
-        "- Article_id"
-        "- Conjecture"
-        "- Page"
-        "La feuille `Articles` est déjà alimentée avec les informations des articles."
-        "Ton objectif est d'écrire dans le fichier Excel chaque conjecture que tu auras trouvé dans les PDF,"
-        "en associant l'article_id. Une ligne représente une conjecture."
-        "Donc s'il y a plusieurs conjectures pour un même article, il faudra ajouter une nouvelle ligne."
-        "Lorsque tu auras fini ta tâche, je veux que tu crée un fichier `DONE_CONJECTURES_ANALYSIS.txt` avec rien dedans."
-    )
+    return (f"""
+RÔLE
+Tu es un·e chercheur·e en mathématiques. Ta tâche est **unique** : lire des PDF et détecter **uniquement** les nouvelles conjectures formulées par les auteur·rice·s, puis écrire le résultat dans l’Excel existant.
+
+IMPORTANT — INTERDICTIONS ABSOLUES
+- **NE PAS** créer, modifier ou supprimer **aucun** fichier hors de {excel_file} et « DONE_CONJECTURES_ANALYSIS.txt ».
+- **NE PAS** créer de scripts/modules (pas de .py, .md, .txt, .json, etc.), dossiers, AGENTS.md, PICO_*.txt, utils/*, ni autre artefact.
+- **NE PAS** exécuter d’étapes “/init”, “/review”, “/approvals” ou assimilées. **Pas** d’auto-outillage.
+- **NE PAS** télécharger de nouveau contenu ; utiliser **exclusivement** les PDF déjà présents et **la logique d’ouverture de fichiers** déjà codée dans le script appelant.
+
+ENTRÉE (EXCEL EXISTANT)
+- Fichier : {excel_file}
+- Feuille « Articles » (colonnes exactes) : Id | Titre de l'article | Auteur | DOI | Date de publication | Source | Lien de l'article
+- Feuille de sortie :
+  - Utiliser « Conjectures » si elle existe, sinon « Conjonctures » ; si aucune n’existe, **créer** « Conjectures » uniquement.
+  - Colonnes exactes : Article_id | Conjecture | Page
+
+OUVERTURE DES PDF
+- **Utiliser strictement la logique d’ouverture déjà implémentée par le script appelant** (ne rien changer). Le chemin de base est « {pdf_folder}/ ».
+
+EXTRACTION
+- Extraire le texte **par page** (limite 400 pages/PDF). Conserver (page 1-based → texte brut).
+- Si échec d’extraction : écrire (Id, « extraction impossible », « extraction impossible ») et passer à l’article suivant.
+
+DÉTECTION — **Nouvelles conjectures uniquement**
+Inclusion (au moins un des signaux, insensible à la casse) :
+- Bloc/titre formel : « Conjecture » (évent. numéroté) **sans attribution externe immédiate**.
+- 1re personne : « We conjecture… », « Nous conjecturons que… », « It is our conjecture that… », « We propose the following conjecture… ».
+Fenêtre de contexte : prendre l’énoncé **complet** (bloc ou 1–3 phrases qui le composent) + page.
+Exclusion (si vrai → rejeter) :
+- Conjectures **référencées** : « assuming/under/unless [Nom canonique] Conjecture », « as conjectured by [Nom] (année) », « the [Hodge/UGC/...] conjecture ».
+- **Open question/problem** sans “conjecture” énoncée par les auteur·rice·s en voix propre.
+- Hypothèses de complexité/dureté : P≠NP, ETH/SETH, UGC(-hard), « unless RP=NP », etc.
+- Bibliographie, remerciements, légendes, entêtes/pieds.
+Déduplication :
+- Si plusieurs formulations de la **même** conjecture : garder **l’énoncé le plus formel** (priorité au bloc « Conjecture X. ») et sa page.
+
+ÉCRITURE (feuille de sortie)
+- **Sanitiser** la chaîne avant écriture : supprimer tout caractère non imprimable (U+0000–U+001F) pour éviter les erreurs Excel.
+- Pour chaque **nouvelle** conjecture : ajouter une ligne
+  - Article_id = Articles.Id
+  - Conjecture = énoncé fidèle (1–3 phrases max si très long ; conserver la notation math si possible)
+  - Page = entier 1-based si connu ; sinon « N/A »
+- Si aucune **nouvelle** conjecture trouvée pour un article : (Id, « N/A », « N/A »)
+- Si le PDF n’a pu être ouvert par **ta** logique : (Id, « article introuvable », « article introuvable »)
+
+ROBUSTESSE
+- Continuer malgré les erreurs locales.
+- OCR/bruit : reconstituer minimalement ; si incertitude, citer la meilleure version et mettre Page = « N/A ».
+
+CONTRÔLES (à respecter)
+- Ne créer **aucun autre fichier** que {excel_file} (modifié) et « DONE_CONJECTURES_ANALYSIS.txt » (vide).
+- Ne créer **aucun** script, module, ni fichier PICO/AGENTS.
+- Feuille de sortie = « Conjectures » si possible ; sinon « Conjonctures » ; sinon créer « Conjectures ».
+- Colonnes de sortie **exactes** : Article_id | Conjecture | Page.
+
+FINALISATION
+- Après mise à jour de {excel_file}, créer **exactement** un fichier vide « DONE_CONJECTURES_ANALYSIS.txt » au répertoire courant.
+""")

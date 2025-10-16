@@ -1,0 +1,62 @@
+==== MÉTA ====
+TITRE COURT : Apprentissage pour Minimum Vertex Cover
+QUESTION DE RECHERCHE : Quels types d'apprentissage sont appliqués au problème du minimum vertex cover ?
+DOMAINE / PROBLÈME : Théorie des graphes; optimisation combinatoire; Minimum Vertex Cover (MVC).
+TYPE DE QUESTION (théorique / expérimental / mixte) : mixte
+RÉSUMÉ PICO (2–3 lignes) : Étudier l’usage de paradigmes d’apprentissage (supervisé, par renforcement, imitation, auto-supervisé) pour construire des vertex covers (VC) proches de l’optimal, et comparer ces approches aux algorithmes classiques (2-approx, LP+arrondi, exact ILP/CP, heuristiques gloutonnes). Les instances considérées sont des graphes simples non pondérés provenant de familles synthétiques et réelles. Les critères portent sur qualité d’approximation, validité, temps/mémoire et généralisation hors distribution.
+
+==== PICO ====
+PROBLÈMES / INSTANCES (P) :
+- Graphes simples non orientés non pondérés G=(V,E), sans boucles ni multi-arêtes.
+- Familles: Erdős–Rényi, Barabási–Albert, k-réguliers, grilles/planaires, bipartis, et échantillons issus de réseaux réels (p. ex. interaction, co-auteur). 
+- Tailles cibles: n ≈ 10^2–10^5 selon famille; densités variées (sparse à modérément denses).
+- Variante de référence: MVC non pondéré; les variantes pondérées/hypergraphes sont exclues du périmètre principal.
+
+ALGORITHME / MÉTHODE (I) :
+- Apprentissage supervisé: modèle structurel (p. ex. GNN) produisant des scores de sommets; construction d’un VC par sélection itérative guidée par ces scores.
+- Apprentissage par renforcement: politique constructive (sélection de sommets/arrêts) optimisant une récompense liée à la taille et la validité du VC.
+- Apprentissage par imitation/teacher-forcing: apprentissage de politiques/ordres à partir de solutions optimales/haute qualité (ILP/CP) sur petites instances.
+- Auto-supervisé/contrastif: pré-entraînement de représentations de graphes/sommets pour améliorer la généralisation, puis affinement pour MVC.
+- Intégrations possibles: apprentissage de heuristiques de branchement/réduction dans des solveurs exacts/LP (apprentissage pour décider, pas remplacer, le solveur).
+
+COMPARATEUR (C) :
+- Algorithmes classiques non appris: 2-approximation primal-dual (via appariement maximal), gloutons (degré/saturation), local search.
+- Méthodes LP/relaxations: LP + arrondi; réductions type Nemhauser–Trotter.
+- Exacts (pour petites instances): ILP/CP/branch-and-bound avec réductions standards pour obtenir l’optimum et des gaps d’optimalité.
+
+MESURES / PROPRIÉTÉS (O) :
+- Qualité: taille du VC, ratio d’approximation (|VC|/|VC*|), gap vs optimum (si disponible), taux de validité (0 edge uncovered).
+- Coûts: temps mur, complexité empirique vs n, mémoire.
+- Généralisation: performance OOD (n différent; familles de graphes non vues), robustesse aux variations de densité.
+- Abords théoriques: existence/absence de garanties (bornes a priori, conditions de monotonie/stabilité), préservation de contraintes (validité du VC) par la politique apprise.
+
+==== DÉLIMITATION DE LA PORTÉE ====
+- Reformulations proposées (2–3) :
+  1) Évaluer des méthodes d’apprentissage structurel pour construire des vertex covers minimaux sur graphes simples non pondérés et les comparer à 2-approx/LP/ILP.
+  2) Apprendre des politiques de branchement/réduction pour accélérer des solveurs exacts MVC tout en conservant l’optimalité.
+  3) Étudier la transférabilité OOD de GNNs pour MVC entre familles de graphes et tailles.
+- Reformulation retenue : 1) Évaluation comparative de méthodes apprenantes pour construire des VC proches de l’optimal sur graphes simples non pondérés.
+- Inclusions / exclusions **méthodologiques** internes au PICO (périmètre technique uniquement) : inclut MVC non pondéré sur graphes simples; inclut GNN/politiques constructives/heuristiques apprises; comparaisons à 2-approx/LP/ILP; exclut variantes pondérées, hypergraphes, graphes dirigés, contraintes additionnelles (vertex cover capacitaire), et recherches bibliographiques/stratégies hors périmètre.
+
+==== PROTOCOLE D’ÉVALUATION / BENCHMARK (SI EXPÉRIMENTAL) ====
+- Données/familles: générateurs synthétiques (Erdős–Rényi p∈[c/n, log n/n], Barabási–Albert, k-réguliers, planaires/grilles) et sous-ensembles de graphes réels; splits train/val/test disjoints par famille et taille.
+- Budgets: limites de temps par instance (p. ex. 1–60 s) et mémoire fixées identiques pour tous; lot de seeds {0,…,4} pour variabilité.
+- Métriques rapportées: taille VC, ratio d’approximation, gap vs optimum (sur sous-ensemble où ILP atteint l’optimum), validité, temps/mémoire; courbes performance–temps.
+- Équité des comparaisons: mêmes prétraitements/réductions; mêmes ressources matérielles; arrêt au même budget; hyperparamètres sélectionnés sur validation sans fuite; re-lancement des baselines avec configuration documentée.
+
+==== QUALITÉ & REPRODUCTIBILITÉ ====
+- Code/disponibilité: dépôt avec scripts d’entraînement/inférence, générateurs d’instances, et pipeline d’évaluation unifié.
+- Versionnement: verrouillage des dépendances (hash/commit, versions exactes), numéros de modèle/poids, et snapshots des splits.
+- Contrôle des aléas: seeds fixés, contrôle du nondéterminisme (threads, BLAS, GPU), journalisation complète (configs, métriques, horodatage).
+- Transparence des baselines: implémentations citées/réimplémentées, configurations publiées, vérifications croisée des résultats sous budgets identiques.
+
+==== HYPOTHÈSES & INCERTITUDES ====
+- Hypothèses: focalisation sur graphes simples non pondérés; disponibilité d’optima ILP sur petites instances pour mesurer le gap; faisabilité d’un entraînement supervisé/imitatif à partir de solutions de haute qualité.
+- Incertitudes: garanties théoriques pour modèles appris potentiellement limitées; sensibilité à la distribution d’entraînement; coût de génération des labels (ILP) et risque de sur-apprentissage sur familles spécifiques.
+- Limites attendues: généralisation OOD imparfaite; comparabilité dépendante des budgets/implémentations; difficulté à extrapoler des bornes pires cas aux performances pratiques.
+
+==== CHECKLIST FINALE ====
+- P/I/C/O cohérents et traçables; protocoles/budgets définis; métriques explicites; hypothèses et exclusions clarifiées; comparateurs pertinents (2-approx, LP, ILP, heuristiques).
+
+==== NOM DE FICHIER ====
+PICO_types_apprentissage_minimum_vertex_cover.txt
