@@ -1,6 +1,7 @@
 import os
 from mistralai import Mistral
 from dotenv import load_dotenv
+from mistralai.models import File
 
 def send_prompt(prompt: str, model: str, client: Mistral):
     chat_response = client.chat.complete(
@@ -19,8 +20,8 @@ def get_models(client: Mistral):
     for model in models:
         print(model.name)
 
-def create_library(client: Mistral):
-    new_library = client.beta.libraries.create(name="Test lib", description="A simple library with information about Mistral models.")
+def create_library(client: Mistral, library_name: str, library_description: str):
+    new_library = client.beta.libraries.create(name=library_name, description=library_description)
     return new_library
 
 def get_library(client: Mistral):
@@ -38,6 +39,19 @@ def get_document(libraries, client: Mistral):
             print(f"{doc.name}: {doc.extension} with {doc.number_of_pages} pages.")
             print(f"{doc.summary}")
 
+
+def delete_library(new_library, client: Mistral):
+    deleted_library = client.beta.libraries.delete(library_id=new_library.id)
+
+def delete_document(new_library, uploaded_doc, client: Mistral):
+    deleted_document = client.beta.libraries.documents.delete(library_id=new_library.id, document_id=uploaded_doc.id)
+
+def upload_file(file_path: str, client: Mistral, new_library):
+    with open(file_path, "rb") as file_content:
+        uploaded_doc = client.beta.libraries.documents.upload(
+            library_id=new_library.id,
+            file=File(fileName="mistral7b.pdf", content=file_content),
+        )
 
 if __name__ == "__main__":
     load_dotenv()
