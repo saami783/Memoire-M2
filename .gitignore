@@ -4,3 +4,4 @@ out
 gen
 .DS_Store
 /pdf_arxiv_vertex_cover/
+.env
