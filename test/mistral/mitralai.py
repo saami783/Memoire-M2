@@ -31,16 +31,22 @@ def get_libraries(client: Mistral):
         print(library.name, f"with {library.nb_documents} documents.")
     return libraries
 
-def get_library(library: LibraryOut, client: Mistral):
-    library = client.beta.libraries.get(library_id=library.id)
+def get_library(library_id, client: Mistral):
+    library = client.beta.libraries.get(library_id=library_id)
     print(library.name, f"with {library.nb_documents} documents.")
     return library
 
-def get_document(library: LibraryOut, client: Mistral):
+def get_documents(library: LibraryOut, client: Mistral):
     doc_list = client.beta.libraries.documents.list(library_id=library.id).data
-    for doc in doc_list:
-        print(f"{doc.name}: {doc.extension} with {doc.number_of_pages} pages.")
-        print(f"{doc.summary}")
+    # for doc in doc_list:
+    #     print(f"{doc.name}: {doc.extension} with {doc.number_of_pages} pages.")
+    #     print(f"{doc.summary}")
+    return doc_list
+
+def get_document(library: LibraryOut, document_id: str, client: Mistral):
+    doc = client.beta.libraries.documents.get(library_id=library.id, document_id=document_id)
+    print(f"{doc.name}: {doc.extension} with {doc.number_of_pages} pages.")
+    return doc
 
 
 def delete_library(new_library: LibraryOut, client: Mistral):
@@ -49,7 +55,7 @@ def delete_library(new_library: LibraryOut, client: Mistral):
 def delete_document(new_library: LibraryOut, document: DocumentOut, client: Mistral):
     client.beta.libraries.documents.delete(library_id=new_library.id, document_id=document.id)
 
-def upload_file(file_path: str, client: Mistral, new_library: LibraryOut):
+def upload_document(file_path: str, client: Mistral, new_library: LibraryOut):
     with open(file_path, "rb") as file_content:
         uploaded_doc = client.beta.libraries.documents.upload(
             library_id=new_library.id,
@@ -78,6 +84,11 @@ if __name__ == "__main__":
 
     client = Mistral(api_key=api_key)
 
-    library = create_library(client, "test_library", "Ma description")
+    # library = create_library(client, "test_library", "Ma description")
 
-    get_libraries(client)
+    libraries = get_libraries(client)
+    for library in libraries:
+        documents = get_documents(library, client)
+        for document in documents:
+            get_document(library, document.id, client)
+        # upload_document("1704.01665v4.pdf", client, library)
