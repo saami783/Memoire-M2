@@ -7,13 +7,14 @@ import arxiv
 from arxiv_api import *
 from utils.excel_service import *
 from utils.find_conjonctures import *
+from find_conjectures_mistral import *
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Génère un PICO via Codex puis continue (Unix/macOS).")
     p.add_argument("question", nargs="?", help="Question de recherche.")
     return p.parse_args()
 
-def main() -> str | None:
+def get_research_question_arg() -> str | None:
     args = parse_args()
     if not args.question:
         print("No research question provided.", file=sys.stderr)
@@ -21,10 +22,48 @@ def main() -> str | None:
     print(args.question)
     return args.question
 
+def find_conjectures():
+    load_dotenv()
+    api_key = os.getenv("MISTRAIL_API_KEY")
+    # api_key2 = os.getenv("MISTRAIL_API_KEY2")
+
+    model = "mistral-large-latest"
+
+    client = Mistral(api_key=api_key)
+
+    libraries = get_libraries(client)
+    library = libraries[0]
+
+    if len(libraries) == 0:
+        library = create_library(client, "Librairie documents pdf", "Cette librairie contient tous les documents en format PDF récupérée depuis différentes bases de données.")
+
+    dossier = get_dossier_pdfs('pdf_arxiv_vertex_cover')
+
+    try:
+        for pdf in dossier:
+            print(pdf)
+            upload_document(f"pdf_arxiv_vertex_cover/{pdf}", pdf, client, library)
+            sleep(4)
+    except SDKError:
+        print("Limite d'upload d'articles atteinte.")
+
+    for document in get_documents(library, client):
+
+        print(f"###### Détection de conjectures dans le document {document.name} ######")
+
+        text_content = client.beta.libraries.documents.text_content(
+            library_id=library.id,
+            document_id=document.id
+        )
+
+        response = get_mistral_reponse(client, model, text_content)
+        export_conjectures_to_json(response, document)
+
+
 if __name__ == "__main__":
-    research_question = main()
+    research_question = get_research_question_arg()
     boolean_query_file = "boolean_queries.txt"
-    pico_prompt = get_prompt_to_generate_pico(research_question, "PICO{research_question}.txt")
+    pico_prompt = get_prompt_to_generate_pico(research_question, f"PICO{research_question}.txt")
 
     create_pico_file(pico_prompt)
 
@@ -49,7 +88,9 @@ if __name__ == "__main__":
     query = extract_arxiv_query_py(boolean_query_file)
     download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
 
-    find_conjecture_prompt = get_prompt_to_find_conjectures_in_pdfs("", "articles.xlsx")
-    sentinel = run_codex_until_sentinel(find_conjecture_prompt)
+    # find_conjecture_prompt = get_prompt_to_find_conjectures_in_pdfs("", "articles.xlsx")
+    # sentinel = run_codex_until_sentinel(find_conjecture_prompt)
 
     print("Process completed.")
+
+    find_conjectures()
