@@ -80,6 +80,8 @@ def update_document_name(client: Mistral, document: DocumentOut, library: Librar
     return updated_doc
 
 def export_conjectures_to_json(response: ChatCompletionResponse, document: DocumentOut):
+    Path("json_articles").mkdir(parents=True, exist_ok=True)
+
     try:
         lines = (response.choices[0].message.content or "").splitlines()
         if lines and lines[0].strip().startswith("```"):
