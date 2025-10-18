@@ -2,7 +2,7 @@ import json
 import os
 from time import sleep
 from dotenv import load_dotenv
-from mistralai import Mistral, LibraryOut, DocumentOut, SDKError, ChatCompletionResponse
+from mistralai import Mistral, LibraryOut, DocumentOut, SDKError, ChatCompletionResponse, DocumentTextContent
 from mistralai.models import File
 from pathlib import Path
 
@@ -90,3 +90,34 @@ def export_conjectures_to_json(response: ChatCompletionResponse, document: Docum
 
     except json.JSONDecodeError as e:
         print("La réponse n'est pas un JSON valide :", e)
+
+def get_mistral_reponse(client: Mistral, model: str, text_content: DocumentTextContent):
+    return client.chat.complete(
+        model=model, messages=[
+            {"role": "user", "content": f"""VVoici le contenu de mon document: {text_content.text}\n\nMa question est la suivante, existe t-il des conjectures formulées par le(s) auteur(s) dans ce document ? Si oui, cite-les intégralement (mot à mot). Contraintes de sortie (TRÈS IMPORTANT) : - Tu dois répondre uniquement avec un objet JSON valide (UTF-8), sans aucun autre texte, sans balises et sans commentaires.
+                - Respecte exactement le schéma ci-dessous.
+                - Dans "text", mets la citation exacte de la conjecture depuis l'article ; remplace chaque retour à la ligne par \\n ; échappe les guillemets comme \\".
+                - Si aucune conjecture n'est trouvée, mets "contains_conjecture": "no" et "conjectures": [].
+                - Je ne veux pas de Markdown, ni de fence, pas de gras/italiques, pas de blocs de code, pas de fence, pas d'explications hors JSON. Donne moi simplement l'objet json sans mise en forme syntaxique de ta part.
+
+                Schéma attendu (exemple de structure, pas un contenu) :
+                {{
+                  "titre_article": "<représente le nom du fichier PDF>",
+                  "contains_conjecture": "yes" | "no",
+                  "conjectures": [
+                    {{
+                      "id": "conjecture1",
+                      "page": <la page de la conjecture>,
+                      "text": "<citation exacte avec \\n pour les sauts de ligne et les guillemets échappés>"
+                    }},
+                    {{
+                      "id": "conjecture2",
+                      "page": <la page de la conjecture>,
+                      "text": "<...>"
+                    }}
+                  ]
+                }}
+                """
+            }
+        ]
+    )
