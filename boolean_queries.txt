@@ -1,8 +1,0 @@
-==== SOURCE ====
-PICO_FILE: PICO_types_apprentissage_minimum_vertex_cover.txt
-DOC_SYNTAX: doc_boolean_queries.txt
-- EN: minimum vertex cover; vertex cover; learning; graph neural network; reinforcement learning
-ARXIV_FINAL: (ti:"minimum vertex cover" OR abs:"minimum vertex cover" OR ti:"vertex cover" OR abs:"vertex cover") AND (ti:learning OR abs:learning OR ti:"graph neural network" OR abs:"graph neural network" OR ti:"reinforcement learning" OR abs:"reinforcement learning") AND submittedDate:[20170101 TO 20991231]
-ARXIV_QUERY_PY: query = "(ti:\"minimum vertex cover\" OR abs:\"minimum vertex cover\" OR ti:\"vertex cover\" OR abs:\"vertex cover\") AND (ti:learning OR abs:learning OR ti:\"graph neural network\" OR abs:\"graph neural network\" OR ti:\"reinforcement learning\" OR abs:\"reinforcement learning\") AND submittedDate:[20170101 TO 20991231]"
-NOTE: PICO filename normalized in repo; used existing file. Date filter per spec.
-boolean_queries.txt

@@ -37,11 +37,11 @@ def delete_library(library: LibraryOut, client: Mistral):
 def delete_document(library: LibraryOut, document: DocumentOut, client: Mistral):
     client.beta.libraries.documents.delete(library_id=library.id, document_id=document.id)
 
-def upload_document(file_path: str, client: Mistral, library: LibraryOut):
+def upload_document(file_path: str, file_name: str, client: Mistral, library: LibraryOut):
     with open(file_path, "rb") as file_content:
         uploaded_doc = client.beta.libraries.documents.upload(
             library_id=library.id,
-            file=File(file_name=file_path, content=file_content),
+            file=File(file_name=file_name, content=file_content),
         )
     return uploaded_doc
 
@@ -70,6 +70,14 @@ def get_dossier_pdfs(dossier: str):
     noms_pdfs = [p.name for p in pdf_paths]
 
     return noms_pdfs
+
+def update_document_name(client: Mistral, document: DocumentOut, library: LibraryOut, new_name: str):
+    updated_doc = client.beta.libraries.documents.update(
+        library_id=library.id,
+        document_id=document.id,
+        name=new_name
+    )
+    return updated_doc
 
 def export_conjectures_to_json(response: ChatCompletionResponse, document: DocumentOut):
     try:
