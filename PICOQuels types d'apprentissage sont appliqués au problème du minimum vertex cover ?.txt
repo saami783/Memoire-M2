@@ -1,0 +1,63 @@
+==== MÉTA ====
+TITRE COURT : Apprentissage pour Minimum Vertex Cover (GNN supervisé)
+QUESTION DE RECHERCHE : Quels types d'apprentissage sont appliqués au problème du minimum vertex cover ?
+DOMAINE / PROBLÈME : Optimisation combinatoire sur graphes (Minimum Vertex Cover)
+TYPE DE QUESTION (théorique / expérimental / mixte) : expérimental
+RÉSUMÉ PICO (2–3 lignes) : Nous évaluons des modèles d’apprentissage supervisé à base de réseaux de neurones de graphes qui apprennent à scorer les sommets pour construire une couverture minimale, et les comparons à des heuristiques classiques et à une résolution ILP bornée en temps. Le périmètre concerne des graphes non orientés, non pondérés, avec des tailles et densités variées; les résultats sont rapportés en écart à l’optimal et coût de calcul.
+
+==== PICO ====
+PROBLÈMES / INSTANCES (P) :
+- Minimum Vertex Cover sur graphes non orientés, non pondérés; faisabilité stricte (toutes les arêtes couvertes).
+- Familles d’instances: synthétiques (Erdős–Rényi G(n,p), Barabási–Albert), planaires structurés (grilles), et sous-ensemble de graphes réels (réseaux de collaboration/technologiques).
+- Tailles cibles: n ∈ [500, 50 000]; densités p variées; distributions entraînement/test disjointes en taille et en générateurs pour évaluer la généralisation hors-distribution.
+
+ALGORITHME / MÉTHODE (I) :
+- Apprentissage supervisé avec réseaux de neurones de graphes (MPNN/GCN/GraphSAGE) produisant un score par sommet; caractéristiques: degré, normalisations locales; entrées limitées à la structure (adjacency).
+- Entraînement par minimisation d’une perte binaire (appartenance à une couverture quasi-optimale) ou perte structurée; labels dérivés d’optima exacts sur petits graphes (ILP) et d’approximation serrée sur grands graphes.
+- Inférence gloutonne: itérations de sélection des sommets à score élevé avec mise à jour du graphe; correction de faisabilité si nécessaire.
+
+COMPARATEUR (C) :
+- Heuristique 2-approx basée sur couplage maximal.
+- Heuristique gloutonne degré maximal et variantes (degré normalisé).
+- Résolution exacte ILP (branch-and-cut) avec limite de temps stricte sur sous-ensembles gérables, pour estimer l’optimal et servir de borne.
+
+MESURES / PROPRIÉTÉS (O) :
+- Taille de la couverture produite; écart relatif à l’optimal/best-known (%).
+- Facteur d’approximation empirique; taux de faisabilité (0 arête non couverte).
+- Coût de calcul: temps d’inférence par instance, mémoire; coût d’entraînement (époques).
+- Généralisation: performance hors-distribution (n, densité, familles de graphes).
+
+==== DÉLIMITATION DE LA PORTÉE ====
+- Reformulations proposées (2–3) :
+  1) Comparer un GNN supervisé de scoring de sommets à des heuristiques et à ILP pour MVC.
+  2) Apprentissage par renforcement pour apprendre une politique de sélection de sommets pour MVC.
+  3) Apprentissage pour guider un solveur ILP (learning-to-branch/cut) sur MVC.
+- Reformulation retenue : 1) GNN supervisé pour scoring de sommets vs heuristiques/ILP.
+- Inclusions / exclusions méthodologiques internes au PICO (périmètre technique uniquement) :
+  Inclus: graphes non orientés, non pondérés; génération synthétique standard et quelques graphes réels; modèles GNN message-passing; inférence gloutonne faisable.
+  Exclus: versions pondérées/capacitaires; hypergraphes; graphes dynamiques; contraintes de resource-limited edge failure; RL/IL-based guidance (hors portée de cette reformulation).
+
+==== PROTOCOLE D’ÉVALUATION / BENCHMARK (SI EXPÉRIMENTAL) ====
+- Données/familles: G(n,p) avec n ∈ {1k, 5k, 10k}, p ∈ {0.01, 0.05, 0.1}; Barabási–Albert (m ∈ {2, 5}); grilles planaires; quelques graphes réels de taille moyenne.
+- Splits: entraînement/validation/test disjoints; test inclut tailles non vues; aucune fuite d’instances.
+- Budgets: entraînement ≤ 50–100 époques avec early stopping; inférence ≤ 1 s/instance à n≈10k; ILP borné à 60–300 s selon n.
+- Seeds: {0,1,2}; rapporter moyenne ± écart-type; fixer seeds pour GNN et générateurs d’instances.
+- Métriques rapportées: taille, écart relatif (%), facteur d’approximation empirique, faisabilité, temps/mémoire; courbes performance vs temps.
+- Équité des comparaisons: mêmes machines, mêmes limites de temps; pré/post-traitements identiques; implémentations vérifiées; aucun réglage ad hoc sur test.
+
+==== QUALITÉ & REPRODUCTIBILITÉ ====
+- Code/disponibilité: dépôt public avec scripts d’entraînement/inférence et génération d’instances; dépendances épinglées; commit hash des résultats.
+- Versionnement: config et hyperparamètres versionnés; artefacts (modèles, logs) archivés.
+- Contrôle des aléas: seeds fixés; shuffles déterministes; ordre des batches contrôlé; cuDNN déterministe si applicable.
+- Transparence des baselines: implémentations citées ou ré-implémentées proprement; paramètres explicités; limites de temps uniformes.
+
+==== HYPOTHÈSES & INCERTITUDES ====
+- Hypothèses posées: focalisation sur MVC non pondéré; disponibilité de labels de haute qualité via ILP pour petits graphes; GNN capables de capturer des structures pertinentes.
+- Points ambigus: choix exact des architectures GNN, des pertes structurées, et des schémas de correction de faisabilité; sélection des graphes réels.
+- Limites attendues: sur-apprentissage aux distributions d’entraînement; dégradation hors-distribution extrême; coûts de génération de labels; bornes théoriques non garanties par les modèles appris.
+
+==== CHECKLIST FINALE ====
+- P/I/C/O cohérents et traçables; protocole expérimental défini; hypothèses explicites; comparaisons équitables; métriques pertinentes.
+
+==== NOM DE FICHIER ====
+PICOQuels types d'apprentissage sont appliqués au problème du minimum vertex cover ?.txt
