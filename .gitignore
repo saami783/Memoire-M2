@@ -5,3 +5,7 @@ gen
 .DS_Store
 /pdf_arxiv_vertex_cover/
 .env
+DONE_CONJECTURES_ANALYSIS.txt
+boolean_queries.txt
+PICO_types_apprentissage_minimum_vertex_cover.txt
+tt.py
