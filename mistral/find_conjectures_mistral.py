@@ -2,7 +2,7 @@ import json
 import os
 from time import sleep
 from dotenv import load_dotenv
-from mistralai import Mistral, LibraryOut, DocumentOut, SDKError
+from mistralai import Mistral, LibraryOut, DocumentOut, SDKError, ChatCompletionResponse
 from mistralai.models import File
 from pathlib import Path
 
@@ -70,3 +70,23 @@ def get_dossier_pdfs(dossier: str):
     noms_pdfs = [p.name for p in pdf_paths]
 
     return noms_pdfs
+
+def export_conjectures_to_json(response: ChatCompletionResponse, document: DocumentOut):
+    try:
+        lines = (response.choices[0].message.content or "").splitlines()
+        if lines and lines[0].strip().startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        raw = "\n".join(lines)
+
+        data = json.loads(raw)
+
+        out_path = Path(f"json_articles/{document.name}.json")
+        out_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"Fichier écrit : {out_path.resolve()}")
+
+        # delete_document(library, document, client)
+
+    except json.JSONDecodeError as e:
+        print("La réponse n'est pas un JSON valide :", e)
