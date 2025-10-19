@@ -1,7 +1,4 @@
 import json
-import os
-from time import sleep
-from dotenv import load_dotenv
 from mistralai import Mistral, LibraryOut, DocumentOut, SDKError, ChatCompletionResponse, DocumentTextContent
 from mistralai.models import File
 from pathlib import Path

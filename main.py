@@ -7,7 +7,10 @@ from arxiv_api import *
 from utils.excel_service import *
 from find_conjectures_mistral import *
 
-import ssl, certifi
+import os
+from time import sleep
+from dotenv import load_dotenv
+import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 
@@ -24,27 +27,28 @@ def get_research_question_arg() -> str | None:
     print(args.question)
     return args.question
 
-def find_conjectures():
+def find_conjectures(dossier_articles: str):
     load_dotenv()
-    api_key = os.getenv("MISTRAIL_API_KEY")
-    # api_key2 = os.getenv("MISTRAIL_API_KEY2")
+    # api_key = os.getenv("MISTRAIL_API_KEY")
+    api_key = os.getenv("MISTRAIL_API_KEY2")
 
     model = "mistral-large-latest"
 
     client = Mistral(api_key=api_key)
 
     libraries = get_libraries(client)
-    library = libraries[0]
 
     if len(libraries) == 0:
         library = create_library(client, "Librairie documents pdf", "Cette librairie contient tous les documents en format PDF récupérée depuis différentes bases de données.")
+    else:
+        library = libraries[0]
 
-    dossier = get_dossier_pdfs('pdf_arxiv_vertex_cover')
+    dossier = get_dossier_pdfs(dossier_articles)
 
     try:
         for pdf in dossier:
+            upload_document(f"{dossier_articles}/{pdf}", pdf, client, library)
             print(pdf)
-            upload_document(f"pdf_arxiv_vertex_cover/{pdf}", pdf, client, library)
             sleep(4)
     except SDKError:
         print("Limite d'upload d'articles atteinte.")
@@ -90,12 +94,12 @@ if __name__ == "__main__":
     query = extract_arxiv_query_py(boolean_query_file)
     download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
 
-    # print("Process completed.")
-    #
-    # find_conjectures()
-    #
-    # # todo : extraire les informations des conjectures json dans un fichier excel.
-    #
+    print("Process completed.")
+
+    find_conjectures("downloads/arxiv")
+
+    # todo : extraire les informations des conjectures json dans un fichier excel.
+
     # print(get_dossier_json("json_articles"))
-    #
-    # # todo : prochaine étape, faire la réfutation des conjectures.
+
+    # todo : prochaine étape, faire la réfutation des conjectures.
