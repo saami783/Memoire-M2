@@ -1,3 +1,6 @@
+import ast
+import re
+
 import arxiv
 from pathlib import Path
 import sys
@@ -11,6 +14,18 @@ NUM_RETRIES = 3
 LIMIT = None
 SLEEP_ON_FAIL = 3
 SOURCE = "arXiv"
+
+def extract_arxiv_query_py(path: str) -> str:
+    pattern = re.compile(
+        r'^ARXIV_QUERY_PY:\s*query\s*=\s*(?P<lit>"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')\s*$',
+        re.M
+    )
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    m = pattern.search(text)
+    if not m:
+        raise ValueError("Ligne ARXIV_QUERY_PY introuvable dans le fichier.")
+    return ast.literal_eval(m.group("lit"))
 
 def _safe_first_author(result: arxiv.Result) -> str:
     try:
