@@ -9,6 +9,7 @@ HEADERS_SHEET_ARTICLES = [
     "Date de publication",
     "Source",
     "Lien de l'article",
+    "Fichier"
 ]
 
 HEADERS_SHEET_CONJECTURES = [
