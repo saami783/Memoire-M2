@@ -97,6 +97,7 @@ if __name__ == "__main__":
 
     print("Process completed.")
 
+    # todo : voir pour extraire le contenu des articles au lieu de les uploads pour contourner la limite d'upload.
     find_conjectures("downloads/arxiv")
 
     update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
