@@ -5,9 +5,8 @@ from time import sleep
 from tqdm import tqdm
 import re
 import ast
-from utils.excel_service import open_or_create_excel, get_next_excel_id
 
-OUTPUT_DIR = Path("pdf_arxiv_vertex_cover")
+OUTPUT_DIR = Path("downloads")  # unifie ici
 BASE_PAGE_SIZE = 25
 DELAY_SECONDS = 2
 NUM_RETRIES = 3
@@ -15,53 +14,33 @@ LIMIT = None
 SLEEP_ON_FAIL = 3
 SOURCE = "arXiv"
 
-def safe_name(s: str, max_len: int = 140) -> str:
-    s = re.sub(r"[\\/:*?\"<>|]+", " ", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s[:max_len].rstrip()
-
-def pdf_path(out_dir: Path, r: arxiv.Result) -> Path:
-    return out_dir / f"{r.get_short_id()} - {safe_name(r.title)}.pdf"
-
-def _authors_str(r: arxiv.Result) -> str:
+def _safe_first_author(result: arxiv.Result) -> str:
     try:
-        return ", ".join(a.name for a in r.authors)
+        return result.authors[0].name if result.authors else ""
     except Exception:
         return ""
 
-def _doi_str(r: arxiv.Result) -> str:
-    return getattr(r, "doi", None) or ""
+def _safe_doi(result: arxiv.Result) -> str:
+    return getattr(result, "doi", "") or ""
 
-def _pub_date_str(r: arxiv.Result) -> str:
+def _safe_published_iso(result: arxiv.Result) -> str:
     try:
-        return r.published.date().isoformat()
+        return result.published.isoformat()
     except Exception:
         return ""
 
-def _article_row_with_id(next_id: int, r: arxiv.Result):
-    # Id, Titre, Auteur, DOI, Date, Source, Lien, Conjecture
+def _article_row_with_id(next_id: int, result: arxiv.Result, file_name: str):
+    # Id, Titre, Auteur, DOI, Date, Source, Lien, Fichier
     return [
         next_id,
-        r.title,
-        _authors_str(r),
-        _doi_str(r),
-        _pub_date_str(r),
+        result.title,
+        _safe_first_author(result),
+        _safe_doi(result),
+        _safe_published_iso(result),
         SOURCE,
-        r.entry_id,
-        "",
+        result.entry_id,
+        file_name,
     ]
-
-def extract_arxiv_query_py(path: str) -> str:
-    pattern = re.compile(
-        r'^ARXIV_QUERY_PY:\s*query\s*=\s*(?P<lit>"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')\s*$',
-        re.M
-    )
-    with open(path, encoding="utf-8") as f:
-        text = f.read()
-    m = pattern.search(text)
-    if not m:
-        raise ValueError("Ligne ARXIV_QUERY_PY introuvable dans le fichier.")
-    return ast.literal_eval(m.group("lit"))
 
 def _make_client(page_size: int) -> arxiv.Client:
     return arxiv.Client(
@@ -70,50 +49,9 @@ def _make_client(page_size: int) -> arxiv.Client:
         num_retries=NUM_RETRIES,
     )
 
-def _resilient_results(search: arxiv.Search, start_index: int = 0):
-    """
-    Générateur résilient: reprend après une page vide / erreur transitoire.
-    - saute `already_yielded` premiers résultats à chaque reprise
-    - backoff exponentiel en cas d’échec
-    """
-    already_yielded = start_index
-    page_size = BASE_PAGE_SIZE
-    backoff = 2
-
-    while True:
-        client = _make_client(page_size)
-        try:
-            i = 0
-            for r in client.results(search):
-                if i < already_yielded:
-                    i += 1
-                    continue
-                yield r
-                already_yielded += 1
-                i += 1
-            # si on sort proprement de la boucle, c’est fini
-            return
-        except arxiv.UnexpectedEmptyPageError as e:
-            # page vide → attendre et réessayer avec backoff
-            print(f"[WARN] Page vide détectée, reprise après {already_yielded} items. Backoff {backoff}s.", file=sys.stderr)
-            sleep(backoff)
-            # réduire encore la page pour stabiliser
-            page_size = max(10, page_size // 2) if page_size > 10 else page_size
-            backoff = min(backoff * 2, 30)
-            continue
-        except Exception as e:
-            print(f"[WARN] Erreur transitoire ({type(e).__name__}): {e}. Reprise après {already_yielded} items dans {backoff}s.", file=sys.stderr)
-            sleep(backoff)
-            backoff = min(backoff * 2, 30)
-            continue
-
 def download_arxiv_pdfs(query: str, excel_file: str = "articles.xlsx", sheet_name: str = "Feuille 1"):
-    """
-    Télécharge les PDFs. Écrit dans Excel uniquement si le téléchargement a réussi.
-    - Append à la ligne n+1 avec un ID interne auto-incrémenté.
-    - Aucun dédoublonnage.
-    - Résilient à UnexpectedEmptyPageError (reprise où on s’est arrêté).
-    """
+    from utils.excel_service import open_or_create_excel, get_next_excel_id
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     wb = open_or_create_excel(excel_file, sheet_name)
@@ -123,32 +61,55 @@ def download_arxiv_pdfs(query: str, excel_file: str = "articles.xlsx", sheet_nam
     search = arxiv.Search(
         query=query,
         sort_by=arxiv.SortCriterion.SubmittedDate,
-        sort_order=arxiv.SortOrder.Descending,
+        sort_order=arxiv.SortOrder.Descending
     )
 
-    total_seen = 0
-    downloaded = 0
-    skipped_exists = 0
-    failed = 0
-    appended = 0
+    client = _make_client(BASE_PAGE_SIZE)
 
-    iterator = _resilient_results(search)
-    if LIMIT is not None:
-        iterator = (r for i, r in enumerate(iterator, 1) if i <= LIMIT)
+    total_seen = downloaded = skipped_exists = failed = appended = 0
 
-    for r in tqdm(iterator, desc="Téléchargement des PDF"):
+    for result in tqdm(client.results(search), desc="Téléchargement des PDF"):
         total_seen += 1
-        target = pdf_path(OUTPUT_DIR, r)
 
-        if target.exists() and target.stat().st_size > 0:
+        # print(result.title)
+        # print(result.entry_id)
+        # print(result.published)
+        # print([a.name for a in result.authors])
+        # print("PDF:", result.pdf_url)
+
+        # Je skip si l'article est déjà présent (on détecte par préfixe ID court)
+        short_id = result.get_short_id().replace("/", "_")
+        existing = sorted(OUTPUT_DIR.glob(f"{short_id}*.pdf"))
+        if existing:
             skipped_exists += 1
             continue
 
-        # Télécharger avec quelques tentatives locales
         success = False
-        for attempt in range(1, 1 + NUM_RETRIES):
+        for attempt in range(1, NUM_RETRIES + 1):
             try:
-                r.download_pdf(dirpath=OUTPUT_DIR, filename=target.name)
+                before = set(OUTPUT_DIR.iterdir())
+                saved_path = result.download_pdf(dirpath=str(OUTPUT_DIR))
+
+                # Certaines versions renvoient le chemin : on le prend si dispo
+                if saved_path:
+                    from pathlib import Path
+                    saved = Path(saved_path)
+                else:
+                    # Fallback diff avant/après pour détecter les nouveaux fichiers
+                    after = set(OUTPUT_DIR.iterdir())
+                    new_files = [p for p in (after - before) if p.suffix.lower() == ".pdf"]
+                    if not new_files:
+                        raise RuntimeError("Aucun fichier PDF détecté après téléchargement")
+                    saved = max(new_files, key=lambda p: p.stat().st_mtime)
+
+                downloaded += 1
+                ws.append(_article_row_with_id(next_id, result, saved.name))
+                next_id += 1
+                appended += 1
+
+                if downloaded % 20 == 0:
+                    wb.save(excel_file)
+
                 success = True
                 break
             except Exception as e:
@@ -156,16 +117,7 @@ def download_arxiv_pdfs(query: str, excel_file: str = "articles.xlsx", sheet_nam
                     sleep(SLEEP_ON_FAIL)
                 else:
                     failed += 1
-                    print(f"[ERREUR] {r.get_short_id()} : {e}", file=sys.stderr)
-
-        if success:
-            downloaded += 1
-            ws.append(_article_row_with_id(next_id, r))
-            next_id += 1
-            appended += 1
-
-            if downloaded % 20 == 0:
-                wb.save(excel_file)
+                    print(f"[ERREUR] {result.get_short_id()} : {e}", file=sys.stderr)
 
     wb.save(excel_file)
     print(
