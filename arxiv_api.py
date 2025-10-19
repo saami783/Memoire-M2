@@ -3,10 +3,8 @@ from pathlib import Path
 import sys
 from time import sleep
 from tqdm import tqdm
-import re
-import ast
 
-OUTPUT_DIR = Path("downloads")  # unifie ici
+OUTPUT_DIR = Path("downloads/arxiv")
 BASE_PAGE_SIZE = 25
 DELAY_SECONDS = 2
 NUM_RETRIES = 3
