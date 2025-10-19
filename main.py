@@ -7,6 +7,10 @@ from arxiv_api import *
 from utils.excel_service import *
 from find_conjectures_mistral import *
 
+import ssl, certifi
+ssl._create_default_https_context = ssl._create_unverified_context
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Génère un PICO via Codex puis continue (Unix/macOS).")
     p.add_argument("question", nargs="?", help="Question de recherche.")
@@ -86,10 +90,12 @@ if __name__ == "__main__":
     query = extract_arxiv_query_py(boolean_query_file)
     download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
 
-    print("Process completed.")
-
-    find_conjectures()
-
-    # todo : extraire les informations des conjectures json dans un fichier excel.
-
-    # todo : prochaine étape, faire la réfutation des conjectures.
+    # print("Process completed.")
+    #
+    # find_conjectures()
+    #
+    # # todo : extraire les informations des conjectures json dans un fichier excel.
+    #
+    # print(get_dossier_json("json_articles"))
+    #
+    # # todo : prochaine étape, faire la réfutation des conjectures.
