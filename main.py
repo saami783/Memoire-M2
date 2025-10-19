@@ -6,6 +6,7 @@ from utils.create_boolean_queries_file import create_boolean_queries_file
 from arxiv_api import *
 from utils.excel_service import *
 from find_conjectures_mistral import *
+from utils.update_conjecture_excel import update_excel_with_conjectures
 
 import os
 from time import sleep
@@ -98,8 +99,6 @@ if __name__ == "__main__":
 
     find_conjectures("downloads/arxiv")
 
-    # todo : extraire les informations des conjectures json dans un fichier excel.
-
-    # print(get_dossier_json("json_articles"))
+    update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
 
     # todo : prochaine étape, faire la réfutation des conjectures.
