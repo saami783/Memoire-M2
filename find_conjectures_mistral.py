@@ -131,3 +131,15 @@ def get_mistral_reponse(client: Mistral, model: str, text_content: DocumentTextC
             }
         ]
     )
+
+def get_dossier_json(dossier: str):
+    dossier_path = Path(dossier)
+
+    json_paths = sorted(
+        p for p in dossier_path.iterdir()
+        if p.is_file() and p.suffix.lower() == ".json"
+    )
+
+    json_conjectures = [p.name for p in json_paths]
+
+    return json_conjectures
