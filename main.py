@@ -3,10 +3,8 @@ import argparse
 from utils.create_pico_file import create_pico_file
 from utils.codex_prompts import *
 from utils.create_boolean_queries_file import create_boolean_queries_file
-import arxiv
 from arxiv_api import *
 from utils.excel_service import *
-from utils.find_conjonctures import *
 from find_conjectures_mistral import *
 
 def parse_args() -> argparse.Namespace:
@@ -88,9 +86,10 @@ if __name__ == "__main__":
     query = extract_arxiv_query_py(boolean_query_file)
     download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
 
-    # find_conjecture_prompt = get_prompt_to_find_conjectures_in_pdfs("", "articles.xlsx")
-    # sentinel = run_codex_until_sentinel(find_conjecture_prompt)
-
     print("Process completed.")
 
     find_conjectures()
+
+    # todo : extraire les informations des conjectures json dans un fichier excel.
+
+    # todo : prochaine étape, faire la réfutation des conjectures.

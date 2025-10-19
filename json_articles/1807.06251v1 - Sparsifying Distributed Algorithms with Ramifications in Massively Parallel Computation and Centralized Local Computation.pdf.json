@@ -1,0 +1,11 @@
+{
+  "titre_article": "Sparsifying_Distributed_Algorithms_with_Ramifications_in_Massively_Parallel_Computation_and_Centralized_Local_Computation",
+  "contains_conjecture": "yes",
+  "conjectures": [
+    {
+      "id": "conjecture1",
+      "page": 6,
+      "text": "\"Is there an MIS LCA with query complexity poly(Δ log n) ?\""
+    }
+  ]
+}
