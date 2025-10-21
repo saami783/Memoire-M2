@@ -1,0 +1,62 @@
+
+Algorithm 4 Calculating a weak 2- coloring  
+
+
+Require: Graph \(G = (V,E)\)  
+
+
+Ensure: Weak 2- coloring \(c\)  
+
+
+1: \(f_{v}\gets\) false \(\forall v\in V\)  
+
+
+2: \(q\gets\) empty queue  
+
+
+3: \(v_{0}\gets\) an arbitrary node in \(G\)  
+
+
+4: \(q.\mathrm{push}((v_{0},0))\)  
+
+
+5: \(f_{v_{0}}\gets\) true  
+
+
+6: while \(q\) is not empty do  
+
+
+7: \((v,x)\gets q.\mathrm{front}()\)  
+
+
+8: \(q.\mathrm{pop}()\)  
+
+
+9: \(c(v) = x\)  
+
+
+10: for \(u\in \mathcal{N}(v)\) do  
+
+
+11: if not \(f_{u}\) then  
+
+
+12: \(q.\mathrm{push}((u,1 - x))\)  
+
+
+13: \(f_{u}\gets\) true  
+
+
+14: end if  
+
+
+15: end for  
+
+
+16: end while  
+
+
+17: return \(c\)  
+
+
+selection and train the model using the REINFORCE algorithm [29]. If the output selects only one leaf, the reward is 1, and otherwise, the reward is \(- 1\) . We ran 10 trials with different seeds. After 10000 iterations of training, the model solves the finding single leaf problem in all trials. However, we train GCN [12], GraphSAGE [9], and GAT [26] to solve this task, but none of them could solve the finding single leaf problem, as our theory shows. This indicates that the existing GNNs cannot solve such a simple combinatorial problem whereas out proposed model can.
