@@ -1,0 +1,11 @@
+{
+  "titre_article": "contenu_document_fourni",
+  "contains_conjecture": "yes",
+  "conjectures": [
+    {
+      "id": "conjecture1",
+      "page": "inconnu",
+      "text": "Conjecture (paires quadratiques premières). Soit\n\n$$\\pi_{Q}(x):=\\#\\left\\{n \\leq x: n^{2}+1 \\text{ et } n^{2}+3 \\text{ sont premiers }\\right\\}$$ \n\nAlors, il existerait une constante positive\n$\\mathfrak{S}=\\prod_{p} \\frac{1-\\frac{\\nu(p)}{p}}{\\left(1-\\frac{1}{p}\\right)^{2}}$, \t$\\nu(p):=\\#\\left\\{n \\bmod p:\\left(n^{2}+1\\right)\\left(n^{2}+3\\right) \\equiv 0 \\quad(\\bmod p)\\right\\}$, \ntelle que l'asymptotique suivante tienne quand $x \\rightarrow \\infty$ :\n\n$$\\pi_{Q}(x) \\sim \\mathfrak{S} \\frac{2 x}{(\\log x)^{2}}$$ \n\nEn particulier, il y aurait une infinité de $n$ pour lesquels $n^{2}+1$ et $n^{2}+3$ sont simultanément premiers."
+    }
+  ]
+}
