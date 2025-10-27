@@ -44,30 +44,38 @@ def find_conjectures(dossier_articles: str):
     else:
         library = libraries[0]
 
-    dossier = get_dossier_pdfs(dossier_articles)
+    # dossier = get_dossier_pdfs(dossier_articles)
+    #
+    # try:
+    #     for pdf in dossier:
+    #         document = upload_document(f"{dossier_articles}/{pdf}", pdf, client, library)
+    #         print(document)
+    #         sleep(4)
+    # except SDKError:
+    #     print("Limite d'upload d'articles atteinte.")
 
-    try:
-        for pdf in dossier:
-            # document = upload_document(f"{dossier_articles}/{pdf}", pdf, client, library)
-            # print(document)
-            sleep(4)
-    except SDKError:
-        print("Limite d'upload d'articles atteinte.")
+    # document = get_document(library, "25079da6-7fc3-4262-963b-e500b754e930", client)
 
-    document = get_document(library, "25079da6-7fc3-4262-963b-e500b754e930", client)
-    # for document in get_documents(library, client):
+    print("Nombre total de documents : " + str(len(get_documents(library, client))))
+    print("\n")
+    print("Affichage des documents : \n")
+    for document in get_documents(library, client):
+        print("id : " + document.id + " - name : " + document.name)
 
-    print(f"###### Détection de conjectures dans le document {document.name} ######")
+        print(f"###### Détection de conjectures dans le document {document.name} ######")
 
-    text_content = client.beta.libraries.documents.text_content(
-        library_id=library.id,
-        document_id=document.id
-    )
+        if document.id == "44c93cf3-76f2-4fa4-8595-60792e971872":
+            print("Extraction de l'article choisi...")
+            text_content = client.beta.libraries.documents.text_content(
+                library_id=library.id,
+                document_id=document.id
+            )
 
-    response = get_mistral_reponse(client, model, text_content)
-    print(response)
-    export_conjectures_to_json(response, document)
-
+            print("Mistral utilise le prompt pour extraire les conjectures..")
+            response = get_mistral_reponse_test(client, model, text_content)
+            print("Affichage de la réponse de Mistral : ")
+            print(response)
+            # export_conjectures_to_json(response, document)
 
 if __name__ == "__main__":
     # research_question = get_research_question_arg()
@@ -96,13 +104,13 @@ if __name__ == "__main__":
     #
     # query = extract_arxiv_query_py(boolean_query_file)
     # download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
-
-    print("Process completed.")
-
+    #
+    # print("Process completed.")
+    #
     # todo : voir pour extraire le contenu des articles au lieu de les uploads pour contourner la limite d'upload.
     # find_conjectures("downloads/arxiv")
     find_conjectures("test")
 
-    update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
+    # update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
 
     # todo : prochaine étape, faire la réfutation des conjectures.

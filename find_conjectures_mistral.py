@@ -129,6 +129,41 @@ def get_mistral_reponse(client: Mistral, model: str, text_content: DocumentTextC
         ]
     )
 
+def get_mistral_reponse_test(client: Mistral, model: str, text_content: DocumentTextContent):
+    return client.chat.complete(
+        model=model, messages=[
+            {"role": "user", "content": f"""VVoici le contenu de mon document: {text_content.text}\n\nMa question est la suivante, existe t-il des conjectures formulées par le(s) auteur(s) dans ce document ? Si oui, cite-les intégralement (mot à mot). Contraintes de sortie (TRÈS IMPORTANT) : - Tu dois répondre uniquement avec un objet JSON valide (UTF-8), sans aucun autre texte, sans balises et sans commentaires.
+                - Respecte exactement le schéma ci-dessous.
+                - Dans "text", mets la citation exacte de la conjecture depuis l'article ; remplace chaque retour à la ligne par \\n ; échappe les guillemets comme \\".
+                - Si aucune conjecture n'est trouvée, mets "contains_conjecture": "no" et "conjectures": [].
+                - Je ne veux pas de Markdown, ni de fence, pas de gras/italiques, pas de blocs de code, pas de fence, pas d'explications hors JSON. Donne moi simplement l'objet json sans mise en forme syntaxique de ta part.
+                - Ne prends pas en compte les conjectures formulées par les auteurs qui sont ensuite réfutées plus bas dans le document.
+                - Ne prends pas en compte les questions ouvertes.
+                
+                Schéma attendu (exemple de structure, pas un contenu) :
+                {{
+                  "titre_article": "<représente le nom du fichier PDF>",
+                  "contains_conjecture": "true" | "false",
+                  "conjectures": [
+                    {{
+                      "id": "conjecture1",
+                      "page": <la page de la conjecture>,
+                      "text": "<citation exacte avec \\n pour les sauts de ligne et les guillemets échappés>",
+                      "parametres": <si la conjecture utilise des paramètres, je veux que tu reprennes chacun d'eux, et que tu les définissent selon les auteurs pour avoir une meilleure compréhension.>",
+                    }},
+                    {{
+                      "id": "conjecture2",
+                      "page": <la page de la conjecture>,
+                      "text": "<...>",
+                      "parametres": <si la conjecture utilise des paramètres, je veux que tu reprennes chacun d'eux, et que tu les définissent selon les auteurs pour avoir une meilleure compréhension.>",
+                    }}
+                  ]
+                }}
+                """
+            }
+        ]
+    )
+
 def get_dossier_json(dossier: str):
     dossier_path = Path(dossier)
 
