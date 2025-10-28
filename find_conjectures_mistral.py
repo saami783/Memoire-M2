@@ -106,7 +106,8 @@ def get_mistral_reponse(client: Mistral, model: str, text_content: DocumentTextC
                 - Dans "text", mets la citation exacte de la conjecture depuis l'article ; remplace chaque retour à la ligne par \\n ; échappe les guillemets comme \\".
                 - Si aucune conjecture n'est trouvée, mets "contains_conjecture": "no" et "conjectures": [].
                 - Je ne veux pas de Markdown, ni de fence, pas de gras/italiques, pas de blocs de code, pas de fence, pas d'explications hors JSON. Donne moi simplement l'objet json sans mise en forme syntaxique de ta part.
-
+                - Ne considère pas les conjectures qui ne sont pas formulées par les auteurs eux-mêmes.
+                
                 Schéma attendu (exemple de structure, pas un contenu) :
                 {{
                   "titre_article": "<représente le nom du fichier PDF>",

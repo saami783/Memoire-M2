@@ -1,0 +1,61 @@
+{
+  "titre_article": "Approximate Hypergraph Vertex Cover and generalized Tuza's conjecture",
+  "contains_conjecture": "yes",
+  "conjectures": [
+    {
+      "id": "conjecture1",
+      "page": 1,
+      "text": "The minimum number of edges needed to cover all the triangles in a graph is at most twice the maximum number of edge-disjoint triangles."
+    },
+    {
+      "id": "conjecture2",
+      "page": 1,
+      "text": "The fractional version of the Aharoni-Zerbib conjecture up to lower order terms. Specifically, we give a factor t / 2+O(sqrt(t log t)) approximation based on LP rounding for an algorithmic version of the hypergraph Turán problem (AHTP)."
+    },
+    {
+      "id": "conjecture3",
+      "page": 1,
+      "text": "The generalized Tuza's conjecture states that for any t-uniform hypergraph H, the minimum vertex cover tau(H') of H'=H^(t-1) is at most (lceil(t+1)/2) times that of the maximum matching nu(H')."
+    },
+    {
+      "id": "conjecture4",
+      "page": 1,
+      "text": "The conjecture has been verified for various classes of graphs such as graphs without K3,3-subdivision, graphs with maximum average degree less than 7, graphs with quadratic number of edge disjoint triangles, graphs with treewidth at most 6, and random graphs in the Gn,p model."
+    },
+    {
+      "id": "conjecture5",
+      "page": 1,
+      "text": "The current best upper bound on the ratio is a factor of 2.87 due to Haxell."
+    },
+    {
+      "id": "conjecture6",
+      "page": 1,
+      "text": "The generalized Tuza's conjecture states that for any t-uniform hypergraph H, the minimum vertex cover tau(H') of H'=H^(t-1) is at most (lceil(t+1)/2) times that of the maximum matching nu(H')."
+    },
+    {
+      "id": "conjecture7",
+      "page": 1,
+      "text": "The conjecture has been verified for various classes of graphs such as graphs without K3,3-subdivision, graphs with maximum average degree less than 7, graphs with quadratic number of edge disjoint triangles, graphs with treewidth at most 6, and random graphs in the Gn,p model."
+    },
+    {
+      "id": "conjecture8",
+      "page": 1,
+      "text": "The current best upper bound on the ratio is a factor of 2.87 due to Haxell."
+    },
+    {
+      "id": "conjecture9",
+      "page": 1,
+      "text": "The generalized Tuza's conjecture states that for any t-uniform hypergraph H, the minimum vertex cover tau(H') of H'=H^(t-1) is at most (lceil(t+1)/2) times that of the maximum matching nu(H')."
+    },
+    {
+      "id": "conjecture10",
+      "page": 1,
+      "text": "The conjecture has been verified for various classes of graphs such as graphs without K3,3-subdivision, graphs with maximum average degree less than 7, graphs with quadratic number of edge disjoint triangles, graphs with treewidth at most 6, and random graphs in the Gn,p model."
+    },
+    {
+      "id": "conjecture11",
+      "page": 1,
+      "text": "The current best upper bound on the ratio is a factor of 2.87 due to Haxell."
+    }
+  ]
+}

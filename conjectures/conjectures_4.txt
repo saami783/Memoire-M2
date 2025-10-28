@@ -1,0 +1,26 @@
+{
+  "titre_article": "Approximate Hypergraph Vertex Cover and generalized Tuza's conjecture",
+  "contains_conjecture": "yes",
+  "conjectures": [
+    {
+      "id": "conjecture1",
+      "page": 1,
+      "text": "A famous conjecture of Tuza states that the minimum number of edges needed to cover all the triangles in a graph is at most twice the maximum number of edge-disjoint triangles."
+    },
+    {
+      "id": "conjecture2",
+      "page": 1,
+      "text": "The generalized Tuza's conjecture states that for any t-uniform hypergraph H, the minimum vertex cover tau(H') of H'=H^(t-1) is at most (lceil(t+1)/2) times that of the maximum matching nu(H')."
+    },
+    {
+      "id": "conjecture3",
+      "page": 1,
+      "text": "The fractional version of the generalized Tuza's conjecture (upto o(t) factors), establishing a non-trivial upper bound on the LP integrality gap for (t-1)-blown-up hypergraphs."
+    },
+    {
+      "id": "conjecture4",
+      "page": 1,
+      "text": "For every ε>0 and every finite family of t-uniform hypergraphs F such that no hypergraph from F appears in any (t-1)-blown-up hypergraph H'=H^(t-1), there is a t-uniform hypergraph T such that T does not contain any hypergraph from F but tau(T) ≥(t-ε) nu(T) (and in fact tau(T) ≥(t-ε) tau*(T))."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "titre_article": "Approximate Hypergraph Vertex Cover and generalized Tuza's conjecture",
+  "contains_conjecture": "true",
+  "conjectures": [
+    {
+      "id": "conjecture1",
+      "page": 1,
+      "text": "The minimum number of edges needed to cover all the triangles in a graph is at most twice the maximum number of edge-disjoint triangles.",
+      "parametres": []
+    },
+    {
+      "id": "conjecture2",
+      "page": 1,
+      "text": "The minimum vertex cover of a hypergraph is at most \\(\left\lceil\\frac{t+1}{2}\\right\\rceil\\) times the maximum matching of the hypergraph.",
+      "parametres": []
+    }
+  ]
+}

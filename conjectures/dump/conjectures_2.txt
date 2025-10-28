@@ -1,0 +1,18 @@
+{
+  "titre_article": "Approximate Hypergraph Vertex Cover and generalized Tuza's conjecture",
+  "contains_conjecture": "true",
+  "conjectures": [
+    {
+      "id": "conjecture1",
+      "page": 1,
+      "text": "The generalized Tuza's conjecture states that for any t-uniform hypergraph H, the minimum vertex cover tau(H') of H'=H^(t-1) is at most (lceil(t+1)/2) times that of the maximum matching nu(H'). Here, for a t-uniform hypergraph H=(V, E), the (t-1)-blown-up hypergraph H'=H^(t-1) is a t-uniform hypergraph whose vertices are the set of all (t-1) sized subsets that are contained in at least one edge of H, and corresponding to every edge e in H, all the (t-1) sized subsets of e form an edge in H'.",
+      "parametres": []
+    },
+    {
+      "id": "conjecture2",
+      "page": 1,
+      "text": "The fractional version of the generalized Tuza's conjecture (upto o(t) factors) establishes a non-trivial upper bound on the LP integrality gap for (t-1)-blown-up hypergraphs.",
+      "parametres": []
+    }
+  ]
+}

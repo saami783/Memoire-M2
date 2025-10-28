@@ -1,0 +1,56 @@
+{
+  "titre_article": "Approximate Hypergraph Vertex Cover and generalized Tuza's conjecture",
+  "contains_conjecture": "yes",
+  "conjectures": [
+    {
+      "id": "conjecture1",
+      "page": 1,
+      "text": "The fractional version of the generalized Tuza's conjecture (upto o(t) factors), establishing a non-trivial upper bound on the LP integrality gap for (t-1)-blown-up hypergraphs."
+    },
+    {
+      "id": "conjecture2",
+      "page": 1,
+      "text": "The vertex cover problem on (t-1)-blown-up hypergraphs is also intimately connected to the famous Hypergraph Turán Problem [Tur41,Tur61] in extremal combinatorics."
+    },
+    {
+      "id": "conjecture3",
+      "page": 1,
+      "text": "The generalized Tuza's conjecture states that for any t-uniform hypergraph H, the minimum vertex cover τ(H') of H'=H^(t-1) is at most ⌈(t+1)/2⌉ times that of the maximum matching ν(H')."
+    },
+    {
+      "id": "conjecture4",
+      "page": 1,
+      "text": "The conjecture has been verified for various classes of graphs such as graphs without K3,3-subdivision [Kri95], graphs with maximum average degree less than 7 [Pul15], graphs with quadratic number of edge disjoint triangles [HR01, Yus12], graphs with treewidth at most 6 [BFG19], and random graphs in the Gn,p model [BCD20, KP20]."
+    },
+    {
+      "id": "conjecture5",
+      "page": 1,
+      "text": "The conjectured value of ⌈(t+1)/2⌉ is the best possible gap: when H is the complete t-uniform hypergraph on (t+1) vertices, the (t-1)-blown-up hypergraph H'=H^(t-1) has ν(H')=1 and τ(H')=⌈(t+1)/2⌉."
+    },
+    {
+      "id": "conjecture6",
+      "page": 1,
+      "text": "The fractional version of the generalized Tuza's conjecture (upto o(t) factors), establishing a non-trivial upper bound on the LP integrality gap for (t-1)-blown-up hypergraphs."
+    },
+    {
+      "id": "conjecture7",
+      "page": 1,
+      "text": "The vertex cover problem on (t-1)-blown-up hypergraphs is also intimately connected to the famous Hypergraph Turán Problem [Tur41,Tur61] in extremal combinatorics."
+    },
+    {
+      "id": "conjecture8",
+      "page": 1,
+      "text": "The generalized Tuza's conjecture states that for any t-uniform hypergraph H, the minimum vertex cover τ(H') of H'=H^(t-1) is at most ⌈(t+1)/2⌉ times that of the maximum matching ν(H')."
+    },
+    {
+      "id": "conjecture9",
+      "page": 1,
+      "text": "The conjecture has been verified for various classes of graphs such as graphs without K3,3-subdivision [Kri95], graphs with maximum average degree less than 7 [Pul15], graphs with quadratic number of edge disjoint triangles [HR01, Yus12], graphs with treewidth at most 6 [BFG19], and random graphs in the Gn,p model [BCD20, KP20]."
+    },
+    {
+      "id": "conjecture10",
+      "page": 1,
+      "text": "The conjectured value of ⌈(t+1)/2⌉ is the best possible gap: when H is the complete t-uniform hypergraph on (t+1) vertices, the (t-1)-blown-up hypergraph H'=H^(t-1) has ν(H')=1 and τ(H')=⌈(t+1)/2⌉."
+    }
+  ]
+}
