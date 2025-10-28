@@ -1,0 +1,5 @@
+tqdm
+arxiv
+mistralai
+python-dotenv
+openpyxl
