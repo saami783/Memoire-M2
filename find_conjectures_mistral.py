@@ -1,5 +1,6 @@
 import json
-from mistralai import Mistral, LibraryOut, DocumentOut, SDKError, ChatCompletionResponse, DocumentTextContent
+from mistralai import Mistral, LibraryOut, DocumentOut, SDKError, ChatCompletionResponse, DocumentTextContent, \
+    ResponseFormats, ResponseFormat
 from mistralai.models import File
 from pathlib import Path
 
@@ -100,13 +101,14 @@ def export_conjectures_to_json(response: ChatCompletionResponse, document: Docum
 
 def get_mistral_reponse(client: Mistral, model: str, text_content: DocumentTextContent):
     return client.chat.complete(
-        model=model, messages=[
+        temperature=0,
+        top_p=1,
+        model=model,
+        messages=[
             {"role": "user", "content": f"""VVoici le contenu de mon document: {text_content.text}\n\nMa question est la suivante, existe t-il des conjectures formulées par le(s) auteur(s) dans ce document ? Si oui, cite-les intégralement (mot à mot). Contraintes de sortie (TRÈS IMPORTANT) : - Tu dois répondre uniquement avec un objet JSON valide (UTF-8), sans aucun autre texte, sans balises et sans commentaires.
                 - Respecte exactement le schéma ci-dessous.
                 - Dans "text", mets la citation exacte de la conjecture depuis l'article ; remplace chaque retour à la ligne par \\n ; échappe les guillemets comme \\".
                 - Si aucune conjecture n'est trouvée, mets "contains_conjecture": "no" et "conjectures": [].
-                - Je ne veux pas de Markdown, ni de fence, pas de gras/italiques, pas de blocs de code, pas de fence, pas d'explications hors JSON. Donne moi simplement l'objet json sans mise en forme syntaxique de ta part.
-                - Ne considère pas les conjectures qui ne sont pas formulées par les auteurs eux-mêmes.
                 
                 Schéma attendu (exemple de structure, pas un contenu) :
                 {{
@@ -130,36 +132,72 @@ def get_mistral_reponse(client: Mistral, model: str, text_content: DocumentTextC
         ]
     )
 
-def get_mistral_reponse_test(client: Mistral, model: str, text_content: DocumentTextContent):
+def get_mistral_reponse_strict(client: Mistral, model: str, text_content: DocumentTextContent):
     return client.chat.complete(
-        model=model, messages=[
-            {"role": "user", "content": f"""VVoici le contenu de mon document: {text_content.text}\n\nMa question est la suivante, existe t-il des conjectures formulées par le(s) auteur(s) dans ce document ? Si oui, cite-les intégralement (mot à mot). Contraintes de sortie (TRÈS IMPORTANT) : - Tu dois répondre uniquement avec un objet JSON valide (UTF-8), sans aucun autre texte, sans balises et sans commentaires.
-                - Respecte exactement le schéma ci-dessous.
-                - Dans "text", mets la citation exacte de la conjecture depuis l'article ; remplace chaque retour à la ligne par \\n ; échappe les guillemets comme \\".
-                - Si aucune conjecture n'est trouvée, mets "contains_conjecture": "no" et "conjectures": [].
-                - Je ne veux pas de Markdown, ni de fence, pas de gras/italiques, pas de blocs de code, pas de fence, pas d'explications hors JSON. Donne moi simplement l'objet json sans mise en forme syntaxique de ta part.
-                - Ne prends pas en compte les conjectures formulées par les auteurs qui sont ensuite réfutées plus bas dans le document.
-                - Ne prends pas en compte les questions ouvertes.
+        model=model,
+        temperature=0,          # déterministe
+        top_p=1,
+        random_seed=0,          # idem: runs réplicables
+        response_format=ResponseFormat(type="json_object"),
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a scholarly extraction engine. "
+                    "Your job is to extract ONLY verbatim text spans from the provided document that satisfy STRICT criteria. "
+                    "You MUST NOT paraphrase or invent content. If nothing matches, you MUST return that nothing was found."
+                )
+            },
+            {
+                "role": "user",
+                "content": f"""
+                TASK — EXTRACTION DE CONJECTURES FORMULÉES PAR LES AUTEURS (STRICT, VERBATIM)
                 
-                Schéma attendu (exemple de structure, pas un contenu) :
+                Définition (à respecter à la lettre) :
+                - « Conjecture formulée par les auteurs » = EITHER
+                  (A) un bloc/énoncé explicitement intitulé « Conjecture … » DANS CE DOCUMENT et NON attribué à d'autres personnes ; OU
+                  (B) une phrase explicite des auteurs du type « We conjecture … » / « We formulate the following conjecture … » dans CE DOCUMENT.
+                - À EXCLURE absolument :
+                  * Problems / Questions / Open problems / Theorems / Lemmas / Corollaries / Claims / Definitions.
+                  * Toute conjecture attribuée à d’autres (p. ex. « Tuza’s conjecture », « due to Aharoni and Zerbib », « as conjectured by X », références comme « [AZ20] », etc.).
+                  * Toute conjecture des auteurs qui est ensuite réfutée par EUX dans ce même document (p. ex. « we disprove/refute/show it is false/does not hold »).
+                
+                CONTRAINTE VERBATIM & POSITION :
+                - Chaque conjecture doit être une citation MOT-À-MOT qui apparaît EXACTEMENT dans le texte fourni ci-dessous (pas de reformulation).
+                - Donne aussi les offsets caractère 0-based (char_start, char_end) dans le texte fourni.
+                - Si tu ne peux pas fournir une citation EXACTE + offsets cohérents, N’INCLUS PAS l’item.
+                
+                RÉSULTAT ATTENDU (JSON UNIQUEMENT, AUCUN TEXTE AVANT/APRÈS) :
                 {{
-                  "titre_article": "<représente le nom du fichier PDF>",
-                  "contains_conjecture": "true" | "false",
+                  "titre_article": string,                  // meilleure estimation depuis les premières lignes, ou "" si incertain
+                  "contains_conjecture": "yes" | "no",
                   "conjectures": [
                     {{
-                      "id": "conjecture1",
-                      "page": <la page de la conjecture>,
-                      "text": "<citation exacte avec \\n pour les sauts de ligne et les guillemets échappés>",
-                      "parametres": <si la conjecture utilise des paramètres, je veux que tu reprennes chacun d'eux, et que tu les définissent selon les auteurs pour avoir une meilleure compréhension.>",
-                    }},
-                    {{
-                      "id": "conjecture2",
-                      "page": <la page de la conjecture>,
-                      "text": "<...>",
-                      "parametres": <si la conjecture utilise des paramètres, je veux que tu reprennes chacun d'eux, et que tu les définissent selon les auteurs pour avoir une meilleure compréhension.>",
+                      "id": string,                         // p.ex. "conj-1"
+                      "text": string,                       // citation VERBATIM telle qu'elle apparaît
+                      "char_start": integer,                // index 0-based dans le texte ci-dessous
+                      "char_end": integer,                  // fin exclusive
+                      "page": null,                         // laisse null si tu ne sais pas
+                      "authorship": "author",               // DOIT être "author" (aucune conjecture citée)
+                      "refuted_in_paper": boolean,          // true si les auteurs réfutent cette conjecture plus loin dans CE document
+                      "authorship_evidence": string,        // mini-citation verbatim montrant que c’est bien leur conjecture (ex: "We conjecture ...")
+                      "refutation_evidence": string | null  // mini-citation verbatim si réfutée ; sinon null
                     }}
                   ]
                 }}
+                
+                RÈGLES DE SORTIE :
+                1) Si aucun item ne satisfait TOUTES les conditions, renvoie exactement :
+                   {{
+                     "titre_article": "",
+                     "contains_conjecture": "no",
+                     "conjectures": []
+                   }}
+                2) AUCUN autre texte en dehors de l’objet JSON.
+                
+                --- BEGIN DOCUMENT TEXT ---
+                {text_content.text}
+                --- END DOCUMENT TEXT ---
                 """
             }
         ]
