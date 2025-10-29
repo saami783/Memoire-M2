@@ -72,7 +72,7 @@ def find_conjectures(dossier_articles: str):
             )
 
             print("Mistral utilise le prompt pour extraire les conjectures..")
-            response = get_mistral_reponse_test(client, model, text_content)
+            response = get_mistral_reponse(client, model, text_content)
             print("Affichage de la réponse de Mistral : ")
             print(response)
             # export_conjectures_to_json(response, document)

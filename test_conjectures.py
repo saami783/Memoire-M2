@@ -6,14 +6,15 @@ from find_conjectures_mistral import *
 load_dotenv()
 api_key = os.getenv("MISTRAIL_API_KEY2")
 # model = "mistral-large-latest"
-model = "ministral-8b-2410"
+# model = "ministral-8b-2410"
+model = "mistral-large-2411"
 client = Mistral(api_key=api_key)
 
 def test_find_conjectures(iteration: int, document: DocumentOut, text_content: DocumentTextContent):
 
     print(f"Récupération de la réponse de de l'article {document.name}...")
 
-    response = get_mistral_reponse(client, model, text_content)
+    response = get_mistral_reponse_strict(client, model, text_content)
 
     # print("Affichage de la réponse : \n")
     # print(response)
