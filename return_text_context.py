@@ -26,14 +26,11 @@ if __name__ == "__main__":
 
     library = libraries[0]
 
-    for document in get_documents(library, client):
+    try:
+        document = upload_document(f"{dossier_articles}/", f"{article}.pdf", client, library)
+        print(document)
+        sleep(2)
+        text_content = extract_document(library, document, client)
         delete_document(library, document, client)
-
-    # try:
-    #     document = upload_document(f"{dossier_articles}/", f"{article}.pdf", client, library)
-    #     print(document)
-    #     sleep(2)
-    #     text_content = extract_document(library, document, client)
-    #     delete_document(library, document, client)
-    # except SDKError:
-    #     print("Limite d'upload d'articles atteinte.")
+    except SDKError:
+        print("Limite d'upload d'articles atteinte.")
