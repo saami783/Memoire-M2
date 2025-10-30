@@ -76,7 +76,7 @@ def newest_written_file(folder: Path, since_ts: float):
             pass
     return newest
 
-def extract_pdf_to_markdown(pdf_path: str, out_dir: str):
+def extract_pdf_to_text(pdf_path: str, out_dir: str):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "images").mkdir(exist_ok=True)
