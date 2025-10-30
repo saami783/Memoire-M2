@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 import argparse
+
+from deepseek_extract_pdf_to_text import extract_pdf_to_text
 from utils.create_pico_file import create_pico_file
 from utils.codex_prompts import *
 from utils.create_boolean_queries_file import create_boolean_queries_file
@@ -28,33 +30,13 @@ def get_research_question_arg() -> str | None:
     print(args.question)
     return args.question
 
-def find_conjectures(dossier_articles: str):
-    load_dotenv()
-    # api_key = os.getenv("MISTRAIL_API_KEY")
-    api_key = os.getenv("MISTRAIL_API_KEY2")
-
-    model = "mistral-large-latest"
-
-    client = Mistral(api_key=api_key)
-
+def find_conjectures(client: Mistral, model: str):
     libraries = get_libraries(client)
 
     if len(libraries) == 0:
         library = create_library(client, "Librairie documents pdf", "Cette librairie contient tous les documents en format PDF récupérée depuis différentes bases de données.")
     else:
         library = libraries[0]
-
-    # dossier = get_dossier_pdfs(dossier_articles)
-    #
-    # try:
-    #     for pdf in dossier:
-    #         document = upload_document(f"{dossier_articles}/{pdf}", pdf, client, library)
-    #         print(document)
-    #         sleep(4)
-    # except SDKError:
-    #     print("Limite d'upload d'articles atteinte.")
-
-    # document = get_document(library, "25079da6-7fc3-4262-963b-e500b754e930", client)
 
     print("Nombre total de documents : " + str(len(get_documents(library, client))))
     print("\n")
@@ -75,7 +57,32 @@ def find_conjectures(dossier_articles: str):
             response = get_mistral_reponse(client, model, text_content)
             print("Affichage de la réponse de Mistral : ")
             print(response)
+            # todo : décommenter la fonction et la tester à nouveau
             # export_conjectures_to_json(response, document)
+
+def extract_documents(dossier_articles: str, client: Mistral):
+    dossier = get_dossier_pdfs(dossier_articles)
+
+    libraries = get_libraries(client)
+    library = libraries[0]
+    indiceMistral = 0
+    indiceDeepSeek = 0
+
+    try:
+        for pdf in dossier:
+            document = upload_document(f"{dossier_articles}/{pdf}", pdf, client, library)
+            indiceMistral += 1
+            print(document)
+            sleep(4)
+    except SDKError:
+        print("Limite d'upload d'articles atteinte avec Mistral.. DeepSeek prend le relais.")
+
+        for pdf in dossier:
+            if indiceDeepSeek != indiceMistral:
+                indiceDeepSeek += 1
+            else:
+                os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "0")
+                extract_pdf_to_text(f"{dossier_articles}/{pdf}","tests")
 
 if __name__ == "__main__":
     # research_question = get_research_question_arg()
@@ -95,8 +102,6 @@ if __name__ == "__main__":
     #
     # create_boolean_queries_file(boolean_query_prompt, filename=boolean_query_file)
     #
-    # # @todo Prendre en charges d'autres bases de données (implique de modifier le prompt aussi)
-    #
     # excel_file = "articles.xlsx"
     # sheet_name1 = "Articles"
     # sheet_name2 = "Conjectures"
@@ -104,12 +109,22 @@ if __name__ == "__main__":
     #
     # query = extract_arxiv_query_py(boolean_query_file)
     # download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
-    #
-    # print("Process completed.")
-    #
+
     # todo : voir pour extraire le contenu des articles au lieu de les uploads pour contourner la limite d'upload.
+
+    # 1- trier les pdf
+    # 2- lancer l'extraction via mistral et mettre le contenu dans un fichier texte
+    # 3- si on atteint la limite alors pendre le relais avec deepseek
+
+    load_dotenv()
+    api_key = os.getenv("MISTRAIL_API_KEY2")
+    model = "mistral-large-latest"
+    client = Mistral(api_key=api_key)
+
+    extract_documents("", client)
+
+    # todo : délaisser mistral pour la détection des conjectures, je tiens une bonne piste assez fiable avec codex
     # find_conjectures("downloads/arxiv")
-    find_conjectures("test")
 
     # update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
 
