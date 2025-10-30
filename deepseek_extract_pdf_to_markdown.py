@@ -76,7 +76,7 @@ def newest_written_file(folder: Path, since_ts: float):
             pass
     return newest
 
-def main(pdf_path: str, out_dir: str):
+def extract_pdf_to_markdown(pdf_path: str, out_dir: str):
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "images").mkdir(exist_ok=True)
@@ -137,10 +137,3 @@ def main(pdf_path: str, out_dir: str):
     md_path.write_text("".join(md_parts), encoding="utf-8")
 
     print(f"\n Markdown export: {md_path}")
-
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python pdf_to_markdown_deepseek.py <input.pdf> <output_dir>")
-        sys.exit(1)
-    os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "0")
-    main(sys.argv[1], sys.argv[2])
