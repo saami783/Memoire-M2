@@ -7,4 +7,12 @@ pymupdf
 frontend
 Pillow
 torch
-transformers
+addict
+matplotlib
+torchvision
+einops
+transformers==4.46.3
+tokenizers==0.20.3
+img2pdf
+easydict
+numpy
