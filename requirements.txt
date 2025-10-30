@@ -4,3 +4,4 @@ mistralai
 python-dotenv
 openpyxl
 fitz
+frontend
