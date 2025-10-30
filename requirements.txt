@@ -3,3 +3,4 @@ arxiv
 mistralai
 python-dotenv
 openpyxl
+fitz
