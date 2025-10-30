@@ -10,7 +10,7 @@ from transformers import AutoModel, AutoTokenizer
 
 # ================== Réglages ==================
 MODEL_NAME = "deepseek-ai/DeepSeek-OCR"
-PROMPT     = "<image>\n<|grounding|>Convert the document to markdown."
+PROMPT     = "<image>\n<|grounding|>Convert the document to text."
 # Bon compromis VRAM/qualité (style "Gundam")
 BASE_SIZE  = 1024
 IMAGE_SIZE = 640
