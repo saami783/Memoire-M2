@@ -3,5 +3,8 @@ arxiv
 mistralai
 python-dotenv
 openpyxl
-fitz
+pymupdf
 frontend
+Pillow
+torch
+transformers
