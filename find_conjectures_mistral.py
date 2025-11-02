@@ -36,7 +36,8 @@ def delete_document(library: LibraryOut, document: DocumentOut, client: Mistral)
     client.beta.libraries.documents.delete(library_id=library.id, document_id=document.id)
 
 def upload_document(file_path: str, file_name: str, client: Mistral, library: LibraryOut):
-    with open(file_path, "rb") as file_content:
+    full_path = Path(file_path) / file_name if file_name else Path(file_path)
+    with open(full_path, "rb") as file_content:
         uploaded_doc = client.beta.libraries.documents.upload(
             library_id=library.id,
             file=File(file_name=file_name, content=file_content),
