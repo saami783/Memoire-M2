@@ -71,7 +71,8 @@ def extract_documents(dossier_articles: str):
     """
     pdfs = get_dossier_pdfs(dossier_articles)
 
-    api_key = os.getenv("MISTRAIL_API_KEY")
+    # avec une clé classique je fais 10 uploads max avec une clé pro aussi
+    api_key = os.getenv("MISTRAIL_API_KEY_PRO")
     client = Mistral(api_key=api_key)
 
     libraries = get_libraries(client)
@@ -83,27 +84,27 @@ def extract_documents(dossier_articles: str):
         try:
             print(f"Tentative d'upload du pdf {pdf}")
             document = upload_document(dossier_articles, file_name, client, library)
-            print("Document téléversé...")
+            print("Le document a bien été uploadé.")
+            print(f"Id du document : {document.id}")
             sleep(10) # il faut attendre quelques instants le temps que le fichier s'upload avant d'extraire le contenu
-
+            print("Tentative d'extraction du contenu du document...")
             text_content = client.beta.libraries.documents.text_content(
                 library_id=library.id,
                 document_id=document.id
             )
-
+            print("Extraction avec succès.")
+            print("Tentative de sauvegarde du contenu dans un fichier txt...")
             save_text_result(pdf, text_content.text, True)
             sleep(4)
 
         except SDKError:
-            print(" <-- Limite Mistral atteinte. DeepSeek prend le relais pour la suite.")
+            print("Exception SDKError levée.")
 
             # run_deepseek(pdf_path)
             #
             # for reste_pdf in pdfs[idx+1:]:
             #     reste_path = f"{dossier_articles}/{reste_pdf}"
             #     run_deepseek(reste_path)
-            #
-            return
 
     print("Tous les PDFs ont été traités par Mistral sans bascule DeepSeek.")
 
