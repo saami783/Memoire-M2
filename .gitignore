@@ -7,9 +7,9 @@ gen
 .env
 DONE_CONJECTURES_ANALYSIS.txt
 boolean_queries.txt
-PICO_types_apprentissage_minimum_vertex_cover.txt
-tt.py
+/PICO*.txt
 /extraction/
 /downloads/
 /.venv/
 /test deepseek extraction/
+articles.xlsx
