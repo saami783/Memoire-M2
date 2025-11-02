@@ -30,7 +30,11 @@ def get_research_question_arg() -> str | None:
     print(args.question)
     return args.question
 
-def find_conjectures(client: Mistral, model: str):
+def find_conjectures():
+    api_key = os.getenv("MISTRAIL_API_KEY_PRO")
+    model = "mistral-large-latest" # le modèle est limité, il faut utiliser minimistral 8b
+    client = Mistral(api_key=api_key)
+
     libraries = get_libraries(client)
 
     if len(libraries) == 0:
@@ -60,29 +64,71 @@ def find_conjectures(client: Mistral, model: str):
             # todo : décommenter la fonction et la tester à nouveau
             # export_conjectures_to_json(response, document)
 
-def extract_documents(dossier_articles: str, client: Mistral):
-    dossier = get_dossier_pdfs(dossier_articles)
+def extract_documents(dossier_articles: str):
+    """
+    Utilise Mistral pour upload des documents puis extraire le contenu.
+    Si la limite d'utilisation est dépassée, on bascule sur deepseek-ocr.
+    """
+    pdfs = get_dossier_pdfs(dossier_articles)
+
+    api_key = os.getenv("MISTRAIL_API_KEY")
+    client = Mistral(api_key=api_key)
 
     libraries = get_libraries(client)
     library = libraries[0]
-    indiceMistral = 0
-    indiceDeepSeek = 0
 
-    try:
-        for pdf in dossier:
-            document = upload_document(f"{dossier_articles}/{pdf}", pdf, client, library)
-            indiceMistral += 1
-            print(document)
+    for idx, pdf in enumerate(pdfs):
+        file_name = pdf
+
+        try:
+            print(f"Tentative d'upload du pdf {pdf}")
+            document = upload_document(dossier_articles, file_name, client, library)
+            print("Document téléversé...")
+            sleep(10) # il faut attendre quelques instants le temps que le fichier s'upload avant d'extraire le contenu
+
+            text_content = client.beta.libraries.documents.text_content(
+                library_id=library.id,
+                document_id=document.id
+            )
+
+            save_text_result(pdf, text_content.text, True)
             sleep(4)
-    except SDKError:
-        print("Limite d'upload d'articles atteinte avec Mistral.. DeepSeek prend le relais.")
 
-        for pdf in dossier:
-            if indiceDeepSeek != indiceMistral:
-                indiceDeepSeek += 1
-            else:
-                os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "0")
-                extract_pdf_to_text(f"{dossier_articles}/{pdf}","tests")
+        except SDKError:
+            print(" <-- Limite Mistral atteinte. DeepSeek prend le relais pour la suite.")
+
+            # run_deepseek(pdf_path)
+            #
+            # for reste_pdf in pdfs[idx+1:]:
+            #     reste_path = f"{dossier_articles}/{reste_pdf}"
+            #     run_deepseek(reste_path)
+            #
+            return
+
+    print("Tous les PDFs ont été traités par Mistral sans bascule DeepSeek.")
+
+def save_text_result(pdf_name: str, text_content: str, is_mistral: bool):
+    parent_folder = "extraction"
+    mistral_fodler = f"{parent_folder}/mistral"
+    deepseek_folder = f"{parent_folder}/deepseek"
+
+    os.makedirs(f"{parent_folder}", exist_ok=True)
+    os.makedirs(f"{mistral_fodler}", exist_ok=True)
+    os.makedirs(f"{deepseek_folder}", exist_ok=True)
+
+    if is_mistral:
+        out_path = f"{mistral_fodler}/{pdf_name}.txt"
+    else:
+        out_path = f"{deepseek_folder}/{pdf_name}.txt"
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(text_content)
+
+    print("Le contenu du fichier a bien été sauvegardé.")
+
+def run_deepseek(pdf_path: str):
+    os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES", "0")
+    extract_pdf_to_text(pdf_path, "extractions")
 
 if __name__ == "__main__":
     # research_question = get_research_question_arg()
@@ -117,11 +163,21 @@ if __name__ == "__main__":
     # 3- si on atteint la limite alors pendre le relais avec deepseek
 
     load_dotenv()
-    api_key = os.getenv("MISTRAIL_API_KEY2")
-    model = "mistral-large-latest"
-    client = Mistral(api_key=api_key)
 
-    extract_documents("", client)
+    # Id du document 2508.16992v1 : 3259c8a5-0dcd-4b29-9531-bbaad4a90e6a
+
+    extract_documents("downloads/arxiv")
+
+    # test_pdf = r"downloads\arxiv\2508.16992v1.Online_Learning_for_Approximately_Convex_Functions_with_Long_term_Adversarial_Constraints.pdf"
+    # test_out = r"extractions"
+    # DEFAULT_PROMPT = "<image>\n<|grounding|>Convert the document to text."
+    #
+    # extract_pdf_to_text(
+    #     pdf_path=test_pdf,
+    #     out_dir=test_out,
+    #     prompt=DEFAULT_PROMPT,
+    #     quality_mode="fast",
+    # )
 
     # todo : délaisser mistral pour la détection des conjectures, je tiens une bonne piste assez fiable avec codex
     # find_conjectures("downloads/arxiv")
