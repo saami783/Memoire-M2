@@ -34,35 +34,38 @@ def find_conjectures():
     api_key = os.getenv("MISTRAIL_API_KEY_PRO")
     model = "mistral-large-latest" # le modèle est limité, il faut utiliser minimistral 8b
     client = Mistral(api_key=api_key)
+    # tester si la performance change en fonction du fichier txt ou du document passé au prompt. => lorsqu'il n'y a pas de conjectures, les réponses sont iso
+    # todo : tester avec une conjecture
+
+    # tester avec le modèle de deepseek s'il sait reconnaître des conjectures
 
     libraries = get_libraries(client)
+    library = libraries[0]
 
-    if len(libraries) == 0:
-        library = create_library(client, "Librairie documents pdf", "Cette librairie contient tous les documents en format PDF récupérée depuis différentes bases de données.")
-    else:
-        library = libraries[0]
+    document = get_document(library, "5ad2b09c-ef27-48a8-a438-2798bf1f622c", client)
 
-    print("Nombre total de documents : " + str(len(get_documents(library, client))))
+    text_content = client.beta.libraries.documents.text_content(
+        library_id=library.id,
+        document_id=document.id
+    )
+
+    print("Mistral utilise le prompt pour extraire les conjectures..")
+    response = get_mistral_reponse(client, model, text_content)
+    print("Affichage de la réponse de Mistral via le document de la librairie: ")
+    print(response)
+
+    sleep(15)
+
+    with open("extraction/mistral/2106.03594v3.Learning_Combinatorial_Node_Labeling_Algorithms.pdf.txt", "r", encoding="utf-8") as f:
+        contenu = f.read()
     print("\n")
-    print("Affichage des documents : \n")
-    for document in get_documents(library, client):
-        print("id : " + document.id + " - name : " + document.name)
+    response_from_txt = get_mistral_reponse_from_text(client, model, contenu)
+    print("Affichage de la réponse de Mistral via le fichier texte : ")
+    print(response_from_txt)
 
-        print(f"###### Détection de conjectures dans le document {document.name} ######")
 
-        if document.id == "44c93cf3-76f2-4fa4-8595-60792e971872":
-            print("Extraction de l'article choisi...")
-            text_content = client.beta.libraries.documents.text_content(
-                library_id=library.id,
-                document_id=document.id
-            )
-
-            print("Mistral utilise le prompt pour extraire les conjectures..")
-            response = get_mistral_reponse(client, model, text_content)
-            print("Affichage de la réponse de Mistral : ")
-            print(response)
-            # todo : décommenter la fonction et la tester à nouveau
-            # export_conjectures_to_json(response, document)
+    # todo : décommenter la fonction et la tester à nouveau
+    # export_conjectures_to_json(response, document)
 
 def extract_documents(dossier_articles: str):
     """
@@ -167,7 +170,7 @@ if __name__ == "__main__":
 
     # Id du document 2508.16992v1 : 3259c8a5-0dcd-4b29-9531-bbaad4a90e6a
 
-    extract_documents("downloads/arxiv")
+    # extract_documents("downloads/arxiv")
 
     # test_pdf = r"downloads\arxiv\2508.16992v1.Online_Learning_for_Approximately_Convex_Functions_with_Long_term_Adversarial_Constraints.pdf"
     # test_out = r"extractions"
@@ -181,7 +184,7 @@ if __name__ == "__main__":
     # )
 
     # todo : délaisser mistral pour la détection des conjectures, je tiens une bonne piste assez fiable avec codex
-    # find_conjectures("downloads/arxiv")
+    find_conjectures()
 
     # update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
 

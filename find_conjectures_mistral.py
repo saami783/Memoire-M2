@@ -133,6 +133,40 @@ def get_mistral_reponse(client: Mistral, model: str, text_content: DocumentTextC
         ]
     )
 
+
+def get_mistral_reponse_from_text(client: Mistral, model: str, text_content: str):
+    return client.chat.complete(
+        temperature=0,
+        top_p=1,
+        model=model,
+        messages=[
+            {"role": "user", "content": f"""VVoici le contenu de mon document: {text_content}\n\nMa question est la suivante, existe t-il des conjectures formulées par le(s) auteur(s) dans ce document ? Si oui, cite-les intégralement (mot à mot). Contraintes de sortie (TRÈS IMPORTANT) : - Tu dois répondre uniquement avec un objet JSON valide (UTF-8), sans aucun autre texte, sans balises et sans commentaires.
+                - Respecte exactement le schéma ci-dessous.
+                - Dans "text", mets la citation exacte de la conjecture depuis l'article ; remplace chaque retour à la ligne par \\n ; échappe les guillemets comme \\".
+                - Si aucune conjecture n'est trouvée, mets "contains_conjecture": "no" et "conjectures": [].
+
+                Schéma attendu (exemple de structure, pas un contenu) :
+                {{
+                  "titre_article": "<représente le nom du fichier PDF>",
+                  "contains_conjecture": "yes" | "no",
+                  "conjectures": [
+                    {{
+                      "id": "conjecture1",
+                      "page": <la page de la conjecture>,
+                      "text": "<citation exacte avec \\n pour les sauts de ligne et les guillemets échappés>"
+                    }},
+                    {{
+                      "id": "conjecture2",
+                      "page": <la page de la conjecture>,
+                      "text": "<...>"
+                    }}
+                  ]
+                }}
+                """
+             }
+        ]
+    )
+
 def get_mistral_reponse_strict(client: Mistral, model: str, text_content: DocumentTextContent):
     return client.chat.complete(
         model=model,
