@@ -58,17 +58,17 @@ def create_library_agent(new_library, client):
     )
     return library_agent
 
-def get_dossier_pdfs(dossier: str):
+def get_dossier_with_files(dossier: str, extension: str):
     dossier_path = Path(dossier)
 
-    pdf_paths = sorted(
-        p for p in dossier_path.iterdir()
-        if p.is_file() and p.suffix.lower() == ".pdf"
+    fichier_paths = sorted(
+        f for f in dossier_path.iterdir()
+        if f.is_file() and f.suffix.lower() == extension
     )
 
-    noms_pdfs = [p.name for p in pdf_paths]
+    noms_fichiers = [f.name for f in fichier_paths]
 
-    return noms_pdfs
+    return noms_fichiers
 
 def update_document_name(client: Mistral, document: DocumentOut, library: LibraryOut, new_name: str):
     updated_doc = client.beta.libraries.documents.update(

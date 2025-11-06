@@ -109,3 +109,14 @@ def get_prompt_to_generate_boolean_query(
         f"- Écris le fichier {out_file} (UTF-8). "
         f"- Vérifie que la DERNIÈRE LIGNE du fichier est exactement : {out_file} "
     )
+
+def get_prompt_find_conjecture(file: str, folder: str) -> str:
+    return (
+        f"dans le dossier {folder} je souhaite que tu ouvres le fichier {file} et que tu me dis "
+            "si oui ou non il existe une ou plusieurs conjecture(s) formulées par les auteurs de cet article. On ne tiendra"
+            " pas compte des conjectures citées d'autres articles. Raisonne uniquement par ton intelligence, je ne veux aucun script."
+            f" Réfléchis et donne moi ta réponse. Je veux que tu trouves des conjectures pour le fichier {file}. "
+            "Une fois ta tâche terminée, je veux que tu fasses une repasses afin de faire quelques micro-retouches de notation/terminologie "
+            "pour coller exactement au papier si nécessaire. Tu dois faire du mot-à-mot pour les conjectures, ce qui signifie que tu ne dois "
+            "pas traduire le texte ni inventer des choses. Reste fidèle à ce que le(s) auteur(s) a/ont écrit."
+    )

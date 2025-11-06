@@ -30,49 +30,77 @@ def get_research_question_arg() -> str | None:
     print(args.question)
     return args.question
 
-def find_conjectures():
+def find_conjectures(dossier_articles: str):
     api_key = os.getenv("MISTRAIL_API_KEY_PRO")
     model = "mistral-large-latest" # le modèle est limité, il faut utiliser minimistral 8b
     client = Mistral(api_key=api_key)
-    # tester si la performance change en fonction du fichier txt ou du document passé au prompt. => lorsqu'il n'y a pas de conjectures, les réponses sont iso
-    # todo : tester avec une conjecture
+   # todo : tester avec une conjecture
 
     # tester avec le modèle de deepseek s'il sait reconnaître des conjectures
 
-    libraries = get_libraries(client)
-    library = libraries[0]
+    mistral_folder = dossier_articles+"mistral"
+    deepseek_folder = dossier_articles+"deepseek"
 
-    document = get_document(library, "5ad2b09c-ef27-48a8-a438-2798bf1f622c", client)
+    mistral_files = get_dossier_with_files(mistral_folder, ".txt")
 
-    text_content = client.beta.libraries.documents.text_content(
-        library_id=library.id,
-        document_id=document.id
-    )
+    deepseek_files = get_dossier_with_files(deepseek_folder, ".txt")
 
-    print("Mistral utilise le prompt pour extraire les conjectures..")
-    response = get_mistral_reponse(client, model, text_content)
-    print("Affichage de la réponse de Mistral via le document de la librairie: ")
-    print(response)
+    for idx, file_name in enumerate(deepseek_files):
+        print(file_name)
+        print("Lecture du fichier...")
+        with open(deepseek_folder+"/"+file_name, "r", encoding="utf-8") as f:
+            contenu = f.read()
 
-    sleep(15)
+        print("Mistral utilise le prompt pour extraire les conjectures..")
+        response = get_mistral_reponse_from_text(client, model, contenu)
+        print("Affichage de la réponse de Mistral via le fichier texte : ")
+        print(response)
 
-    with open("extraction/mistral/2106.03594v3.Learning_Combinatorial_Node_Labeling_Algorithms.pdf.txt", "r", encoding="utf-8") as f:
-        contenu = f.read()
-    print("\n")
-    response_from_txt = get_mistral_reponse_from_text(client, model, contenu)
-    print("Affichage de la réponse de Mistral via le fichier texte : ")
-    print(response_from_txt)
+        break
 
+    # libraries = get_libraries(client)
+    # library = libraries[0]
+    # document = get_document(library, "8b3558ef-f224-4d13-9c36-29f3b661b566", client)
+    # text_content = client.beta.libraries.documents.text_content(
+    #     library_id=library.id,
+    #     document_id=document.id
+    # )
+    # print("Mistral utilise le prompt pour extraire les conjectures..")
+    # response = get_mistral_reponse(client, model, text_content)
+    # print("Affichage de la réponse de Mistral via le document de la librairie: ")
+    # print(response)
 
     # todo : décommenter la fonction et la tester à nouveau
     # export_conjectures_to_json(response, document)
+
+def find_conjectures_with_codex(dossier_articles: str):
+    mistral_folder = dossier_articles+"mistral"
+    deepseek_folder = dossier_articles+"deepseek"
+
+    mistral_files = get_dossier_with_files(mistral_folder, ".txt")
+
+    deepseek_files = get_dossier_with_files(deepseek_folder, ".txt")
+
+    # todo : pour chaque fichier, intérroger codex en lui donnant le chemin du fichier dans le prompt
+
+    for idx, file_name in enumerate(deepseek_files):
+        print(file_name)
+        print("Lecture du fichier...")
+        prompt = get_prompt_find_conjecture(deepseek_folder, file_name)
+        os.execvp("codex", ["codex", "--sandbox=danger-full-access", prompt])
+
+    # for idx, file_name in enumerate(mistral_files):
+    #     print(file_name)
+    #     print("Lecture du fichier...")
+    #
+    #     break
 
 def extract_documents(dossier_articles: str):
     """
     Utilise Mistral pour upload des documents puis extraire le contenu.
     Si la limite d'utilisation est dépassée, on bascule sur deepseek-ocr.
     """
-    pdfs = get_dossier_pdfs(dossier_articles)
+    pdfs = get_dossier_with_files(dossier_articles, ".pdf")
 
     # avec une clé classique je fais 10 uploads max avec une clé pro aussi
     api_key = os.getenv("MISTRAIL_API_KEY_PRO")
@@ -89,7 +117,7 @@ def extract_documents(dossier_articles: str):
             document = upload_document(dossier_articles, file_name, client, library)
             print("Le document a bien été uploadé.")
             print(f"Id du document : {document.id}")
-            sleep(10) # il faut attendre quelques instants le temps que le fichier s'upload avant d'extraire le contenu
+            sleep(25) # il faut attendre quelques instants le temps que le fichier s'upload avant d'extraire le contenu
             print("Tentative d'extraction du contenu du document...")
             text_content = client.beta.libraries.documents.text_content(
                 library_id=library.id,
@@ -184,7 +212,8 @@ if __name__ == "__main__":
     # )
 
     # todo : délaisser mistral pour la détection des conjectures, je tiens une bonne piste assez fiable avec codex
-    find_conjectures()
+    # find_conjectures("extraction/")
+    find_conjectures_with_codex("extraction/")
 
     # update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
 

@@ -1,0 +1,190 @@
+# Graph Minors Meet Machine Learning: the Power of Obstructions 
+
+Faisal N. Abu-Khzam ${ }^{1}$, Mohamed Mahmoud Abd El-Wahab ${ }^{2}$, and Noureldin Yosri ${ }^{3}$<br>${ }^{1}$ Department of Computer Science and Mathematics, Lebanese American University, Lebanon<br>${ }^{2}$ School of Engineering, Information Technology \& Environment, Charles Darwin University, Australia<br>${ }^{3}$ College of Computing and Information Technology, Arab Academy of Science and Technology, Egypt
+
+
+#### Abstract
+
+Computational intractability has for decades motivated the development of a plethora of methodologies that mainly aimed at a quality-time trade-off. The use of Machine Learning techniques has finally emerged as one of the possible tools to obtain approximate solutions to $\mathcal{N} \mathcal{P}$-hard combinatorial optimization problems. In a recent article, Dai et al. introduced a method for computing such approximate solutions for instances of the Vertex Cover problem. In this paper we consider the effectiveness of selecting a proper training strategy by considering special problem instances called obstructions that we believe carry some intrinsic properties of the problem itself. Capitalizing on the recent work of Dai et al. on the Vertex Cover problem, and using the same case study as well as 19 other problem instances, we show the utility of using obstructions for training neural networks. Experiments show that training with obstructions results in a huge reduction in number of iterations needed for convergence, thus gaining a substantial reduction in the time needed for training the model.
+
+
+## 1 Introduction
+
+Let $G$ be a finite undirected graph with possible loops and multiple edges. A graph $H$ is said to be a minor of $G$, or $H \leq_{m} G$, if a graph isomorphic to $H$ can be obtained from a subgraph of $G$ by contracting zero or more edges. Here an edge $u v$is contracted by replacing $u$ and $v$ with a vertex $w$ whose neighborhood is the union of the neighborhood of $u$ and $v$. As such, $\leq_{m}$ defines a partial ordering on the set of finite graphs known as the minor order.
+
+Let $F$ be a family of finite graphs that is closed under the minor order. The obstruction set of $F$ is defined to be the set of graphs in the complement of $F$ that are minimal in the minor order. That is $X$ is an obstruction of $F$ if $X \notin F$ and every minor of $X$ is in $F$. A typical classical example of a minor-closed family is the set of planar graphs. In this case, and according to Wagner's theorem [21], the set of obstructions consists of only two graphs: the complete graph on five vertices and the balanced complete bipartite graph on six vertices.
+
+Thanks to the celebrated Graph Minor Theorem, which states that finite graphs are well quasi ordered by the minor order relation [18], we know the obstruction set of a minor-closed family is finite. This implicitly leads to polynomial-time membership tests for such families, though non-constructively according to the work of Fellows and Langston [10], which paved the way for the emergence of parameterized complexity theory [9]. The main idea being that a decision problem whose family of YES-instances is minor-closed would be efficiently solvable in polynomial time when some input parameter is fixed. A well studied notable example is the classical Vertex Cover problem. Unfortunately, there is no general algorithm for constructing sets of vertex-cover obstructions [7]. In this paper we address the optimization version of the problem and show that computing a potentially large subset of such obstructions can be used to improve vertex cover approximation via a proper use of deep learning.
+
+Using deep learning to solve graph theoretic problems is considered hard in general, even if approximate solutions are sought. This can be attributed to the difficulty of representing/organizing graphs in a grid-like structure, and deal with various forms of graphs: weighted/unweighted, directed/undirected, etc.... Moreover, the nature of a required solution varies from one problem to another (vertex/edge classification, graph classification, etc.) To tackle these challenges, different neural network architectures have been proposed including Graph Neural Networks (GNNs) [13, 11, 19], Graph Convolution Networks (GCNs) [2], and Graph Autoencoders (GAEs) [16].
+
+An in depth discussion for problems to apply deep learning to graphs as well as description and comparison of various models was done by Zhang et al. in [22]. To tackle combinatorial optimization problems on graphs, Vinyals et al. introduced the Pointer Net (Ptr-Net) architecture [20], while Bello et al. proposed a reinforcement learning approach to combinatorial problems [1]. In this work we build on the work of Dai et al. in [4] and [5], namely using the Structure2Vec model and the reinforcement learning formulation of Bello et al. in [1].# 2 Preliminaries 
+
+Throughout the paper we use common graph theoretic terminology. For a graph $G$, we use $V(G)$ and $E(G)$ to denote the sets of vertices and edges of $G$, respectively. For a vertex $v$ of $G$, we denote by $N(v)$ the neighborhood of $v$, i.e., the set of vertices adjacent to $v$ in $G$, and by $E(v)$ the set of all edges that are incident on $v$.
+
+A vertex cover of a graph $G$ is a subset of the vertex set of $G$ whose deletion results in an edge-less graph. In other words, every edge of $G$ has at least one endpoint in $C$. The corresponding optimization problem, which seeks a minimumcardinality vertex cover in a given graph, is one of the most studied classical $\mathcal{N} \mathcal{P}$-hard problems [14].
+
+An effective greedy approach for Vertex Cover consists of successively selecting a vertex of maximum degree and placing it in the solution, until the graph is edgeless. A pseudocode is given below.
+
+```
+Algorithm 1
+    \(C \leftarrow \phi\)
+    while there is at least one uncovered edge do
+        \(u \leftarrow \operatorname{argmax}_{v \notin C}\|\{v t \mid t \notin C\}\|\)
+        \(C \leftarrow C \cup\{u\}\)
+    end while
+    Return \(C\)
+```
+
+The above method does not guarantee a constant-factor approximation, but it is known to perform well in practice. In fact the problem is known to be $\mathcal{A P} \mathcal{X}$ complete with a best-known factor-two polynomial-time approxiamtion algorithm, attributed to F. Gavril in [12] but also known to be independently discovered by M. Yannakakis. This was shown to be best possible modulo the unique games conjecture [15]. A pseudocode of this factor-two approximation algorithm follows. In the next section, we present a reinforced machine learning approach that can compete with known approximation algorithms.
+
+```
+Algorithm 2
+    \(C \leftarrow \phi\)
+    while there is at least one uncovered edge do
+        \(u v \leftarrow\) any uncovered edges
+        \(C \leftarrow C \cup\{u, v\}\)
+    end while
+    Return \(C\)
+```For any (fixed) integer $k$, the family $F_{k}$ of graphs of minimum vertex cover bounded above by $k$ is minor-closed. This is simply due to the fact that neither edge contraction nor vertex/edge deletion can increase the minimum vertex cover size. Therefore we know the set of obstructions for $F_{k}$ is finite. We shall denote this set by $\mathcal{O} b(k)$. We also use $v c(G)$ to refer to a minimum-size vertex cover of $G$. We should note that many combinatorial graph problems satisfy the same closure property (under taking minors) when fixing some parameter that is often the solution size. Notable examples include Treewidth, Pathwidth and Feedback Vertex Set. We shall refer to such problems as being minor-closed in the rest of this paper.
+
+We denote by $C_{n}$ the cycle on $n$ vertices, and by $K_{n}$ the complete graph (or clique) on $n$ vertices. Observe that a graph $G$ that has $C_{2 k+1}$ as minor must have a minimum vertex cover of size strictly greater than $k$. The same applies if $K_{k+2} \leq_{m} G$. Thus the obstruction set of a minimum vertex cover of size $k$ contains $C_{2 k+1}$ and $K_{k+2}$. Unfortunately, it was shown in [3] and [7] that the size of the obstruction set for $k$-Vertex Cover grows exponentially with $k$. In general, there is no constructive approach to generate all the connected obstructions of $k$-Vertex Cover from the obstructions for $(k-1)$-Vertex Cover [7]. However, a large percentage of such obstructions can be obtained, especially when $k$ is small enough, as we shall see in the next section.
+
+# 3 Deep Learning for Minor-Closed Combinatorial Problems: the case of Vertex Cover 
+
+In [5], Dai et al. used the structure2vec model of [4] to solve approximately a number of combinatorial optimization problems including Minimum Vertex Cover. The main setup formulates the problem as a reinforcement learning problem as in [1] applied to an Erdos-Renyi model for graph generation and to the meme-tracker dataset ${ }^{1}$. As mentioned earlier, we build on this recent work and we further suggest the use of Vertex Cover obstructions of sizes ranging from 1 to 10 for training, instead of using random subgraphs of the target graph as done in [5]. The rational behind this approach stems from the idea that when training a network on a specific family of graphs that share the same statistics, the network should be able to learn those statistics and to maximize a function mapping the given choices for a move (e.g. the next vertex to add to the vertex cover) to a cost representing the true cost/gain of using that vertex. For example, in the Erdos-Renyi model for graph generation any edge may exist with probability $p$, and so all graphs on $n$ vertices and $m$ edges exist with equal probability $p^{m}(1-p)^{(\frac{n}{2})-m}$. These graphs share
+
+[^0]
+[^0]:    ${ }^{1}$ http://www.memetracker.org/some common statistics, such as expected degree and cluster distribution; so given a large sample of these graphs, a large enough network should be able to effectively learn those statistics.
+
+The Structure2Vec approach introduced by Dai et al. [4] is a new model that computes a $p$ dimensional feature embedding $\mu_{v}$ for each vertex $v \in V$. It does that by initializing $\mu_{v}^{(0)}=0$ and then update the embedding synchronously at each iteration as:
+
+$$
+\mu_{v}^{(t+1)}=F\left(x_{v},\left\{\mu^{(t)}\right\}_{u \in \mathcal{N}(v)},\{w(v, u)\}_{u \in \mathcal{N}(v)} ; \Theta\right)
+$$
+
+Where $x_{v}$ is a vertex specific tag (in our case whether $v$ is in the current vertex cover or not), $w(v, u)$ is the weight of edge $\mathrm{v}=v u$, which is set to 1 in our experiments, and $F$ is a non linear function and $\Theta$ is the parameter of the network.
+
+We recall that in a reinforcement learning setting for a certain problem there are typically four main elements (among other things): the problem state; a set of possible actions; the model that interprets the state and decides what action to take (referred to by the agent); and a reward function that takes a (state, action) pair and returns the reward for taking that action. The goal of the agent is to maximize the summation of rewards it receives, in our case the setting is:
+
+- State $\sum_{v \in V} \mu_{v}$
+- Actions the choices for which vertex to add to the cover $v \notin V \wedge v \in V$
+- Agent the model
+- Reward function the reward for each move the constant -1
+
+Training the model happens in steps. The first is to randomly initialize the weights of the network, then sample a batch of data to serve as a cross validation data, then we sample batches of data for training, after every epoch we evaluate the current model against the validation data and finally pick the best performing model on the validation date; while training we also evaluate the models on some popular graph data sets to monitor how the performance change (however this does not change training in anyway since we only visualize the performance on the test data but do not decide on it). A few samples of those visualizations are presented in Figures 1, 2, 3, 4 and 5.
+
+For our obstruction-based model, the sampled graphs are instances of obstruction graphs we generated according to the below described methods. In the nonobstruction model we take subgraphs of the test data (reproducing the results of Dai et al [5])# Vertex Cover Obstructions 
+
+As mentioned in the previous section, designing an algorithm for computing all the elements of $\mathcal{O} b(k)$ is close to impossible. We use the following two methods described in [7] to construct a sufficient number of connected obstructions. The reason behind our use of connected obstructions stems from the fact that every connected component of an obstruction is an obstruction for a smaller value of $k$ (so already computed at an earlier stage).
+
+Given a connected graph $G \in \mathcal{O} b(k)$, we produce a graph $G^{\prime} \in \mathcal{O} b(k+1)$ by applying Algorithms 3 or 4 described below.
+
+```
+Algorithm 3 Method1 [7]
+    \(V\left(G^{\prime}\right) \leftarrow V(G) \cup\left\{v^{\prime}, v^{\prime \prime}\right\} / / v^{\prime}, v^{\prime \prime}\) new vertices
+    \(E\left(G^{\prime}\right) \leftarrow E(G)-\left\{v_{1} v_{2}\right\}\)
+    \(E\left(G^{\prime}\right) \leftarrow E\left(G^{\prime}\right) \cup\left\{v_{1} v^{\prime}, v^{\prime} v^{\prime \prime}, v^{\prime \prime} v_{2}\right\}\)
+```
+
+```
+Algorithm 4 Method2 [7]
+    \(V\left(G^{\prime}\right) \leftarrow V(G) \cup\left\{v^{\prime}\right\} / / v^{\prime}\) is a new vertex
+    \(E\left(G^{\prime}\right) \leftarrow E(G) \cup\left\{v^{\prime} v\right\} \cup\left\{v^{\prime} u \mid u \in \mathcal{N}(v)\right\}\)
+```
+
+Our strategy for computing obstructions in this paper is based on using Algorithms 3 and 4, starting from $\mathcal{O} b(3)$. The two methods are likely to produce many duplicates (or isomorphic) graphs. To reduce the number of produced obstructions, we used Nauty \& Traces C-library [17]. Consequently we generated the following numbers of connected obstructions reported in Table 1 below.
+
+| $k$ | Our count | Exact count |
+| :--: | :--: | :--: |
+| 5 | 26 | 31 |
+| 6 | 124 | 188 |
+| 7 | 728 | 1930 |
+| 8 | 5118 | unknown |
+| 9 | 39900 | unknown |
+| 10 | 335537 | unknown |
+
+Table 1: Number of obtained connected obstructions for size- $k$ vertex cover; exact counts obtained from [3], [6] and [8].# 4 Experiments 
+
+To assess the utility of our obstructions-based training, we adopted the same neural network and experimental setup of Dai, et al in [5]. In fact we used the same hyper-parameters and setup, making sure we only change the training and validation data between the two approaches.
+
+Training the network starts by randomly initializing its weights and at each iteration/epoch we pass the training data to the network to improve its weights and then evaluate the network on the validation data and finally take the best weights over all iterations (the weights that gave the best results on the validation data).
+
+As for the data sets, we used 19 widely used graphs from the Stanford Large Network Dataset Collection ${ }^{2}$ and networkrepository ${ }^{3}$ as well as the meme-tracker data used by [5]. We compared the size of the vertex cover produced by Dai's random subsets approach in [5] versus our obstructions' approach. Moreover, we compared both to the maximum-degree greedy heuristic and the factor-two approximation algorithm, dubbed Alg1 and Alg2, respectively. We report our findings in Table 2. As can be seen, the two approaches adopted by Dai et al. and our work are comparable. They both consistently outperform Alg2 and are nearly identical to Alg1. Despite the much smaller training set, the use of obstructions proved to be highly effective. In fact, we almost always outperform the random subsets approach of Dai et al., sometimes significantly as in the example of the MANN-a45 graph, and we obtain a vertex cover solver that is comparable to the best-known heuristic. The main advantage of our approach is two-fold:
+
+1. Fast convergence (our method reached its best version in $\approx 3000$ iterations while Dai's method used $\approx 700,000$ )
+2. Stability of learning, as shown in Figure 1
+
+We present in Figure 1 the mean squared error over time of each algorithm. In fact, after each training iteration we computed $\frac{1}{20} \sum_{G}\left(\right.$ algorithm $\left._{i}(G)-v c(G)\right)^{2}$ where the algorithms are Alg1, Alg2, the model trained without obstructions (Dai et al [5]) and the same model trained with obstructions.
+
+Finally, Figures 2, 3, 4 and 5 show the error over time for four of the 20 data sets, chosen so as to summarize the average overall performance.
+
+[^0]
+[^0]:    ${ }^{2}$ https://snap.stanford.edu/data/
+    ${ }^{3}$ http://networkrepository.com/index.php| Graph | $\|V\|$ | $\|E\|$ | Alg1 | Alg2 | Random <br> subsets | Obstructions <br> method |
+| :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| C2000-5 | 2000 | 999164 | 1989 | 1996 | 1991 | 1991 |
+| C250-9 | 250 | 3141 | 216 | 236 | 214 | 211 |
+| C500-9 | 500 | 12418 | 453 | 484 | 456 | 453 |
+| MANN-a27 | 378 | 702 | 260 | 280 | 266 | 261 |
+| MANN-a45 | 1035 | 1980 | 704 | 740 | 740 | 705 |
+| brock800-1 | 800 | 112095 | 785 | 796 | 788 | 785 |
+| c-fat200-1 | 200 | 18366 | 187 | 198 | 188 | 192 |
+| c-fat200-5 | 200 | 11427 | 141 | 192 | 142 | 142 |
+| gen400-p0-9-55 | 400 | 7980 | 370 | 386 | 371 | 371 |
+| gen400-p0-9-65 | 400 | 7980 | 367 | 384 | 367 | 368 |
+| hamming10-2 | 1024 | 5120 | 511 | 948 | 513 | 515 |
+| hamming8-4 | 256 | 11776 | 239 | 252 | 240 | 240 |
+| keller4 | 171 | 5100 | 162 | 166 | 163 | 163 |
+| p-hat1500-1 | 1500 | 839327 | 1490 | 1498 | 1493 | 1494 |
+| p-hat700-2 | 700 | 122922 | 658 | 688 | 662 | 669 |
+| p-hat700-3 | 700 | 61640 | 642 | 684 | 647 | 642 |
+| san400-0-9-1 | 400 | 7980 | 349 | 386 | 350 | 350 |
+| sanr200-0-9 | 200 | 2037 | 161 | 184 | 163 | 164 |
+| sanr400-0-7 | 400 | 23931 | 382 | 394 | 386 | 384 |
+| Meme-tracker | 960 | 4888 | 482 | 658 | 480 | 481 |
+
+Table 2: Performance on real graphs: a comparison between the best performing network of [5] (after $\approx 700,000$ epochs) vs. our model after 3000 epochs.
+
+
+Figure 1: Average MSE of the two models (taken over all the data instances) after each epoch of training over their respective training sets.
+
+Figure 2: The output of the two models over the MANN-a45 dataset.
+
+
+Figure 3: The output of two models over the keller4 dataset.
+
+Figure 4: The output of the two models over the hamming8-4 dataset.
+
+
+Figure 5: The output of the two models over the c-fat200-1 dataset.# 5 Conclusion 
+
+In this paper we combined methods from graph theory and machine learning in an attempt to achieve improved approximation techniques for optimization problems. Our approach applies to what we call minor-closed problems such as Vertex Cover, Feedback Vertex Set, Treewidth, Cycle Packing, etc. The main idea is to use the notion of an obstruction for training.
+
+The reported results prove that the use of obstructions has a tremendous impact on the training time, reducing the number of iterations from $\approx 700 \mathrm{~K}$ to $\approx 3 \mathrm{~K}$ in the training time needed for convergence. Moreover, although we used only a small subset of vertex cover obstructions, we consistently obtained close to optimum solutions, and sometimes better than previously reported results, even at an early stage during training.
+
+Finally, we have reported preliminary (proof of concept) results at this stage. Although our work thus far is restricted to computing the vertex cover obstruction sets and using them for training a particular network model, we believe this work will initiate a number of projects on various minor-closed problems, hopefully reviving the work on developing more techniques for computing obstruction sets.
+
+## References
+
+[1] I. Bello, H. Pham, Q. V. Le, M. Norouzi, and S. Bengio. Neural combinatorial optimization with reinforcement learning, 2016.
+[2] J. Bruna, W. Zaremba, A. Szlam, and Y. LeCun. Spectral networks and locally connected networks on graphs, 2013.
+[3] K. Cattell and M. J. Dinneen. A characterization of graphs with vertex cover up to five. In V. Bouchitté and M. Morvan, editors, Orders, Algorithms, and Applications, International Workshop ORDAL '94, Lyon, France, July 4-8, 1994, Proceedings, volume 831 of Lecture Notes in Computer Science, pages 86-99. Springer, 1994.
+[4] H. Dai, B. Dai, and L. Song. Discriminative embeddings of latent variable models for structured data. In M. Balcan and K. Q. Weinberger, editors, Proceedings of the 33nd International Conference on Machine Learning, ICML 2016, New York City, NY, USA, June 19-24, 2016, volume 48 of JMLR Workshop and Conference Proceedings, pages 2702-2711. JMLR.org, 2016.
+[5] H. Dai, Z. Kozareva, B. Dai, A. J. Smola, and L. Song. Learning steadystates of iterative algorithms over graphs. In J. G. Dy and A. Krause, editors,Proceedings of the 35th International Conference on Machine Learning, ICML 2018, Stockholmsmässan, Stockholm, Sweden, July 10-15, 2018, volume 80 of Proceedings of Machine Learning Research, pages 1114-1122. PMLR, 2018.
+[6] M. Dinneen and R. Versteegen. Obstructions for the Graphs of Vertex Cover Seven. Technical report, Centre for Discrete Mathematics and Theoretical Computer Science (CDMTCS), 2012.
+[7] M. J. Dinneen and R. Lai. Properties of vertex cover obstructions. Discrete Mathematics, 307(21):2484-2500, 2007.
+[8] M. J. Dinneen and L. Xiong. Minor-order obstructions for the graphs of vertex cover 6. Journal of Graph Theory, 41(3):163-178, 2002.
+[9] R. G. Downey and M. R. Fellows. Parameterized Complexity. Monographs in Computer Science. Springer, 1999.
+[10] M. R. Fellows and M. A. Langston. Nonconstructive tools for proving polynomial-time decidability. J. ACM, 35(3):727-739, 1988.
+[11] P. Frasconi, M. Gori, and A. Sperduti. A general framework for adaptive processing of data structures. IEEE Transactions on Neural Networks, 9(5):768786, Sep. 1998.
+[12] M. R. Garey and D. S. Johnson. Computers and Intractability: A Guide to the Theory of NP-Completeness. W. H. Freeman, 1979.
+[13] M. Gori, G. Monfardini, and F. Scarselli. A new model for learning in graph domains. Proceedings. 2005 IEEE International Joint Conference on Neural Networks, 2005., 2:729-734 vol. 2, 2005.
+[14] R. M. Karp. Reducibility among Combinatorial Problems, pages 85-103. Springer US, Boston, MA, 1972.
+[15] S. Khot and O. Regev. Vertex cover might be hard to approximate to within 2 - $\epsilon$. Journal of Computer and System Sciences, 74(3):335 - 349, 2008. Computational Complexity 2003.
+[16] T. N. Kipf and M. Welling. Variational graph auto-encoders, 2016.
+[17] B. D. McKay and A. Piperno. Practical graph isomorphism, \{II\}. Journal of Symbolic Computation, 60(0):94 - 112, 2014.[18] N. Robertson and P. Seymour. Graph minors. xx. wagner's conjecture. Journal of Combinatorial Theory, Series B, 92(2):325 - 357, 2004. Special Issue Dedicated to Professor W.T. Tutte.
+[19] F. Scarselli, M. Gori, A. C. Tsoi, M. Hagenbuchner, and G. Monfardini. The graph neural network model. IEEE Transactions on Neural Networks, 20(1):61-80, Jan 2009.
+[20] O. Vinyals, M. Fortunato, and N. Jaitly. Pointer networks. In C. Cortes, N. D. Lawrence, D. D. Lee, M. Sugiyama, and R. Garnett, editors, Advances in Neural Information Processing Systems 28, pages 2692-2700. Curran Associates, Inc., 2015.
+[21] K. Wagner. Über eine eigenschaft der ebenen komplexe. Mathematische Annalen, 114(1):570-590, Dec 1937.
+[22] Z. Zhang, P. Cui, and W. Zhu. Deep learning on graphs: A survey. CoRR, abs/1812.04202, 2018.

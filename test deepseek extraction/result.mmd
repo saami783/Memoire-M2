@@ -1,0 +1,21 @@
+
+Lemma 13. The magnitude of the surrogate loss \(\hat{l}_{t}(a) = V_{t}(a) + c\Phi^{\prime}(Q(t - 1))c_{t}(a)\) can be uniformly bounded as follows: 
+
+
+\[
+\min_{t \in [T]} \| \hat{l}_t \|_\infty \leq (c^2 T \log T)^{l \log T}
+\]
+
+
+where \(V = \frac{(me(18K\sqrt{T}(\log T)^2 + B_T))^m}{36K\sqrt{T}(\log T)^2}\) and \(\Phi(x) = x^m\) with \(m = \log T\). 
+
+
+Proof. 
+
+
+\[
+\min_{t \in [T]} \|\hat{l}_t\|_\infty \le V + c\Phi'(Q(T)) \le (me(18K\sqrt{T}(\log T)^2 + B_T))^m + em(T + \log T)^m \le (c^2 T \log T)^{l \log T}
+\]
+
+
+where the second last inequality follows because \(V < (me(18K\sqrt{T}(\log T)^2 + B_T))^m\), \(B_T \le T\) (the sum of constraint violations is bounded by \(T\)) and \(Q(T) \le T + \log T\). \(\square\)
