@@ -8,8 +8,4 @@ gen
 DONE_CONJECTURES_ANALYSIS.txt
 boolean_queries.txt
 /PICO*.txt
-/extraction/
-/downloads/
 /.venv/
-/test deepseek extraction/
-articles.xlsx
