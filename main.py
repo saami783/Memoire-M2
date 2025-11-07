@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 import argparse
 
+from utils.codex_create_json_conjecture import create_json_conjecture
 from utils.deepseek_extract_pdf_to_text import extract_pdf_to_text
 from utils.codex_prompts import *
 from arxiv_api import *
@@ -39,11 +40,12 @@ def find_conjectures_with_codex(dossier_articles: str):
     # on peut se dire qu'il doit créer un fichier avec les conjectures, et dès lors que le fichier existe et que la dernière ligne est "finish"
     # alors on kill le processus
 
-    for idx, file_name in enumerate(deepseek_files):
+    for idx, file_name in enumerate(mistral_files):
         print(file_name)
         print("Lecture du fichier...")
-        prompt = get_prompt_find_conjecture(deepseek_folder, file_name)
-        os.execvp("codex", ["codex", "--sandbox=danger-full-access", prompt])
+        prompt = get_prompt_find_conjecture(mistral_folder, file_name)
+        create_json_conjecture(prompt, Path(mistral_folder+"/json"))
+        # os.execvp("codex", ["codex", "--sandbox=danger-full-access", prompt])
 
     # for idx, file_name in enumerate(mistral_files):
     #     print(file_name)
