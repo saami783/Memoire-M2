@@ -1,0 +1,40 @@
+{
+  "source_file": "extraction/mistral/1802.03685v4.Learning_a_SAT_Solver_from_Single_Bit_Supervision.pdf.txt",
+  "has_conjectures": true,
+  "conjectures": [
+    {
+      "quote": "We believe that their network's success is an instance of the phenomenon we study in this paper, namely that MPNNs can synthesize local search algorithms for constraint satisfaction problems.",
+      "location": "extraction/mistral/1802.03685v4.Learning_a_SAT_Solver_from_Single_Bit_Supervision.pdf.txt:145",
+      "parameters": [
+        {"name": "\\mathrm{MPNN}", "definition": "\\text{Message Passing Neural Networks}"},
+        {"name": "\\mathcal{A}_{\\text{LS}}", "definition": "\\text{Local search algorithms}"},
+        {"name": "\\mathcal{CSP}", "definition": "\\text{Constraint satisfaction problems}"}
+      ]
+    },
+    {
+      "quote": "We believe that architectures descended from NeuroSAT will be able to learn very different mechanisms and heuristics depending on the data they are trained on and the details of their objective functions.",
+      "location": "extraction/mistral/1802.03685v4.Learning_a_SAT_Solver_from_Single_Bit_Supervision.pdf.txt:151",
+      "parameters": [
+        {"name": "\\mathrm{NeuroSAT}", "definition": "\\text{The specific MPNN architecture described in the paper}"},
+        {"name": "\\mathcal{D}", "definition": "\\text{Training data distribution}"},
+        {"name": "\\mathcal{L}", "definition": "\\text{Objective (loss) function}"}
+      ]
+    },
+    {
+      "quote": "We are cautiously optimistic that a descendant of NeuroSAT will one day lead to improvements to the state-of-the-art.",
+      "location": "extraction/mistral/1802.03685v4.Learning_a_SAT_Solver_from_Single_Bit_Supervision.pdf.txt:151",
+      "parameters": [
+        {"name": "\\mathrm{NeuroSAT}", "definition": "\\text{The specific MPNN architecture described in the paper}"},
+        {"name": "\\text{SOTA}", "definition": "\\text{State-of-the-art in SAT solving}"}
+      ]
+    },
+    {
+      "quote": "Note that we do not expect NeuroUNSAT to generalize to arbitary unsat cores: as far as we know it is simply memorizing a collection of specific subgraphs, and there is no evidence it has learned a generic procedure to prove unsat.",
+      "location": "extraction/mistral/1802.03685v4.Learning_a_SAT_Solver_from_Single_Bit_Supervision.pdf.txt:136",
+      "parameters": [
+        {"name": "\\mathrm{NeuroUNSAT}", "definition": "\\text{Variant trained to predict unsatisfiability by recognizing unsat cores}"},
+        {"name": "u", "definition": "\\text{An unsat core (notation consistent with the paper)}"}
+      ]
+    }
+  ]
+}
