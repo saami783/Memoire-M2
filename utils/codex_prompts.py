@@ -116,7 +116,11 @@ def get_prompt_find_conjecture(file: str, folder: str) -> str:
             "si oui ou non il existe une ou plusieurs conjecture(s) formulées par les auteurs de cet article. On ne tiendra"
             " pas compte des conjectures citées d'autres articles. Raisonne uniquement par ton intelligence, je ne veux aucun script."
             f" Réfléchis et donne moi ta réponse. Je veux que tu trouves des conjectures pour le fichier {file}. "
+            "Aussi pour chaque conjecture, je souhaite que tu définisses les paramètres utilisés. Pour les formules mathématiques "
+            "ainsi que les paramètres, utilise la syntaxe latex."
             "Une fois ta tâche terminée, je veux que tu fasses une repasses afin de faire quelques micro-retouches de notation/terminologie "
-            "pour coller exactement au papier si nécessaire. Tu dois faire du mot-à-mot pour les conjectures, ce qui signifie que tu ne dois "
+            "pour coller exactement au papier si nécessaire. Mets un point de vigilance sur les indices par exemple."
+            "Tu dois faire du mot-à-mot pour les conjectures, ce qui signifie que tu ne dois "
             "pas traduire le texte ni inventer des choses. Reste fidèle à ce que le(s) auteur(s) a/ont écrit."
+            "Écris toutes les conjectures que tu as trouvé dans un fichier json."
     )

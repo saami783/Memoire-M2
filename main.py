@@ -1,14 +1,10 @@
 ﻿from __future__ import annotations
 import argparse
 
-from deepseek_extract_pdf_to_text import extract_pdf_to_text
-from utils.create_pico_file import create_pico_file
+from utils.deepseek_extract_pdf_to_text import extract_pdf_to_text
 from utils.codex_prompts import *
-from utils.create_boolean_queries_file import create_boolean_queries_file
 from arxiv_api import *
-from utils.excel_service import *
-from find_conjectures_mistral import *
-from utils.update_conjecture_excel import update_excel_with_conjectures
+from utils.extract_document_with_mistral import *
 
 import os
 from time import sleep
@@ -30,49 +26,6 @@ def get_research_question_arg() -> str | None:
     print(args.question)
     return args.question
 
-def find_conjectures(dossier_articles: str):
-    api_key = os.getenv("MISTRAIL_API_KEY_PRO")
-    model = "mistral-large-latest" # le modèle est limité, il faut utiliser minimistral 8b
-    client = Mistral(api_key=api_key)
-   # todo : tester avec une conjecture
-
-    # tester avec le modèle de deepseek s'il sait reconnaître des conjectures
-
-    mistral_folder = dossier_articles+"mistral"
-    deepseek_folder = dossier_articles+"deepseek"
-
-    mistral_files = get_dossier_with_files(mistral_folder, ".txt")
-
-    deepseek_files = get_dossier_with_files(deepseek_folder, ".txt")
-
-    for idx, file_name in enumerate(deepseek_files):
-        print(file_name)
-        print("Lecture du fichier...")
-        with open(deepseek_folder+"/"+file_name, "r", encoding="utf-8") as f:
-            contenu = f.read()
-
-        print("Mistral utilise le prompt pour extraire les conjectures..")
-        response = get_mistral_reponse_from_text(client, model, contenu)
-        print("Affichage de la réponse de Mistral via le fichier texte : ")
-        print(response)
-
-        break
-
-    # libraries = get_libraries(client)
-    # library = libraries[0]
-    # document = get_document(library, "8b3558ef-f224-4d13-9c36-29f3b661b566", client)
-    # text_content = client.beta.libraries.documents.text_content(
-    #     library_id=library.id,
-    #     document_id=document.id
-    # )
-    # print("Mistral utilise le prompt pour extraire les conjectures..")
-    # response = get_mistral_reponse(client, model, text_content)
-    # print("Affichage de la réponse de Mistral via le document de la librairie: ")
-    # print(response)
-
-    # todo : décommenter la fonction et la tester à nouveau
-    # export_conjectures_to_json(response, document)
-
 def find_conjectures_with_codex(dossier_articles: str):
     mistral_folder = dossier_articles+"mistral"
     deepseek_folder = dossier_articles+"deepseek"
@@ -82,6 +35,9 @@ def find_conjectures_with_codex(dossier_articles: str):
     deepseek_files = get_dossier_with_files(deepseek_folder, ".txt")
 
     # todo : pour chaque fichier, intérroger codex en lui donnant le chemin du fichier dans le prompt
+    # il faut que lorsqu'il termine, pouvoir le killer pour passer au fichier suivant
+    # on peut se dire qu'il doit créer un fichier avec les conjectures, et dès lors que le fichier existe et que la dernière ligne est "finish"
+    # alors on kill le processus
 
     for idx, file_name in enumerate(deepseek_files):
         print(file_name)
@@ -138,6 +94,30 @@ def extract_documents(dossier_articles: str):
             #     run_deepseek(reste_path)
 
     print("Tous les PDFs ont été traités par Mistral sans bascule DeepSeek.")
+
+def get_dossier_with_files(dossier: str, extension: str):
+    dossier_path = Path(dossier)
+
+    fichier_paths = sorted(
+        f for f in dossier_path.iterdir()
+        if f.is_file() and f.suffix.lower() == extension
+    )
+
+    noms_fichiers = [f.name for f in fichier_paths]
+
+    return noms_fichiers
+
+def get_dossier_json(dossier: str):
+    dossier_path = Path(dossier)
+
+    json_paths = sorted(
+        p for p in dossier_path.iterdir()
+        if p.is_file() and p.suffix.lower() == ".json"
+    )
+
+    json_conjectures = [p.name for p in json_paths]
+
+    return json_conjectures
 
 def save_text_result(pdf_name: str, text_content: str, is_mistral: bool):
     parent_folder = "extraction"

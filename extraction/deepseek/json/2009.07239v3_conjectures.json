@@ -1,0 +1,116 @@
+[
+  {
+    "label": "Conjecture 2.1",
+    "text": "For all integers $r \\geq 2$, all $S \\subseteq[r]$, and all $r$-colorings of a complete graph $K$, there exists a monochromatic $(r-1)$-cover consisting entirely of subgraphs having a color in $S$ or consisting entirely of subgraphs having a color in $[r] \\backslash S$.",
+    "parameters": {
+      "r": "$r \\in \\mathbb{Z}_{\\ge 2}$",
+      "[r]": "$[r]=\\{1,\\dots,r\\}$",
+      "S": "$S \\subseteq [r]$",
+      "K": "$K$ : graphe complet",
+      "(r-1)-cover": "Couverture monochromatique de taille au plus $(r-1)$ par des sous-graphes connexes couvrant $V(K)$"
+    }
+  },
+  {
+    "label": "Conjecture 2.2",
+    "text": "For all integers $r \\geq 2$ and all $K \\in \\mathcal{K}_{r}, \\operatorname{tc}_{r-1}(K) \\leq r-1$. In particular, this implies that for every $r$-coloring of a complete graph $K$ and every color $i \\in[r]$, either there is a monochromatic $(r-1)$-cover consisting entirely of subgraphs of color $i$, or entirely of subgraphs which don't have color $i$.",
+    "parameters": {
+      "r": "$r \\in \\mathbb{Z}_{\\ge 2}$",
+      "K": "$K \\in \\mathcal{K}_{r}$",
+      "\\mathcal{K}_{r}": "Famille de tous les graphes complets $r$-partis",
+      "i": "$i \\in [r]$",
+      "\\operatorname{tc}_{r-1}(K)": "Plus petit $t$ tel que toute $r$-coloration des arêtes de $K$ admette une $t$-couverture monochromatique",
+      "(r-1)-cover": "Couverture monochromatique de taille au plus $(r-1)$"
+    }
+  },
+  {
+    "label": "Conjecture 2.3",
+    "text": "For all integers $r \\geq 3$ and all $K \\in \\mathcal{K}_{r-1}, \\operatorname{tc}_{r-1}(K) \\leq r-1$. In particular, this implies that for every $r$-coloring of a complete graph $K$ and every color $i \\in[r]$, either there is a monochromatic $(r-2)$-cover consisting entirely of subgraphs of color $i$, or a monochromatic $(r-1)$-cover consisting entirely of subgraphs which don't have color $i$.",
+    "parameters": {
+      "r": "$r \\in \\mathbb{Z}_{\\ge 3}$",
+      "K": "$K \\in \\mathcal{K}_{r-1}$",
+      "\\mathcal{K}_{k}": "Famille de tous les graphes complets $k$-partis",
+      "i": "$i \\in [r]$",
+      "(r-2)-cover": "Couverture monochromatique de taille au plus $(r-2)$",
+      "(r-1)-cover": "Couverture monochromatique de taille au plus $(r-1)$",
+      "\\operatorname{tc}_{r-1}(K)": "Paramètre de couverture par composantes connexes monochromatiques"
+    }
+  },
+  {
+    "label": "Conjecture 2.4",
+    "text": "For all integers $r \\geq 2$, in every $r$-coloring of a complete graph $K$ there exists a monochromatic $(r-1)$-cover such that the monochromatic subgraphs have at most $\\lceil r / 2\\rceil$ different colors.",
+    "parameters": {
+      "r": "$r \\in \\mathbb{Z}_{\\ge 2}$",
+      "K": "$K$ : graphe complet",
+      "(r-1)-cover": "Couverture monochromatique de taille au plus $(r-1)$",
+      "\\lceil r/2 \\rceil": "Plafond de $r/2$ (nombre maximum de couleurs distinctes parmi les composantes)"
+    }
+  },
+  {
+    "label": "Conjecture 2.8",
+    "text": "For all $\\alpha \\geq 1$, there exists $d=d(\\alpha)$ such that for all $r \\geq 2$, if $G$ is a graph with $\\alpha(G)=\\alpha$, then in every $r$-coloring of $G$, there exists a monochromatic $(r-1) \\alpha$-cover consisting of subgraphs of diameter at most $d$.",
+    "parameters": {
+      "\\alpha": "$\\alpha \\in \\mathbb{Z}_{\\ge 1}$",
+      "d(\\alpha)": "$d$ dépendant de $\\alpha$",
+      "r": "$r \\in \\mathbb{Z}_{\\ge 2}$",
+      "G": "$G$ : graphe",
+      "\\alpha(G)": "Nombre d'indépendance de $G$",
+      "(r-1)\\alpha-cover": "Couverture monochromatique de taille au plus $(r-1)\\alpha$",
+      "\\operatorname{diam}(H)": "Diamètre d'un sous-graphe $H$ (distance maximale entre deux sommets)"
+    }
+  },
+  {
+    "label": "Conjecture 2.14",
+    "text": "There exists $d$ such that for all $r \\geq 2$, if $K \\in \\mathcal{K}_{2}$, then in every $r$-coloring of $K$, there exists a monochromatic $(2 r-2)$-cover consisting of subgraphs of diameter at most d.",
+    "parameters": {
+      "d": "$d$ constant (indépendant de $r$)",
+      "r": "$r \\in \\mathbb{Z}_{\\ge 2}$",
+      "K": "$K \\in \\mathcal{K}_{2}$",
+      "\\mathcal{K}_{2}": "Famille des graphes complets bipartis",
+      "(2r-2)-cover": "Couverture monochromatique de taille au plus $(2r-2)$",
+      "diamètre": "$\\operatorname{diam}(H) \\le d$ pour chaque composante"
+    }
+  },
+  {
+    "label": "Conjecture 2.19",
+    "text": "For all $r \\geq 3$, in every $r$-coloring of $K_{n}^{r}$, there exists a monochromatic tightly connected subgraph which covers $V(K)$.",
+    "parameters": {
+      "r": "$r \\in \\mathbb{Z}_{\\ge 3}$",
+      "K_{n}^{r}": "Hypergraphe complet $r$-uniforme sur $n$ sommets",
+      "tightly connected": "Dans un $k$-hypergraphe, suite d'arêtes $(e_i)$ avec $|e_i \\cap e_{i+1}| = k-1$ reliant toute paire de sommets",
+      "V(K)": "Ensemble des sommets de $K$"
+    }
+  },
+  {
+    "label": "Conjecture 4.3",
+    "text": "For all $\\alpha \\geq 1$, there exists $\\delta=\\delta(\\alpha)$ such that for all $r \\geq 2$, if $G$ is a graph with $\\alpha(G)=\\alpha$, then $\\mathrm{dc}_{r}^{\\delta}(G) \\leq(r-1) \\alpha$.",
+    "parameters": {
+      "\\alpha": "$\\alpha \\in \\mathbb{Z}_{\\ge 1}$",
+      "\\delta(\\alpha)": "$\\delta$ dépendant de $\\alpha$",
+      "r": "$r \\in \\mathbb{Z}_{\\ge 2}$",
+      "G": "$G$ : graphe",
+      "\\alpha(G)": "Nombre d'indépendance",
+      "\\mathrm{dc}_{r}^{\\delta}(G)": "Plus petit $t$ tel que toute $r$-coloration de $G$ admette une $t$-couverture monochromatique par des sous-graphes de diamètre $\\le \\delta$"
+    }
+  },
+  {
+    "label": "Conjecture 4.17",
+    "text": "Let $G$ be a 3-colored complete graph. There exists a monochromatic 2-cover consisting of subgraphs of diameter at most 3.",
+    "parameters": {
+      "G": "$G$ : graphe complet, $r=3$ couleurs",
+      "2-cover": "Couverture monochromatique de taille au plus $2$",
+      "diamètre": "$\\operatorname{diam}(H) \\le 3$ pour chaque composante"
+    }
+  },
+  {
+    "label": "Conjecture 4.22",
+    "text": "Suppose $G$ is a complete 4-partite graph with vertex set partitioned as $\\left\\{V_{1}, V_{2}, V_{3}, V_{4}\\right\\}$. If $\\left[V_{i}, V_{j}\\right]$ is colored with colors from $[5] \\backslash\\{i, j\\}$ for all distinct $i, j \\in[4]$, then $G$ can be covered with at most three monochromatic subgraphs of bounded diameter.",
+    "parameters": {
+      "G": "$G$ : graphe complet 4-parti",
+      "V_i": "Parts de la partition, $i \\in [4]$",
+      "[V_i,V_j]": "Sous-graphe biparti complet induit entre $V_i$ et $V_j$",
+      "[5]\\setminus\\{i,j\\}": "Ensemble des couleurs autorisées sur $[V_i,V_j]$",
+      "trois sous-graphes": "Au plus $3$ composantes connexes monochromatiques, de diamètre borné"
+    }
+  }
+]
+
