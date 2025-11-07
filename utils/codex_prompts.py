@@ -123,4 +123,5 @@ def get_prompt_find_conjecture(folder: str, file: str) -> str:
             "Tu dois faire du mot-à-mot pour les conjectures, ce qui signifie que tu ne dois "
             "pas traduire le texte ni inventer des choses. Reste fidèle à ce que le(s) auteur(s) a/ont écrit."
             f"Écris toutes les conjectures que tu as trouvé dans un fichier json dans le répertoire {folder}/json."
+            "Lorsque tu auras terminé, je veux que tu écrives dans la dernière ligne du fichier JSON cela : `FIN`."
     )
