@@ -140,8 +140,8 @@ def get_prompt_find_conjecture(folder: str, file: str) -> str:
             "  ]\n"
             "}"
             "N'échappe pas les $ dans les formules mathématiques latex."
+            f"Le nom du fichier json doit exactement être {file}.json (tu supprimeras le .txt pour que ça donne .pdf.json)."
             "Lorsque tu auras terminé, je veux que tu écrives dans la dernière ligne du fichier JSON cela : `FIN`."
     )
 
-# il faut uniformiser le nom des fichiers
 # certains paramètres sont inventés
