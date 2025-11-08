@@ -1,0 +1,201 @@
+# Efficient Feedback and Partial Credit Grading for Proof Blocks Problems 
+
+Seth Poulsen ${ }^{[0000-0001-6284-9972]}$, Shubhang Kulkarni ${ }^{[0000-0002-1670-6011]}$, Geoffrey Herman ${ }^{[0000-0002-9501-2295]}$, and Matthew West ${ }^{[0000-0002-7605-0050]}$
+
+University of Illinois Urbana-Champaign, Urbana, IL 61801, USA sethp3@illinois.edu
+
+
+#### Abstract
+
+Proof Blocks is a software tool that allows students to practice writing mathematical proofs by dragging and dropping lines instead of writing proofs from scratch. Proof Blocks offers the capability of assigning partial credit and providing solution quality feedback to students. This is done by computing the edit distance from a student's submission to some predefined set of solutions. In this work, we propose an algorithm for the edit distance problem that significantly outperforms the baseline procedure of exhaustively enumerating over the entire search space. Our algorithm relies on a reduction to the minimum vertex cover problem. We benchmark our algorithm on thousands of student submissions from multiple courses, showing that the baseline algorithm is intractable, and that our proposed algorithm is critical to enable classroom deployment. Our new algorithm has also been used for problems in many other domains where the solution space can be modeled as a DAG, including but not limited to Parsons Problems for writing code, helping students understand packet ordering in networking protocols, and helping students sketch solution steps for physics problems. Integrated into multiple learning management systems, the algorithm serves thousands of students each year.
+
+
+Keywords: Mathematical proofs $\cdot$ Automated feedback $\cdot$ Scaffolding.
+
+## 1 Introduction
+
+Traditionally, classes that cover mathematical proofs expect students to read proofs in a book, watch their instructor write proofs, and then write proofs on their own. Students often find it difficult to jump to writing proofs on their own, even when they have the required content knowledge [25]. Additionally, because proofs need to be graded manually, it often takes a while for students to receive feedback on their work.
+
+Proof Blocks is a software tool that allows students to construct a mathematical proof by dragging and dropping instructor-provided lines of a proof instead of writing from scratch (similar to Parsons Problems [19] for writing code - see Figure 1 for an example of the Proof Blocks user interface). This tool scaffolds students' learning as they transition from reading proofs to writing proofs while also providing instant machine-graded feedback. To write a Proof Blocks problem, an instructor specifies lines of a proof and their logical dependencies. The autograder accepts any ordering of the lines that satisfies the dependencies.
+
+Calculating the least edit distance from a student submission to some correct solution solves two problems: (1) assigning students partial credit (a key
+
+Fig. 1. An example of the Proof Blocks student-user interface. The instructor wrote the problem with $1,2,3,4,5,6$ as the intended solution, but the Proof Blocks autograder will also accept any other correct solution as determined by the dependency graph shown. For example, both $1,2,4,3,5,6$ and $1,2,3,5,4,6$ would also be accepted as correct solutions. Line 7 is a distractor that does not occur in any correct solution.
+concern for students taking exams in a computerized environment 58] and (2) giving students instant feedback on their work, which can be a huge help for students [3]. The baseline algorithm performance is not sufficient to scale to provide immediate feedback to students in large classrooms, necessitating a more efficient solution. This paper makes the following contributions:
+
+- An efficient algorithm for calculating the minimum edit distance from a sequence to some topological ordering of a directed acyclic graph (DAG)
+- Application of this algorithm to grading and feedback for Proof Blocks problems
+- Mathematical proofs that the algorithm is correct, and has asymptotic complexity that allows it to scale to grading many student submissions at once, even for large problems- Benchmarking results on thousands of student submissions showing that the efficient algorithm is needed to enabling the performance necessary for classroom deployment
+
+
+# 2 Related Work 
+
+### 2.1 Software for Learning Mathematical Proofs
+
+Work in intelligent tutors for mathematical proofs goes back to work by John Anderson and his colleagues on The Geometry Tutor 4|3|12]. More recently, researchers have created tutors for propositional logic, most notably Deep Thought [1716] and LogEx [1413]. The authors' prior work reviews other software tools that provide visual user interfaces for constructing proofs 23].
+
+Most of these tools cover only a small subset of the material typically covered in a discrete mathematics course, for example, only propositional logic. Those tools that are more flexible require learning complex theorem prover languages. In contrast, Proof Blocks enables instructors to easily provide students with proof questions on any topic by abstracting the content from the grading mechanism. The downside of this is that Proof Blocks is not able to give students contentspecific hints as some of the other tools are.
+
+### 2.2 Edit Distance Based Grading and Feedback
+
+To our knowledge, no one has ever used edit distance based grading as a way of providing feedback for mathematical proofs, but edit distance based grading algorithms have been used in other contexts.
+
+Chandra et al. [6] use edit distance to assign partial credit to incorrect SQL queries submitted by students, using reference solutions provided by the instructor. Edit distance based methods, often backed by a database of known correct solutions, have also been used to give feedback to students learning to program in general purpose programming languages [189] One difference between these and our method is that in programming contexts, the solution space is very large, and so the methods work based on edit distance to some known correct solution (manually provided by the instructor or other students). Because we model mathematical proofs as DAGs, we are able to constrain the solution space to be small enough that our algorithm can feasibly check the shortest edit to any correct solution.
+
+Alur et al. [2] provide a framework for automatically grading problems where students must construct a deterministic finite automata (DFA). They use edit distance for multiple purposes in their multi-modal grading scheme.
+
+## 3 Proof Blocks
+
+Prior work has shown that Proof Blocks are effective test questions, providing about as much information about student knowledge as written proofs do 22], and also show promise in helping students save time when learning to write proofs 21]. To write a Proof Blocks problem, an instructor provides the proof lines and the logical dependencies between the lines of the proof. These logical dependencies form a DAG. The autograder gives the student points if their submission is a topological sort of the dependency graph. On exams or during in-class activities, students are often given multiple tries to solve a problem, so itis critical that they receive their feedback quickly. Additional details about the instructor and student user interfaces, as well as best practices for using Proof Blocks questions are given in a tool paper [23].
+
+Proof Blocks is currently integrated into both PrairieLearn [26] and Runestone Interactive [15]. In PrairieLearn, students who submit their work are shown their score and told the first line of their proof that isn't logically supported by previous lines. The Runestone implementation highlights certain lines of the student submission that should be moved in order to get to a correct solution. Research and discussion about which types of feedback are most helpful for student learning are of crucial importance, but are beyond the scope of this paper, which will focus on the technical details of the edit distance algorithm which enables the construction of feedback.
+
+Our algorithm assumes that each block is of equal weight for assigning partial credit. The benefit of this is that the algorithm can assign partial credit for any Proof Blocks problem without needing to know anything about the content of the blocks, making it quicker and easier for instructors to write questions. We have also had instructors using Proof Blocks express an interest in having the ability to have some blocks weighted more than others in the grading. We leave this to future work.
+
+# 4 The Edit Distance Algorithm 
+
+Before defining our grading algorithms rigorously, it will first help to set up some formalism about Proof Blocks problems. We then give the baseline version of the algorithm, followed by an optimized version which is necessary for production deployment. For simplicity, our focus in communicating the algorithms will be on calculating the edit distance, but the proof of the correctness of the algorithm also explicitly constructs the edit sequence used to give students feedback on how to edit their submission into a correct solution.
+
+### 4.1 Mathematical Preliminaries
+
+Graph Theory. Let $G=(V, E)$ be a DAG. Then a subset of vertices $C \subseteq V$ is a vertex cover if every edge in $E$ is incident to some vertex in $C$. The minimum vertex cover (MVC) problem is the task of finding a vertex cover of minimum cardinality. In defining our algorithms, we will assume the availability of a few classical algorithms for graphs: AllTopologicalOrderings $(G)$ to return a set containing all possible topological orderings of a graph $G$ [11, $\operatorname{ExistSBath}(G, u, v)$ returns a boolean value to denote if there is a path from the node $u$ to the node $v$ in the graph $G$, and MinimumVertexCover $(G)$ to return an MVC of a graph $G$ by exhaustive search.
+Edit Distance. For our purposes, we use the Longest Common Subsequence (LCS) edit distance, which only allows deletion or addition of items in the sequence (it does not allow substitution or transposition). This edit distance is a good fit for our problem because it mimics the affordances of the user interface of Proof Blocks. Throughout the rest of the paper, we will simply use "edit distance" to refer to the LCS edit distance. We denote the edit distance between two sequences $S_{1}$ and $S_{2}$ as $d\left(S_{1}, S_{2}\right)$. Formally defined, given two sequences$S_{1}, S_{2}$, the edit distance is the length of the shortest possible sequence of operations that transforms $S_{1}$ into $S_{2}$, where the operations are: (1) Deletion of element $s_{i}$ : changes the sequence $s_{1}, s_{2}, \ldots s_{i-1}, s_{i}, s_{i+1}, \ldots s_{n}$ to the sequence $s_{1}, s_{2}, \ldots s_{i-1}, s_{i+1}, \ldots s_{n}$. (2) Insertion of element $t$ after location $i$ : changes the sequence $s_{1}, s_{2}, \ldots s_{i}, s_{i+1}, \ldots s_{n}$ to the sequence $s_{1}, s_{2}, \ldots s_{i}, t, s_{i+1}, \ldots s_{n}$. We assume the ability to compute the edit distance between two sequences in quadratic time using the traditional dynamic programming method [24]. We also identify a topological ordering $O$ of a graph $G$ with a sequence of nodes so that we can discuss the edit distance between a topological ordering and another sequence $d(S, O)$.
+
+# 4.2 Problem Definition 
+
+A Proof Blocks problem $P=(C, G)$ is a set of blocks $C$ together with a DAG $G=(V, E)$, which defines the logical structure of the proof. Both the blocks and the graph are provided by the instructor who writes the question (see [23] for more details on question authoring). The set of vertices $V$ of the graph $G$ is a subset of the set of blocks $C$. Blocks which are in $C$ but not in $V$ are blocks which are not in any correct solution, and we call these distractors, a term which we borrow from the literature on multiple-choice questions. A submission $S=s_{1}, s_{2}, \ldots s_{n}$ is a sequence of distinct blocks, usually constructed by a student who is attempting to solve a Proof Blocks problem. If a submission $S$ is a topological ordering of the graph $G$, we say that $S$ is a solution to the Proof Blocks problem $P$.
+
+If a student submits a submission $S$ to a Proof Blocks problem $P=(C, G)$, we want to assign partial credit with the following properties: (1) students get $100 \%$ only if the submission is a solution (2) partial credit declines with the number of edits needed to convert the submission into a solution (3) the credit received is guaranteed to be in the range $0-100$. To satisfy these desirable properties, we assign partial credit as follows: score $=100 \times \frac{\max (0,|V|-d^{*})}{|V|}$, where $d^{*}$ is the minimum edit distance from the student submission to some correct solution of $P$, that is: $d^{*}=\min \{d(S, O) \mid O \in$ AllTopologicalOrderings $(G)\}$. This means, for example, that if a student's solution is 2 deletions and 1 insertion (3 edits) away from a correct solution, and the correct solution is 10 lines long, the student will receive $70 \%$. If the edit distance is greater than the length of the solution, we simply assign 0 .
+
+### 4.3 Baseline Algorithm
+
+The most straightforward approach to calculating partial credit as we define it is to iterate over all topological orderings of $G$ and for each one, calculate the edit distance to the student submission $S$. We formalize this approach as Algorithm 1. While this is effective, this algorithm is computationally expensive.
+
+Theorem 1. The time complexity of Algorithm 1 is $\mathcal{O}(m \cdot n \cdot n!)$ in the worst case, where $n$ is the size of $G$ and $m$ is the length of the student submission after distractors are discarded.
+
+Proof. The algorithm explicitly enumerates all $\mathcal{O}(n!)$ topological orderings of $G$. For each ordering, the algorithm forms the associated block sequence, andcomputes the edit distance to the student submission, requiring $\mathcal{O}(m \cdot n)$ time.
+
+```
+Algorithm 1 Baseline Algorithm
+    Input
+        \(S\) The student submission being graded
+        \(P\) The Proof Blocks problem written by the instructor
+    Output
+        The minimum number of edits needed to transform \(S\) into a solution
+    procedure GetMinimumEditDistance \(\left(S=s_{1}, s_{2}, \ldots s_{\ell}, P=(C, G)\right)\)
+    Brute force calculation of \(d^{*}\)
+        \(\operatorname{return} \min \{d(S, O) \mid O \in \operatorname{AllTopologicalOrderings}(G)\}\)
+    end procedure
+```
+
+
+# 4.4 Optimized (MVC-based) implementation of Edit Distance Algorithm 
+
+We now present a faster algorithm for calculating the Proof Blocks partial credit, which reduces the problem to the minimum vertex cover (MVC) problem over a subset of the student's submission. Rather than iterate over all topological orderings, this algorithm works by manipulating the student's submission until it becomes a correct solution. In order to do this, we define a few more terms. We call a pair of blocks $\left(s_{i}, s_{j}\right)$ in a submission a problematic pair if line $s_{j}$ comes before line $s_{i}$ in the student submission, but there is a path from $s_{i}$ to $s_{j}$ in $G$, meaning that $s_{j}$ must come after $s_{i}$ in any correct solution.
+
+We define the problematic graph to be the graph where the nodes are the set of all blocks in a student submission that appear in some problematic pair, and the edges are the problematic pairs. We can then use the problematic graph to guide which blocks need to be deleted from the student submission, and then we know that a simple series of insertions will give us a topological ordering. The full approach is shown in Algorithm 2, and the proof of Theorem 2 proves that this algorithm is correct.
+
+### 4.5 Worked example of Algorithm 2
+
+For further clarity, we will now walk through a full example of executing Algorithm 2 on a student submission. Take, for example, the submission shown in Figure 1. In terms of the block labels, this submission is $S=1,3,4,5,2,7$. In this case, block 2 occurs after blocks 3,4 , and 5 , but because of the structure of the DAG, we know that it must come before all of those lines in any correct solution. Therefore, the problematic graph in this case is problematicGraph $=$ $(\{2,3,4,5\},\{(2,3),(2,4),(2,5)\})$. The minimum vertex cover here is $\{2\}$, because that is the smallest set which contains at least one endpoint of each edge in the graph. Now we know that the number of deletions needed is $1+1=2$ (vertex cover of size one, plus one distractor line picked, see Algorithm 2 line 12), and the number of insertions needed is 2 (line 2 must be reinserted in the correct position after being deleted, and line 6 must be inserted). This gives us a least edit distance $\left(d^{*}\right)$ of 4 , and so the partial credit assigned would be $\operatorname{score}=100 \times \frac{\max (0,|V|-d^{*})}{|V|}=100 \times \frac{6-4}{6} \approx 33 \%$.```
+Algorithm 2 Novel Algorithm using the MVC
+    Input
+        \(S\) The student submission being graded
+        \(P\) The Proof Blocks problem written by the instructor
+    Output
+        The minimum number of edits needed to transform \(S\) into a solution
+    procedure GetMinimumEditDistance \(\left(S=s_{1}, s_{2}, \ldots s_{\ell}, P=(C, G)\right)\)
+    Construct the problematic graph:
+        \(E_{0} \leftarrow\left\{\left(s_{i}, s_{j}\right) \mid i>j\right.\) and \(\operatorname{ExistSPath}\left(G, s_{i}, s_{j}\right)\}
+        \(V_{0} \leftarrow\left\{s_{i} \mid\right.\) there exists \(j\) such that \(\left(s_{i}, s_{j}\right) \in E_{0}\) or \(\left(s_{j}, s_{i}\right) \in E_{0}\}
+        problematicGraph \(\leftarrow\left(V_{0}, E_{0}\right)\)
+    Find number of insertions and deletions needed:
+        mvcSize \(\leftarrow|\operatorname{MinimumVertexCover}\left(\right.\) problematicGraph \(\left.)\right|\)
+        numDistractors \(\leftarrow\left|\left\{s_{i} \in S \mid s_{i} \notin V\right\}\right|\)
+        deletionsNeeded \(\leftarrow\) numDistractors + mvcSize
+        insertionsNeeded \(\leftarrow|V|-(|S|-\) deletionsNeeded)
+        return deletionsNeeded + insertionsNeeded
+    end procedure
+```
+
+
+# 4.6 Proving the Correctness of Algorithm 2 
+
+First we will show that the Algorithm constructs a feasible solution, and then we will show that it is minimal.
+
+Lemma 1 (Feasability). Given a submission $S=s_{1}, s_{2}, \ldots s_{\ell}$, there exists a sequence of edits $\mathcal{E}$ from $S$ to some solution of $P$ such that $|\mathcal{E}|$ is equal to GetMinimumEditDistance $(S, P)$ as computed by Algorithm 2.
+
+Proof. Given the MVC computed on line 10 of Algorithm 2, delete all blocks in the MVC from $S$, as well as all distractors in $S$, and call this new submission $S^{\prime}$. Now $S^{\prime}$ is a submission such that it contains no distractors, and its problematic graph is empty.
+
+Now, for all $i$ where $1 \leq i<\ell$, add the edge $\left(s_{i}, s_{i+1}\right)$ to the graph $G$, and call this new graph $G^{\prime}$. Because there are no problematic pairs in $S^{\prime}$, we know that adding these new edges does not introduce any new cycles, so $G^{\prime}$ is a DAG. Now, a topological ordering $O$ of the graph $G^{\prime}$ will be a topological ordering of $G$ with the added constraint that all blocks which appeared in the submission $S^{\prime}$ are still in the same order with respect to one another. Then, since there are no distractors in $S^{\prime}, S^{\prime}$ will be a subsequence of $O$. Thus, we can construct $O$ simply by adding blocks to $S$. The length of this sequence $\mathcal{E}$ is exactly what Algorithm 2 computes.
+
+Lemma 2 (Minimality). Let $E^{\prime}$ be any edit from the submission $S$ to some correct solution of $P$. Then the length of $E^{\prime}$ is greater than or equal to the output of Algorithm 2.Proof. Let $E$ be the edit sequence constructed in Lemma 1 We will show that the number of deletions and the number of insertions in $E^{\prime}$ is greater than or equal to the number of deletions and insertions in $E$.
+
+If there is any problematic pair $\left(s_{i}, s_{j}\right)$ in the student submission, one of $s_{i}$ and $s_{j}$ must be deleted from the submission to reach a solution. Because there is no substitution or transposition allowed, and because each block may only occur once in a sequence, there is no other way for the student submission to be transformed into some correct solution unless $s_{i}$ or $s_{j}$ is deleted and then re-inserted in a different position.
+
+Therefore, the set of blocks deleted in the edit sequence $E^{\prime}$ must be a vertex cover of the problematic graph related to $S$ in $E$ and we delete only the blocks in the minimum vertex cover of the problematic graph. In both cases, all distractors must be deleted. So, the number of deletions in $E^{\prime}$ is greater than or equal to the number of deletions in $E$.
+
+The number of insertions in any edit sequence must be the number of deletions, plus the difference between the length of the submission and the size of the graph, so that the final solution will be the correct length. Then since the number of deletions in $E^{\prime}$ is at least as many as there are in $E$, the number of insertions in $E^{\prime}$ is also at least as many as the number of insertions in $E$.
+
+Combining what we have shown about insertions and deletions, we have that $E^{\prime}$ is at least as long of an edit sequence as $E$.
+
+Theorem 2. Algorithm 2 computes $d^{*}$-the minimum edit distance from the submission $S$ to some topological ordering of $G$-in $\mathcal{O}\left(m^{2} \cdot 2^{m}\right)$ time, where $m$ is the length of the student submission after distractors are discarded.
+Proof. The correctness of the algorithm is given by combining Lemma 1 and Lemma 2 To see the time complexity, consider that constructing the problematic graph requires using a breadth first search to check for the existence of a path between each block and all of the blocks which precede it in the submission $S$, which can be completed in polynomial time. Naïvely computing the MVC of the problematic graph has time complexity $\mathcal{O}\left(m^{2} \cdot 2^{m}\right)$. Asymptotically, the calculation of the MVC will dominate the calculation of the problematic graph, giving an overall time complexity of $\mathcal{O}\left(m^{2} \cdot 2^{m}\right)$.
+Remark 1. The complexity of Algorithm 2 is due to the brute force computation of the MVC, however, there exists a a $\mathcal{O}\left(1.2738^{k}+k n\right)$-time fixed parameter tractable (FPT) algorithm where $k$ is the size of the minimum vertex cover [7. While we focus in this paper on the brute force MVC method since it is sufficient for our needs, using the FPT method may give further speedup, especially considering the often small size of $k$ in real use cases (see Table 1).
+
+Proof Blocks also supports a feature known as block groups which enables Proof Blocks to handle proof by cases using an extended version of Algorithm 2 Full details of the extended version of Algorithm 2 and proofs of its correctness can be seen in the first author's dissertation [20]. In the benchmarking results shown below in Table 1 problems 2, 4, 6, 9, and 10 make use of this extended version.
+
+Fig. 2. Comparison of grading time for the two grading algorithms. Subplot (A) is a log-log plot showing that the baseline algorithm scales with the number of possible solutions, Subplot (B) is a log-linear plot showing that the MVC Algorithm runtime scales with the length of the proof. This is a critical difference, because the number of topological orderings of a DAG can be $n$ ! for a graph with $n$ nodes.
+
+# 5 Benchmarking Algorithms on Student Data 
+
+### 5.1 Data Collection
+
+We collected data from homework, practice tests, and exams from Discrete Mathematics courses taught in the computer science departments at the University of Illinois Urbana-Champaign and the University of Chicago. Problems covered topics including number theory, cardinality, functions, graphs, algorithm analysis, and probability theory. Some questions only appeared on optional practice exams, while others appeared on exams. Also, more difficult questions received more incorrect submissions as students were often given multiple tries. This explains the large discrepancy between the number of submissions to certain questions seen in Table 1. In total, our benchmark set includes 7,427 submissions to 42 different Proof Blocks problems.
+
+### 5.2 Benchmarking Details
+
+All benchmarking was done in Python. For Algorithm 1, we used the NetworkX library [10] to generate all topological orderings of $G$ and used the standard dynamic programming algorithm for LCS edit distance to calculate the edit distance between each submission and each topological ordering. Our implementation of Algorithm 2 also used NetworkX to store the graph, and then found the MVC using the naïve method of iterating over all subsets of the graph, starting from the smallest to the largest, until finding one which is a vertex cover. Benchmarks were run on an Intel i5-8530U CPU with 16GB of RAM. The implementation of Algorithm 2 used for benchmarking is the implementation used in production in PrairieLearn [1]. Runestone Academy uses an alternate implementation in JavaScript.
+
+### 5.3 Results
+
+Figure 2 shows the algorithm run time of our novel MVC-based algorithm (Algorithm 2) and the baseline algorithm (Algorithm 1) for all of the problems
+
+Table 1. Performance of baseline vs. MVC algorithm for 10 problems with the most topological sorts. For all problems shown, speedup was statistically significant at $p<$ 0.001 . Numbers in parentheses are standard errors.
+in our benchmark set, compared both to the number of possible solutions (A) and the Proof Length (B). This demonstrates that the theoretical algorithm runtimes hold empirically: the run time of Algorithm 1 scales exponentially with the number of topological orderings of the proof graph (A), and the run time of Algorithm 2 scales exponentially with the length of the proof (B). This is a critical difference, because the number of topological orderings of a DAG can be $n$ ! for a graph with $n$ nodes. Thus, a relatively short Proof Blocks problem could have a very long grading time with Algorithm 1, while with Algorithm 2, we can guarantee a tight bound on grading time given the problem size.
+
+Algorithm 1 performed about twice as fast as Algorithm 2 when there was one solution - more trivial cases when both Algorithms took less than a millisecond. Performance was comparable for problems with between 2 and 10 possible solutions Algorithm 2 performed significantly faster for all problems with over 10 possible solutions $(p<0.001)$.
+
+Table 1 gives further benchmarking details for the 10 questions from the data set with the greatest number of possible solutions (the others are omitted due to space constraints). These results show that Algorithm 2 is far superior in performance. The mean time of 1.7 seconds for the most complex Proof Blocks problem under Algorithm 1 may not seem computationally expensive, but it does not scale to having hundreds of students working on an active learning activity, or taking exams at the same time, all needing to receive rapid feedback on their Proof Blocks problem submissions. Furthermore, this grading time could easily be 10 or even 100 times longer per question if the DAG for the question was altered by even a single edge.# 6 Conclusions and Future Work 
+
+In this paper, we have presented a novel algorithm for calculating the edit distance from a student submission to a correct solution to a Proof Blocks problem. This information can then be used to give students feedback and calculate grades. This algorithm can also be used with Parsons Problems, task planning problems, or any other type of problem where the solution space can be modeled as a DAG. We showed with student data that our algorithm far outperforms the baseline algorithm, allowing us to give students immediate feedback as they work through exams and homework. Now deployed in dozens of classrooms across multiple universities, this algorithm benefits thousands of students per semester.
+
+Acknowledgements. We would like to thank Mahesh Viswanathan, Benjamin Cosman, Patrick Lin, and Tim Ng for using Proof Blocks in their Discrete Math courses and allowing us to use anonymized data from their courses for the included benchmarks.
+
+## References
+
+1. pl-order-blocks documentation (2021), https://prairielearn.readthedocs.io/ en/latest/elements/\#pl-order-blocks-element, accessed: June 2021
+2. Alur, R., D'Antoni, L., Gulwani, S., Kini, D., Viswanathan, M.: Automated grading of dfa constructions. In: Twenty-Third International Joint Conference on Artificial Intelligence (2013)
+3. Anderson, J.R., Corbett, A.T., Koedinger, K.R., Pelletier, R.: Cognitive tutors: Lessons learned. The journal of the learning sciences 4(2), 167-207 (1995)
+4. Anderson, J., Boyle, C., Yost, G.: The geometry tutor, proc. of 9th international joint conference on artificial intelligence (1985)
+5. Apostolou, B., Blue, M.A., Daigle, R.J.: Student perceptions about computerized testing in introductory managerial accounting. Journal of Accounting Education 27(2), 59-70 (2009). https://doi.org/https://doi.org/10.1016/j.jaccedu.2010.02.003
+6. Chandra, B., Banerjee, A., Hazra, U., Joseph, M., Sudarshan, S.: Automated Grading of SQL Queries. In: 2019 IEEE 35th International Conference on Data Engineering (ICDE). pp. 1630-1633 (Apr 2019). https://doi.org/10.1109/ICDE.2019.00159, iSSN: 2375-026X
+7. Chen, J., Kanj, I.A., Xia, G.: Improved upper bounds for vertex cover. Theoretical Computer Science 411(40), 3736-3756 (2010). https://doi.org/https://doi.org/10.1016/j.tcs.2010.06.026
+8. Darrah, M., Fuller, E., Miller, D.: A comparative study of partial credit assessment and computer-based testing for mathematics. Journal of Computers in Mathematics and Science Teaching 29(4), 373-398 (2010)
+9. Gulwani, S., Radiček, I., Zuleger, F.: Automated Clustering and Program Repair for Introductory Programming Assignments p. 16 (2018)
+10. Hagberg, A.A., Schult, D.A., Swart, P.J.: Exploring network structure, dynamics, and function using networkx. In: Varoquaux, G., Vaught, T., Millman, J. (eds.) Proceedings of the 7th Python in Science Conference. pp. 11 - 15. Pasadena, CA USA (2008)
+11. Knuth, D.E., Szwarcfiter, J.L.: A structured program to generate all topological sorting arrangements. Information Processing Letters 2(6), 153-157 (1974)12. Koedinger, K.R., Anderson, J.R.: Abstract planning and perceptual chunks: Elements of expertise in geometry. Cognitive Science 14(4), 511-550 (1990)
+13. Lodder, J., Heeren, B., Jeuring, J.: A comparison of elaborated and restricted feedback in LogEx, a tool for teaching rewriting logical formulae. Journal of Computer Assisted Learning 35(5), 620-632 (2019). https://doi.org/10.1111/jcal. 12365
+14. Lodder, J., Heeren, B., Jeuring, J.: Providing Hints, Next Steps and Feedback in a Tutoring System for Structural Induction. Electronic Proceedings in Theoretical Computer Science 313, 17-34 (Feb 2020). https://doi.org/10.4204/EPTCS.313.2
+15. Miller, B.N., Ranum, D.L.: Beyond pdf and epub: Toward an interactive textbook. In: Proceedings of the 17th ACM Annual Conference on Innovation and Technology in Computer Science Education. pp. 150-155. ITiCSE '12, ACM, New York, NY, USA (2012). https://doi.org/10.1145/2325296.2325335
+16. Mostafavi, B., Barnes, T.: Evolution of an Intelligent Deductive Logic Tutor Using Data-Driven Elements. International Journal of Artificial Intelligence in Education 27(1), 5-36 (Mar 2017). https://doi.org/10.1007/s40593-016-0112-1
+17. Mostafavi, B., Zhou, G., Lynch, C., Chi, M., Barnes, T.: Data-Driven Worked Examples Improve Retention and Completion in a Logic Tutor. In: Conati, C., Heffernan, N., Mitrovic, A., Verdejo, M.F. (eds.) Artificial Intelligence in Education, vol. 9112, pp. 726-729. Springer International Publishing, Cham (2015), series Title: Lecture Notes in Computer Science
+18. Paassen, B., Hammer, B., Price, T.W., Barnes, T., Gross, S., Pinkwart, N.: The Continuous Hint Factory - Providing Hints in Vast and Sparsely Populated Edit Distance Spaces. Journal of Educational Data Mining 10(1), 1-35 (Jun 2018)
+19. Parsons, D., Haden, P.: Parson's programming puzzles: A fun and effective learning tool for first programming courses. In: Proceedings of the 8th Australasian Conference on Computing Education - Volume 52. p. 157-163. ACE '06, Australian Computer Society, Inc., AUS (2006)
+20. Poulsen, S.: Proof blocks: Autogradable scaffolding activities for learning to write proofs. Ph.D. thesis (2023)
+21. Poulsen, S., Gertner, Y., Cosman, B., West, M., Herman, G.L.: Efficiency of learning from proof blocks versus writing proofs. In: Proceedings of the 54th ACM Technical Symposium on Computer Science Education. Association for Computing Machinery, New York, NY, USA (2023)
+22. Poulsen, S., Viswanathan, M., Herman, G.L., West, M.: Evaluating proof blocks problems as exam questions. In: Proceedings of the 17th ACM Conference on International Computing Education Research. pp. 157-168 (2021)
+23. Poulsen, S., Viswanathan, M., Herman, G.L., West, M.: Proof blocks: Autogradable scaffolding activities for learning to write proofs. In: Proceedings of the 27th ACM Conference on Innovation and Technology in Computer Science Education V. 1. Association for Computing Machinery, New York, NY, USA (2022), https://doi . $\operatorname{crg} / 10.1145 / 3502718.3524774$
+24. Wagner, R.A., Fischer, M.J.: The string-to-string correction problem. Journal of the ACM (JACM) 21(1), 168-173 (1974)
+25. Weber, K.: Student difficulty in constructing proofs: The need for strategic knowledge. Educational Studies in Mathematics 48(1), 101-119 (Oct 2001). https://doi.org/10.1023/A:1015535614355
+26. West, M., Herman, G.L., Zilles, C.: Prairielearn: Mastery-based online problem solving with adaptive scoring and recommendations driven by machine learning. In: 2015 ASEE Annual Conference \& Exposition. pp. 26.1238.1-26.1238.14. No. 10.18260/p.24575, ASEE Conferences, Seattle, Washington (June 2015)

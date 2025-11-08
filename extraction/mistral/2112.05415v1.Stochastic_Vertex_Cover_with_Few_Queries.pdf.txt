@@ -1,0 +1,1233 @@
+# Stochastic Vertex Cover with Few Queries 
+
+Soheil Behnezhad* Avrim Blum ${ }^{\dagger}$ Mahsa Derakhshan*<br>Stanford University TTIC Princeton University
+
+
+#### Abstract
+
+We study the minimum vertex cover problem in the following stochastic setting. Let $G$ be an arbitrary given graph, $p \in(0,1]$ a parameter of the problem, and let $G_{p}$ be a random subgraph that includes each edge of $G$ independently with probability $p$. We are unaware of the realization $G_{p}$, but can learn if an edge $e$ exists in $G_{p}$ by querying it. The goal is to find an approximate minimum vertex cover (MVC) of $G_{p}$ by querying few edges of $G$ non-adaptively.
+
+This stochastic setting has been studied extensively for various problems such as minimum spanning trees, matroids, shortest paths, and matchings. To our knowledge, however, no nontrivial bound was known for MVC prior to our work. In this work, we present a: - $(2+\varepsilon)$-approximation for general graphs which queries $O\left(\frac{1}{e^{4} p}\right)$ edges per vertex, and a - 1.367-approximation for bipartite graphs which queries poly $(1 / p)$ edges per vertex.
+
+Additionally, we show that at the expense of a triple-exponential dependence on $p^{-1}$ in the number of queries, the approximation ratio can be improved down to $(1+\varepsilon)$ for bipartite graphs.
+
+Our techniques also lead to improved bounds for bipartite stochastic matching. We obtain a 0.731 -approximation with nearly-linear in $1 / p$ per-vertex queries. This is the first result to break the prevalent $(2 / 3 \sim 0.66)$-approximation barrier in the poly $(1 / p)$ query regime, improving algorithms of [Behnezhad et al., SODA'19] and [Assadi and Bernstein, SOSA'19].
+
+[^0]
+[^0]:    *Part of the work was done while the first and the third authors were interns at TTIC.
+    ${ }^{\dagger}$ This work was supported by the National Science Foundation under grant CCF-1733556.# Contents 
+
+1 Introduction ..... 3
+1.1 Our Results ..... 4
+2 Main Techniques ..... 4
+3 Preliminaries \& Paper Organization ..... 6
+4 Tool I: The Half-Stochastic Matching Lemma ..... 7
+4.1 Proofs of Claims 4.4 and 4.5 ..... 10
+4.2 Proof of Claim 4.6 ..... 11
+5 Tool II: A New Vertex-Independent Matching Lemma ..... 13
+5.1 The Vertex-Independent Matching Algorithm ..... 13
+5.2 Proving Lemma 5.1 via the Vertex-Independent Lemma 5.2 ..... 15
+5.2.1 Proof of Claim 5.4 ..... 16
+6 Upper Bounds ..... 19
+6.1 Bipartite Graphs: 1.36-Approximation with poly $\left(\frac{1}{p}\right)$ Queries ..... 19
+6.2 General Graphs: $(2+\varepsilon)$-Approximation with $O\left(\frac{1}{p}\right)$ Per-Vertex Queries ..... 22
+6.3 Bipartite Graphs: $(1+\varepsilon)$-Approximation with $O_{p}(1)$ Per-Vertex Queries ..... 25
+7 Lower Bounds ..... 27
+7.1 Proof of Theorem 7.1 ..... 29
+7.2 Proof of Theorem 7.2 ..... 30
+7.3 Proof of Theorem 7.3 ..... 30
+7.4 Proof of Theorem 7.4 ..... 31
+7.5 Proof of Theorem 7.5 ..... 33
+7.6 Why Random Queries Do Not Work ..... 33
+A Deferred Proofs ..... 35
+A. 1 Polynomial-Time Implementation of Algorithm 2 ..... 35
+A. 2 Proof of Claim 5.8 ..... 37# 1 Introduction 
+
+We study the following stochastic vertex cover problem. Let $G=(V, E)$ be a given $n$-vertex graph, $p \in(0,1]$ a parameter of the problem, and let $G_{p} \subseteq G$ be a random subgraph that includes each edge in $E$ independently with probability $p$. We are unaware of the realization of $G_{p}$, but can learn if an edge $e \in E$ is realized in $G_{p}$ by querying it. The goal is to find an approximate minimum vertex cover (MVC) of $G_{p}$ by querying, non-adaptively, few edges in $G$.
+
+This stochastic setting has been studied extensively over the last two decades for various problems such as minimum spanning trees and matroids [14, 15], packing problems [22], shortest paths [21], and most relevant to our work, matchings [9, 10, 2, 3, 8, 22, 5, 1, 7, 6, 4]. There has also been quite a lot of related work on "network reliability" in random subgraphs; see the book [11] for some classic results of the 1980's as well as $[18,16]$ and the references therein for more recent works. While this is by no means a comprehensive list of all the related works, we are, to our knowledge, the first to consider a covering problem in the setting.
+
+It would be useful to overview the known bounds for the matching problem. It was shown by Blum et al. $[9,10]$ that a $(1 / 2-\varepsilon)$-approximate matching of $G_{p}$ can be found by querying $O_{p, \varepsilon}(1)$ edges of each vertex in $G$, where the dependence on $p$ was exponential. Later, Assadi, Khanna, and Li [2] improved the dependence on $p$ and obtained the same approximation with poly $(1 / \varepsilon p)$ queries. Numerous follow up works [3, 22, 7, 1, 6, 4] then improved the approximation ratio. Particularly, the algorithm of Assadi and Bernstein [1] (see also [7]) obtains a $(2 / 3-\varepsilon)$-approximation with $\operatorname{poly}(1 / \varepsilon p)$ queries. It was already observed in [2] that $2 / 3$-approximation is a barrier for the problem. Recently, Behnezhad, Derakhshan, and Hajiaghayi [6] broke this barrier and showed that one can obtain a $(1-\varepsilon)$-approximation with $O_{\varepsilon, p}(1)$ per-vertex queries, where the dependence on $\varepsilon$ and $p$ is super-polynomial. Determining the best approximation achievable via poly $(1 / \varepsilon p)$ queries remains an important open question for the stochastic matching problem.
+
+In light of this progress on the approximate matching problem, it is natural to ask whether the same can also be achieved for the dual minimum vertex cover problem. Particularly,
+Question 1. Can we find an approximate MVC of $G_{p}$ by querying few, preferrably poly $(1 / p)$, edges of each vertex in the base graph $G$ ?
+
+Observe that a vertex cover of $G$ is also a valid vertex cover of $G_{p}$ since $G_{p} \subseteq G$. However, since some of the edges of $G$ may not belong to $G_{p}$, the MVC of $G_{p}$ might be smaller than that of $G$. In fact, the MVC of $G$ may be as large as $1 / p$ times the MVC of $G_{p}$ in expectation - an example is when $G$ is simply a matching. It turns out that to obtain any constant approximation (independent of $p), \Omega\left(n / p\right)$ total queries are necessary; see Theorem 7.5. One may wonder if randomly querying the edges of $G$ may help. However, we show that the set of queried edges must be picked with much more care - see Section 7.6 for why random queries do not work.
+
+Perhaps the simplest known constant approximation for the MVC problem is through maximal matchings. The set of endpoints of the edges in a maximal matching is well-known to form a 2approximate MVC. For this to hold, however, the maximality of the matching is essential, and even a $(1-\varepsilon)$-approximate maximum matching that is not maximal is not useful. Unfortunately, none of the works above on the stochastic matching problem yield a maximal matching of $G_{p}$. In fact, we prove a separation (Theorem 7.2) via a simple lower bound, that, unlike approximate matchings, finding a maximal matching of $G_{p}$ requires $\Omega(n \log n)$ total queries. The situation seems even more complicated on the algorithmic side. In fact, we do not know if a maximal matching of $G_{p}$ can be found with $o\left(n^{2}\right)$ queries (note that the whole graph $G_{p}$ can be learned with $O\left(n^{2}\right)$ queries).# 1.1 Our Results 
+
+In this work, we make progress on Question 1 on several fronts.
+Our main end results are in the poly $(1 / p)$ query regime and we prove the following two results for general and bipartite graphs, respectively.
+
+Result 1 (see Theorem 6.2). For any graph $G$, any $\varepsilon>0$, and any $p \in(0,1]$, there is a poly-time algorithm that finds a $(2+\varepsilon)$-approximate MVC of $G_{p}$ via $O\left(\frac{1}{\varepsilon^{3} p}\right)$ per-vertex queries.
+
+Result 2 (see Theorem 6.1). For any bipartite graph $G$, and any $p \in(0,1]$, there is a poly-time algorithm that finds a $1.367\left(\approx \frac{e+1}{e}\right)$-approximate MVC of $G_{p}$ via $\operatorname{poly}(1 / p)$ per-vertex queries.
+
+As discussed, $\Omega(1 / p)$ per-vertex queries are necessary to obtain any constant approximation; see Theorem 7.5. Therefore, Result 1 is asymptotically query-optimal. Note, on the other hand, that for $p=1$, the problem reduces to the non-stochastic MVC problem. This means that, restricting ourselves to polynomial-time algorithms, the approximation ratio achieved in Result 1 is also optimal for general graphs (up to an additive $\varepsilon$ ) under the Unique Games Conjecture [19].
+
+For bipartite graphs, however, the UGC based lower bound does not hold. Indeed, an optimal MVC can be found in polynomial time. Result 2 asserts that in the stochastic setting, too, one can get around the 2 -approximation barrier with just poly $(1 / p)$ per-vertex queries.
+
+To prove Result 2 we prove a number of tools (overviewed in Section 2) that, in a sense, give a better understanding of matchings in stochastic graphs. Using these tools, we also obtain the guarantee of Corollary 1.1 for stochastic matching in bipartite graphs, improving the previous close to $2 / 3$ approximations of $[7,1]$ (which respectively obtain 0.656 and $(2 / 3-\varepsilon)$-approximations) in the poly $(1 / p)$ query regime. We note that Corollary 1.1, importantly, is the first result to break the $2 / 3$-approximation barrier of [2] with just poly $(1 / p)$ queries.
+Corollary 1.1. For any bipartite graph $G$, and any $p \in(0,1]$, there is a poly-time algorithm that finds a $0.731\left(\approx \frac{e}{e+1}\right)$-approximate matching of $G_{p}$ in expectation via $O\left(\frac{\log 1 / p}{p}\right)$ per-vertex queries.
+
+Finally, we turn our attention to the regime where super-polynomial-in- $1 / p$ queries per-vertex are allowed. We show that in this setting, the approximation guarantee of Result 2 can be improved all the way to $(1+\varepsilon)$.
+Result 3 (see Theorem 6.3). For any bipartite graph $G$, any $\varepsilon>0$, and any $p \in(0,1]$, there is a poly-time algorithm that finds a $(1+\varepsilon)$-approximate MVC of $G_{p}$ via $O_{\varepsilon, p}(1)$ per-vertex queries.
+
+We note that the dependence of the number of per-vertex queries in Result 3 on $p$ is in the order $\exp (\exp (\exp (\operatorname{poly}(1 / p))))$. It remains an important open problem to determine whether a $(1+\varepsilon)$-approximation for bipartite graphs is achievable via poly $(1 / \varepsilon p)$ queries. (The same is also open for stochastic matching as discussed.)
+
+## 2 Main Techniques
+
+All of our algorithms in this paper for the stochastic MVC problem return a subset $C \subseteq V$ which is with probability one a vertex cover of $G_{p}$. That is, all the edges of $G_{p}$ have at least one endpoint in $C$ at all times. Let $Q$ denote the subset of edges in $G$ that we query and let $S$ denote the rest of the edges. Observe that since we are unaware of the realization of edges in $S$, we have to coverthem all, no matter which ones are realized. Therefore, once we fix the subgraph $Q$ to be queried, the "best algorithm" is well-defined: Report a MVC of graph $H:=Q_{p} \cup S$ which includes the realized edges in $Q$, but all the edges in $S .{ }^{1}$ Observe that since we require $Q$ to be sparse, the vast majority of edges will be in $S$ and are always assumed to be realized. The challenge is to ensure that the extra covering constraints imposed by these edges do not increase the size of our vertex cover by much, compared to the actual minimum vertex cover of $G_{p}$.
+
+The discussion above actually unveils an interesting connection between the stochastic vertex cover problem and the stochastic matching problem particularly in bipartite graphs where by König's famous theorem MVC and maximum matching have the same size. On the one hand, the stochastic matching problem asks for a subgraph $Q$, such that if we remove all the rest of the edges $S:=E \backslash Q$ from $G_{p}$, the size of maximum matching in graph $G_{p} \backslash S$ remains close to that of $G_{p}$. On the other hand, the stochastic vertex cover problem asks for a subgraph $Q$ such that if we add all the edges $S:=E \backslash Q$ to $G_{p}$, the size of the maximum matching (which equals the size of MVC) in $G_{p} \cup S$ remains close to that of $G_{p}$.
+
+Now let us describe how we actually pick subgraph $Q$ to query, and how we analyze the size of the minimum vertex cover achieved by querying this subgraph.
+
+The Half-Stochastic Matching Lemma: This lemma, which we prove in Section 4, is one of the main components of our paper. It mainly provides a partitioning $Q, S$ of the edge-set $E$ of $G$. Let $H:=Q_{p} \cup S$ denote a "half-stochastic" graph which includes each edge of $Q$ independently with probability $p$ but includes all the edges of $S$ with probability 1 . We use this partitioning in our algorithm for Result 2 in particular. There, we query only the edges in $Q$ and report the MVC of graph $H$, as outlined before. As a result, the partitioning should clearly ensure $Q$ has a small maximum degree. In addition, the nice property of this partitioning is that the edges $e \in S$ have a relatively small probability $\leq \varepsilon^{2} p$ of being part of matching $\mathcal{M}(H)$, where $\mathcal{M}$ is a (near) maximum matching algorithm that is also provided by the lemma. Next, we describe some of the challenges that we face in proving this lemma and how we overcome them.
+
+Let us start with the trivial partitioning $Q_{0}=\emptyset, S_{0}=E$ and let $\mathcal{M}$ be an arbitrary (possibly randomized) maximum matching algorithm. The problem with this solution is that an edge $e \in$ $S_{0}$ may have a large probability of being part of $\mathcal{M}\left(H_{0}\right)$. This occurs if some edges in $H_{0}$ are crucial for the matching to be maximum. We can try to put these edges of $S_{0}$ violating the probability constraint in $Q_{0}$, and obtain a new partitioning $Q_{1}, S_{1}$. The problem, however, is that the corresponding graph $H_{1}$ has a different distribution than graph $H_{0}$. Thus, it could be that edges in $S_{1}$ that previously had a small probability of joining $\mathcal{M}\left(H_{0}\right)$ now become crucial for the maximum matching of $H_{1}$. This can in fact continue for a super-constant number of iterations, inevitably violating the maximum degree constraint of $Q$.
+
+Instead of using an arbitrary maximum matching algorithm, our first idea is to use a special matching algorithm $\mathcal{M}$ that maximizes the following objective:
+
+$$
+\Phi:=\sum_{e \in E}\left(\operatorname{Pr}[e \in \mathcal{M}(H)]-\varepsilon \operatorname{Pr}[e \in \mathcal{M}(H)]^{2}\right)
+$$
+
+The first term in the sum, intuitively, ensures that the size of matchings produced by the algorithm is large. The second term, intuitively, is to ensure the edges tend to have small probabilities of joining $\mathcal{M}(H)$. A nice "averaging" property of this objective, is that if some matching algorithm $\mathcal{M}_{1}$ guarantees an objective of $\Phi_{1}$ and another algorithm $\mathcal{M}_{2}$ guarantees $\Phi_{2}$, then the algorithm that with probability $1 / 2$ picks the output of $\mathcal{M}_{1}$ and with probability $1 / 2$ the output of $\mathcal{M}_{2}$, has
+
+[^0]
+[^0]:    ${ }^{1}$ Since exact MVC is NP-hard for general graphs, we actually end up using a different algorithm for Result 1.objective strictly larger than $\frac{\Phi_{1}+\Phi_{2}}{2}$, unless the vast majority of edges have the same probability of joining $\mathcal{M}_{1}$ and $\mathcal{M}_{2}$.
+
+We plug in this new matching algorithm in the aforementioned framework for obtaining a list of partitionings $\left(Q_{0}, S_{0}\right), \ldots,\left(Q_{k}, S_{k}\right)$. But now, we use the averaging property of our special matching algorithm to argue that we reach our desired partitioning for some $k=\operatorname{poly}(1 / \varepsilon p)$.
+
+A New Vertex-Independent Matching Algorithm: Now suppose that we have the partitioning $(Q, S)$ provided by the lemma discussed above. How should we argue that the MVC of graph $H=Q_{p} \cup S$ approximates the MVC of the actual realization $G_{p}$ ? One of the key parts of our analysis, which we discuss thoroughly in Section 5, is a new vertex-independent matching (VIM) lemma. VIMs were introduced recently in [6] (further refined in [4]) and were shown to be extremely useful for stochastic matchings. Roughly speaking, given a stochastic graph $G_{p}$ and an arbitrary matching algorithm $\mathcal{A}$, a VIM algorithm $\mathcal{B}$ has the property that its matching $\mathcal{B}\left(G_{p}\right)$ approximates $\mathcal{A}\left(G_{p}\right)$ (in both the total size and marginal probabilities of edges/vertices joining the matching), but in addition, for "most" vertices $u$ and $v$ of the graph, whether or not they are matched in $\mathcal{B}\left(G_{p}\right)$ are independent events. In the works of $[6,4]$ for example, this independence is satisfied for $u, v \in V$ if they are at distance at least polylog $\Delta$ in $G$, where $\Delta$ is the maximum degree of $G$. This requirement on the distance to achieve independence is provably necessary for the approach taken in $[6,4]$ which is through distributed local algorithms. In contrast, we use a completely different approach to achieve independence in this work. Our new VIM works for bipartite graphs, but unlike prior works, for any two vertices $u$ and $v$ (in different partitions) that are non-adjacent, we have independence. This independence in particular holds, even if $u$ and $v$ are connected via a path of length 3 . This better guarantee on independence is the key, for example, to why we are allowed to break the RS-barrier for stochastic matchings via poly $(1 / p)$ queries, whereas the previous approaches $[6,4]$ required a super-polynomial in $1 / p$ queries. It is also used, crucially, in the analysis of the stochastic MVC algorithm we described above for Result 2.
+
+# 3 Preliminaries \& Paper Organization 
+
+Notation. For any graph $G$, we use $\nu(G)$ to denote the size of the minimum vertex cover of $G$ and use $\mu(G)$ to denote the size of the maximum matching of $G$. A "fractional matching" $\mathbf{x}$ of a graph $G=(V, E)$ is an assignment $\left\{x_{e}\right\}_{e \in E}$ to the edges, where $x_{e} \in[0,1]$ and for each vertex $v \in V, x_{v}:=\sum_{e \ni v} x_{e} \leq 1$. We use $|\mathbf{x}|:=\sum_{e} x_{e}$ to denote the size of a fractional matching and for any subset $E^{\prime} \subseteq E$, use $\mathbf{x}\left(E^{\prime}\right)$ to denote $\sum_{e \in E^{\prime}} x_{e}$. For any integer $k$ we use $[k]$ to denote set $\{1, \ldots, k\}$. We say $S_{1}, \ldots, S_{k}$ "partitions" set $S$ if $S_{1} \cup \ldots \cup S_{k}=S$ and $S_{i} \cap S_{j}=\emptyset$ for all $i, j \in[k]$.
+
+As in the literature (see e.g. $[9,6]$ ), we say a (random) matching $M$ provides an $0<\alpha \leq 1$ approximation for the stochastic matching problem if $M \subseteq G_{p}$ and $\mathbb{E}|M| \geq \alpha \cdot \mathbb{E}\left[\mu\left(G_{p}\right)\right]$. We say a (random) subset $C \subseteq V$ is a $\beta \geq 1$ approximate stochastic minimum vertex cover, if any edge in $G_{p}$ has at least an endpoint in $C$ with probability 1 , and $\mathbb{E}|C| \leq \beta \cdot \mathbb{E}\left[\nu\left(G_{p}\right)\right]$.
+
+We use the following well-known propositions throughout the paper.
+Proposition 3.1 (König's Theorem). In any bipartite graph $G, \nu(G)=\mu(G)$.
+Proposition 3.2 (Chebyshev's inequality). Let $X$ be a random variable with finite expected value $\mathbb{E}[X]$ and finite non-zero variance $\operatorname{Var}[X]$. For any $\lambda>0$,
+
+$$
+\operatorname{Pr}[|X-\mathbb{E} X| \geq \lambda] \leq \frac{\operatorname{Var}[X]}{\lambda^{2}}
+$$Paper organization. In Sections 4 and 5 we prove two of the main tools introduced in this paper, particularly the "half-stochastic matching lemma" and the "new vertex-independent matching lemma". In Section 6 we present our algorithms for the stochastic MVC problem and also the improved result for the stochastic matching problem. Finally, in Section 7 we prove several lower bounds for both the stochastic vertex cover problem and the stochastic matching problem.
+
+# 4 Tool I: The Half-Stochastic Matching Lemma 
+
+The Half-Stochastic Matching Lemma, constructively, gives a partitioning $(Q, S)$ of the edge-set $E$ of graph $G$. This partitioning is accompanied with a special near-maximum matching algorithm $\mathcal{M}$ that operates on the "half-stochastic" random subgraph $H$ of $G$ in which each edge of $Q$ is stochastic (i.e. realized with probability $p$ ) and each edge of $S$ appears with probability one.
+
+Although this lemma seems to be about matchings only, it actually plays an important role in the stochastic vertex cover algorithm for Theorem 6.1 in both the algorithm in deciding which edges to query, and the analysis of the approximation ratio achieved by this algorithm.
+
+Lemma 4.1 (Half-Stochastic Matching Lemma). Let $G=(V, E)$ be a (possibly non-bipartite) graph and let $\varepsilon \in[0,1]$ and $p \in[0,1]$ be two given parameters. There is a partitioning of $E$ into subsets $Q$ and $S$ such that:
+(i) The maximum degree in $Q$ is $O\left(\frac{1}{\varepsilon^{11} p^{6}}\right)$.
+
+Moreover, $Q$ and $S$ are such that there exists a randomized matching algorithm $\mathcal{M}$, where by letting $H:=Q_{p} \cup S$ denote a random graph which includes all edges in $S$, but includes each edge of $Q$ independently with probability $p$, we get:
+(ii) $\mathbb{E}|\mathcal{M}(H)| \geq(1-2 \varepsilon) \cdot \mathbb{E}[\mu(H)]$. That is, the matching algorithm $\mathcal{M}$ should find an approximate maximum matching of $H$ in expectation.
+(iii) For any edge $e \in S, \operatorname{Pr}[e \in \mathcal{M}(H)] \leq \varepsilon^{2} p$.
+
+We note that the probabilistic statements above are with respect to both the inherent randomization in graph $H$, and also the randomization used in algorithm $\mathcal{M}$.
+
+We now turn to present the proof of Lemma 4.1. To do so, we have to output a triplet $(Q, S, \mathcal{M})$ where $Q$ and $S$ form a partitioning of $E$, and $\mathcal{M}$ is a matching algorithm.
+
+For some $k=O_{\varepsilon, p}(1)$ which we specify later, we construct a list $\left(Q_{0}, S_{0}\right),\left(Q_{1}, S_{1}\right), \ldots,\left(Q_{k}, S_{k}\right)$ of partitionings. We will argue that if $k$ is large enough, there is one of the partitions, $\left(Q_{i}, S_{i}\right)$, which satisfies all the properties required by Lemma 4.1. This will be our partitioning $(Q, S)$.
+
+The construction. The base partitioning is simply $Q_{0}=\emptyset, S_{0}=E$ and for each $i \geq 0$, $\left(Q_{i+1}, S_{i+1}\right)$ is constructed from the previous partitioning $\left(Q_{i}, S_{i}\right)$. To describe the construction, let us define for each partitioning $i$ a random graph $H_{i}$ which includes each edge of $Q_{i}$ independently with probability $p$, and includes every edge of $S_{i}$ with probability 1 . We will also soon formalize a special randomized matching algorithm $\mathcal{M}_{i}$ that we run on graph $H_{i}$. Having $\mathcal{M}_{i}$, for each $i \geq 0$ we define
+
+$$
+D_{i}:=\left\{e \in S_{i} \mid \operatorname{Pr}\left[e \in \mathcal{M}_{i}\left(H_{i}\right)\right]>\varepsilon^{2} p\right\}
+$$and construct $\left(Q_{i+1}, S_{i+1}\right)$ in the following way:
+
+$$
+Q_{i+1} \leftarrow Q_{i} \cup D_{i} \quad \text { and } \quad S_{i+1} \leftarrow S_{i} \backslash D_{i}
+$$
+
+Observe that in the construction above, each partitioning $\left(Q_{i+1}, S_{i+1}\right)$ is obtained from the previous partitioning $\left(Q_{i}, S_{i}\right)$ by "moving" the edges of $D_{i}$ (which are all by definition in $S_{i}$ ) from $S_{i}$ to partition $Q_{i}$. For this reason, we have
+
+$$
+Q_{0} \subset Q_{1} \subset \ldots \subset Q_{k} \quad \text { and } \quad S_{0} \supset S_{1} \supset \ldots \supset S_{k}
+$$
+
+Let us emphasize that graphs $H_{0}, H_{1}, \ldots, H_{k}$ have different distributions. Intuitively, since $Q_{i}$ grows as $i$ increases, and graph $H_{i}$ includes only $p$ fraction of the edges in $Q_{i}$ but all the edges in $S_{i}$, random graph $H_{i}$ tends to get smaller and smaller by increasing $i$. In fact it would be useful to consider a coupling $\left(H_{0}, H_{1}, \ldots, H_{k}\right)$ as follows: On each edge $e$ we draw an independent $p$-Bernouli random variable $X_{e}$ and use this to define $H_{i}$ for all $i$ as:
+
+$$
+H_{i}=\left\{e \mid\left(e \in Q_{i} \text { and } X_{e}=1\right) \text { or }\left(e \in S_{i}\right)\right\}
+$$
+
+This coupling is useful because in each outcome of the joint distribution $\left(H_{0}, \ldots, H_{k}\right)$, each graph $H_{i}$ is a subgraph of the previous graph $H_{i-1}$.
+
+Let us now finalize our construction by formalizing algorithm $\mathcal{M}_{i}$.
+The Matching $\mathcal{M}_{i}$ : For any $i$ and any (possibly randomized) matching algorithm $\mathcal{M}^{\prime}$, we define
+
+$$
+\Phi_{i}\left(\mathcal{M}^{\prime}\right):=\sum_{e \in E}\left(\operatorname{Pr}_{\mathcal{M}^{\prime}, H_{i}}\left[e \in \mathcal{M}^{\prime}\left(H_{i}\right)\right]-\varepsilon \operatorname{Pr}_{\mathcal{M}^{\prime}, H_{i}}\left[e \in \mathcal{M}^{\prime}\left(H_{i}\right)\right]^{2}\right)
+$$
+
+where let us emphasize that the probabilities are taken over both the possible randomization in algorithm $\mathcal{M}^{\prime}$, and the randomization in graph $H_{i}$ (regarding the realization of edges belonging to $Q_{i}$ ). Having this definition, we now simply let $\mathcal{M}_{i}$ be the algorithm maximizing $\Phi_{i}$, i.e.:
+
+$$
+\mathcal{M}_{i}:=\underset{\mathcal{M}^{\prime}}{\arg \max } \Phi_{i}\left(\mathcal{M}^{\prime}\right)
+$$
+
+and we use $\Phi_{i}:=\Phi_{i}\left(\mathcal{M}_{i}\right)$ to simply denote the optimal objective value obtained by this algorithm.
+Let us, for now, not concern ourselves with how the objective function (4) can be maximized in polynomial time and assume that this algorithm $\mathcal{M}_{i}$ is simply given. We will later address this issue and obtain a polynomial-time algorithm once it becomes clear how we use $\mathcal{M}_{i}$.
+
+The intuition behind objective (4). To see the intuition behind why we define the objective function (4) this way, first note by linearity of expectation that
+
+$$
+\Phi_{i}=\mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right|-\varepsilon \sum_{e \in E} \operatorname{Pr}\left[e \in \mathcal{M}_{i}\left(H_{i}\right)\right]^{2}
+$$
+
+The intuition behind the first term is clear: We want the expected size of the matching to be large; Observation 4.3 below formalizes this by showing that the matching algorithm $\mathcal{M}_{i}$ maximizing $\Phi_{i}$ must be a $(1-\varepsilon)$-approximate matching. The second term, on the other hand, ensures that the marginal probabilities of edges appearing in the matching tend to be small. This is useful for Property (iii) of Lemma 4.1 which requires small marginals for all edges in $S$.
+Observation 4.2. For any $i, \mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right| \geq \Phi_{i}$.Proof. By Equation (5), $\mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right|=\Phi_{i}+\varepsilon \sum_{e \in E} \operatorname{Pr}\left[e \in \mathcal{M}_{i}\left(H_{i}\right)\right]^{2} \geq \Phi_{i}$.
+Observation 4.3. $\mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right| \geq(1-\varepsilon) \cdot \mathbb{E}\left[\mu\left(H_{i}\right)\right]$.
+Proof. Consider a deterministic algorithm $\mathcal{M}^{\prime}$ that picks an arbitrary maximum matching $M$ of its random input $H_{i}$. Since $\mathbb{E}|M|=\mathbb{E}\left[\mu\left(H_{i}\right)\right]$, we have
+
+$$
+\Phi_{i}\left(\mathcal{M}^{\prime}\right)=\mathbb{E}\left[\mu\left(H_{i}\right)\right]-\varepsilon \sum_{e \in E} \operatorname{Pr}[e \in M]^{2} \geq \mathbb{E}\left[\mu\left(H_{i}\right)\right]-\varepsilon \sum_{e \in E} \operatorname{Pr}[e \in M]=(1-\varepsilon) \cdot \mathbb{E}\left[\mu\left(H_{i}\right)\right]
+$$
+
+Since $\mathcal{M}_{i}$ maximizes $\Phi_{i}=\Phi_{i}\left(\mathcal{M}_{i}\right)$, we get $\Phi_{i} \geq \Phi_{i}\left(\mathcal{M}^{\prime}\right) \geq(1-\varepsilon) \cdot \mathbb{E}\left[\mu\left(H_{i}\right)\right]$. Combined with $\mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right| \geq \Phi_{i}$ due to Observation 4.2, this implies $\mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right| \geq(1-\varepsilon) \cdot \mathbb{E}\left[\mu\left(H_{i}\right)\right]$.
+
+We now turn to prove that one of the partitionings $\left(Q_{i}, S_{i}\right)$ must satisfy the properties required by Lemma 4.1. The next set of claims are used for this purpose.
+Claim 4.4. It holds that
+
+$$
+\mu(G) \geq \Phi_{0} \geq \Phi_{1} \geq \ldots \geq \Phi_{k} \geq(1-\varepsilon) \cdot p \cdot \mu(G)
+$$
+
+Claim 4.5. There is an interval $I=\left\{s, \ldots, s+k^{\prime}\right\}$ in $[k]$ with $|I| \geq \frac{1}{300} \varepsilon^{6} p^{3} k$ such that
+
+$$
+\left|\Phi_{i}-\Phi_{j}\right| \leq 0.01 \varepsilon^{6} p^{3} \mu(G) \quad \text { for all } i<j \text { in } I
+$$
+
+Claim 4.6. Let $I$ be as defined in Claim 4.5. Either there is some $i \in I$ where $\mathbb{E}\left|D_{i} \cap \mathcal{M}_{i}\left(H_{i}\right)\right|<$ $\varepsilon p \mu(G)$, or otherwise for any $i, j \in I$ with $i<j$, it holds that
+
+$$
+\mathbb{E}\left|D_{i} \cap \mathcal{M}_{j}\left(H_{j}\right)\right| \geq 0.25 \varepsilon^{3} p^{2} \cdot \mu(G)
+$$
+
+Claims 4.4 and 4.5 are proved in Section 4.1 and Claim 4.6 is proved in Section 4.2. Claim 4.6 is, in particular, the key part of the proof. It is proved by showing that if the condition of Claim 4.6 is not satisfied, then the randomized matching algorithm that with probability 0.5 picks the output of $\mathcal{M}_{j}\left(H_{j}\right)$ and otherwise the output of $\mathcal{M}_{i}\left(H_{i}\right)$, should obtain a larger objective than $\Phi_{i}$ which we show is a contradiction.
+
+Having proved these claims, we now turn to prove Lemma 4.1.
+Proof of Lemma 4.1. First, we set $k=5 \cdot \frac{300}{\varepsilon^{3} p^{6}}$. Since for any $i$, each edge in $D_{i}$ has probability at least $\varepsilon^{2} p$ of being in matching $\mathcal{M}_{i}\left(H_{i}\right)$, and that the probabilities around each vertex sum up to at most one, there are at most $1 / \varepsilon^{2} p$ edges connected to each vertex in $D_{i}$. This implies that for any $j \in[k], Q_{j}$ has maximum degree at most $k \cdot \frac{1}{\varepsilon^{2} p}=O\left(\frac{1}{\varepsilon^{11} p^{6}}\right)$, satisfying Property $(i)$. Now we prove there exists some $\left(Q_{i}, S_{i}\right)$ satisfying Properties (ii) and (iii) as well.
+
+Let $I$ be as provided by Claim 4.5. There are two possible cases:
+Case 1 - There is some $i \in I$ where $\mathbb{E}\left|D_{i} \cap \mathcal{M}_{i}\left(H_{i}\right)\right|<\varepsilon p \mu(G)$ :
+In this case, we can let $Q \leftarrow Q_{i}, S \leftarrow S_{i}$, which implies graph $H$ of Lemma 4.1 has the same distribution as $H_{i}$. We now let matching algorithm $\mathcal{M}$, required by Lemma 4.1, to be the same as matching algorithm $\mathcal{M}_{i}$, except that we exclude the edges of $D_{i}$ from the matching. That is, we let $\mathcal{M}(H)=\mathcal{M}_{i}\left(H_{i}\right) \backslash D_{i}$.
+
+Since we exclude the edges in $D_{i}$ from the matching, we get that for all edges $e \in S, \operatorname{Pr}[e \in$ $\mathcal{M}(H)] \leq \varepsilon^{2} p$ satisfying Property (iii). On the other hand,
+
+$$
+\mathbb{E}|\mathcal{M}(H)|=\mathbb{E}\left[\left|\mathcal{M}_{i}\left(H_{i}\right) \backslash D_{i}\right|\right]=\mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right|-\mathbb{E}\left|D_{i} \cap \mathcal{M}_{i}\left(H_{i}\right)\right|
+$$$$
+\begin{array}{ll}
+>\mathbb{E}\left|\mathcal{M}_{i}\left(H_{i}\right)\right|-\varepsilon p \mu(G) & \text { (By the assumption of Case 1.) } \\
+\geq(1-\varepsilon) \mathbb{E}\left[\mu\left(H_{i}\right)\right]-\varepsilon p \mu(G) & \text { (By Observation 4.3.) } \\
+\geq(1-2 \varepsilon) \mathbb{E}\left[\mu\left(H_{i}\right)\right] & \text { (Since } \mathbb{E}\left[\mu\left(H_{i}\right)\right] \geq p \mu(G) . \\
+=(1-2 \varepsilon) \mathbb{E}[\mu(H)] . & \text { (Since } H \text { and } H_{i} \text { have the same distribution.) }
+\end{array}
+$$
+
+This proves $\mathcal{M}$ is a $(1-2 \varepsilon)$-approximate matching algorithm, satisfying Property (ii).
+Case 2 - For all $i \in I, \mathbb{E}\left|D_{i} \cap \mathcal{M}_{i}\left(H_{i}\right)\right| \geq \varepsilon p \mu(G)$ :
+In this case, by Claim 4.6, we have $\mathbb{E}\left|D_{i} \cap \mathcal{M}_{j}\left(H_{j}\right)\right| \geq 0.25 \varepsilon^{3} p^{2} \cdot \mu(G)$ for all $i<j$ in $I$. Let us denote $I=\left\{a_{1}, a_{2}, \ldots, a_{\ell}\right\}$ where $a_{1}<\ldots<a_{\ell}$. Letting $j=a_{\ell}$, we thus get
+
+$$
+\mathbb{E}\left|D_{a_{i}} \cap \mathcal{M}_{a_{\ell}}\left(H_{a_{\ell}}\right)\right| \geq 0.25 \varepsilon^{3} p^{2} \cdot \mu(G) \quad \text { for all } i \in\{1, \ldots, \ell-1\}
+$$
+
+On the other hand, observe from construction (2) that sets $D_{a_{1}}, \ldots, D_{a_{\ell-1}}$ are all pairwise disjoint. This implies
+
+$$
+\mathbb{E}\left|\mathcal{M}_{a_{\ell}}\left(H_{a_{\ell}}\right)\right| \geq \sum_{i=1}^{\ell-1} \mathbb{E}\left|D_{a_{i}} \cap \mathcal{M}_{a_{\ell}}\left(H_{a_{\ell}}\right)\right| \geq(\ell-1) \cdot 0.25 \varepsilon^{3} p^{2} \cdot \mu(G)
+$$
+
+Recall from Claim 4.5 that $\ell=|I| \geq \frac{1}{300} \varepsilon^{6} p^{3} k$. Since we set $k=5 \cdot \frac{300}{\varepsilon^{6} p^{5}}$, we get $\ell \geq \frac{5}{\varepsilon^{3} p^{2}}$ which combined with (6) implies $\mathbb{E}\left|\mathcal{M}_{a_{\ell}}\left(H_{a_{\ell}}\right)\right|>\mu(G)$ which is a contradiction since $H_{a_{\ell}}$ is a subgraph of $G$ and cannot have a larger matching than $\mu(G)$. This contradiction implies that if we set $k$ large enough, this second case essentially does not happen. As a result, we always end up at Case 1, which we just showed how it proves Lemma 4.1.
+
+The proof of Lemma 4.1 is thus complete.
+Finally, we remark that our techniques also lead to a partitioning with the same guarantee as in Lemma 4.1 that can be found in polynomial time. We defer the details of this polynomial-time implementation to Appnedix A.1.
+
+# 4.1 Proofs of Claims 4.4 and 4.5 
+
+Proof of Claim 4.4. As discussed, in the coupling of Eq 3, $H_{i}$ is always a subgraph of $H_{i-1}$. As a result, matching algorithm $\mathcal{M}_{i}$ is also applicable on graph $H_{i-1}$, implying that $\Phi_{i-1} \geq \Phi_{i}$ for all $i$.
+
+To see why $\mu(G) \geq \Phi_{0}$, note from Observation 4.2 that $\mathbb{E}\left|\mathcal{M}_{0}\left(H_{0}\right)\right| \geq \Phi_{0}$. On the other hand, no matter what matching algorithm we use for $\mathcal{M}_{0}$, we have $\mathbb{E}\left|\mathcal{M}_{0}\left(H_{0}\right)\right| \leq \mu(G)$ as the output must be a matching in $H_{0}$ and thus $G$. Combining the two bounds gives $\mu(G) \geq \Phi_{0}$.
+
+Finally, to see why $\Phi_{k} \geq(1-\varepsilon) \cdot p \cdot \mu(G)$, fix a maximum matching $M$ of $G$ which has to have size $\mu(G)$. Every edge $e \in M$ either is in $Q_{k}$ or $S_{k}$; in either case, $e \in H_{k}$ with probability at least $p$. We thus have $\mathbb{E}\left[\mu\left(H_{k}\right)\right] \geq \mathbb{E}\left|M \cap H_{k}\right| \geq p|M|=p \cdot \mu(G)$. Now consider a choice for $\mathcal{M}_{k}$ which deterministically picks a maximum matching $M_{k}$ of $H_{k}$. This proves
+
+$$
+\begin{aligned}
+\Phi_{k} & \geq \sum_{e \in E} \operatorname{Pr}\left[e \in M_{k}\right]-\varepsilon \operatorname{Pr}\left[e \in M_{k}\right]^{2} \geq \sum_{e \in E} \operatorname{Pr}\left[e \in M_{k}\right]-\varepsilon \operatorname{Pr}\left[e \in M_{k}\right] \\
+& =(1-\varepsilon) \sum_{e \in E} \operatorname{Pr}\left[e \in M_{k}\right] \geq(1-\varepsilon) \cdot \mathbb{E}\left|M_{k}\right|=(1-\varepsilon) \cdot \mathbb{E}\left[\mu\left(H_{k}\right)\right] \geq(1-\varepsilon) \cdot p \cdot \mu(G)
+\end{aligned}
+$$
+
+completing the proof.Proof of Claim 4.5. Let us define $I_{j}$ for any $j \in\left\{1, \ldots,\left\lceil 100 / \varepsilon^{6} p^{3}\right\rceil\right\}$ as follows
+
+$$
+I_{j}:=\left\{i:\left(1-0.01 j \varepsilon^{6} p^{3}\right) \mu(G)<\Phi_{i} \leq\left(1-0.01(j-1) \varepsilon^{6} p^{3}\right) \mu(G)\right\}
+$$
+
+Recall from Claim 4.4 that $\mu(G)=\Phi_{0} \geq \Phi_{1} \geq \ldots \geq \Phi_{k} \geq(1-\varepsilon) p \mu(G)$. Thus, $I_{1}, I_{2}, \ldots$ partition $[k]$ into consecutive intervals where for all elements $i, j$ in the same interval, $\left|\Phi_{i}-\Phi_{j}\right| \leq 0.01 \varepsilon^{6} p^{3} \mu(G)$.
+
+Since there are only $\left\lceil 100 / \varepsilon^{6} p^{3}\right\rceil$ intervals and $\sum_{j}\left|I_{j}\right|=k$ (as every $i \in[k]$ belongs to exactly one of the intervals) there is at least one interval $I$ with $|I| \geq \frac{k}{\left\lceil 100 / \varepsilon^{6} p^{3}\right\rceil+1}>\frac{1}{300} \cdot \varepsilon^{6} p^{3} k$. This interval $I$ satisfies the required property of the claim by its definition, and has the desired size.
+
+# 4.2 Proof of Claim 4.6 
+
+Proof of Claim 4.6. Suppose for the sake of contradiction that
+
+$$
+\mathbb{E}\left|D_{i} \cap \mathcal{M}_{i}\left(H_{i}\right)\right| \geq \varepsilon p \mu(G) \quad \text { for all } i \in I
+$$
+
+and that there are $i, j \in I$ such that $i<j$ and
+
+$$
+\mathbb{E}\left|D_{i} \cap \mathcal{M}_{j}\left(H_{j}\right)\right|<0.25 \varepsilon^{3} p^{2} \cdot \mu(G)
+$$
+
+Consider a matching $\mathcal{M}_{i, j}\left(H_{i}\right)$ which with probability $1 / 2$ returns the output of $\mathcal{M}_{i}\left(H_{i}\right)$ and with probability $1 / 2$ returns the output of $\mathcal{M}_{j}\left(H_{j}\right)$. Since $i<j$, by the coupling (3), $H_{j}$ is a subgraph of $H_{i}$ and thus any matching in $H_{j}$ is a matching in $H_{i}$. As a result, $\mathcal{M}_{i, j}$ is a valid matching algorithm for graph $H_{i}$. We prove that under (7) and (8), algorithm $\mathcal{M}_{i, j}$ should satisfy $\Phi_{i}\left(\mathcal{M}_{i, j}\right)>\Phi_{i}\left(\mathcal{M}_{i}\right)$ which contradicts the assumption that $\mathcal{M}_{i}$ maximizes $\Phi_{i}\left(\mathcal{M}_{i}\right)$.
+
+From the definition of objective $\Phi_{i}\left(\mathcal{M}_{i, j}\right)$ we have
+
+$$
+\begin{aligned}
+\Phi_{i}\left(\mathcal{M}_{i, j}\right) & =\sum_{e \in E} \operatorname{Pr}\left[e \in \mathcal{M}_{i, j}\left(H_{i}\right)\right]-\varepsilon \operatorname{Pr}\left[e \in \mathcal{M}_{i, j}\left(H_{i}\right)\right]^{2} \\
+& =\sum_{e \in E}\left(\frac{\operatorname{Pr}\left[e \in \mathcal{M}_{i}\left(H_{i}\right)\right]+\operatorname{Pr}\left[e \in \mathcal{M}_{j}\left(H_{j}\right)\right]}{2}\right)-\varepsilon\left(\frac{\operatorname{Pr}\left[e \in \mathcal{M}_{i}\left(H_{i}\right)\right]+\operatorname{Pr}\left[e \in \mathcal{M}_{j}\left(H_{j}\right)\right]}{2}\right)^{2}
+\end{aligned}
+$$
+
+Let us for simplicity of notation use $p_{i}(e):=\operatorname{Pr}\left[e \in \mathcal{M}_{i}\left(H_{i}\right)\right]$ and $p_{j}(e):=\operatorname{Pr}\left[e \in \mathcal{M}_{j}\left(H_{j}\right)\right]$. The equality above therefore can be expressed as
+
+$$
+\Phi_{i}\left(\mathcal{M}_{i, j}\right)=\sum_{e \in E}\left(\frac{p_{i}(e)+p_{j}(e)}{2}\right)-\varepsilon\left(\frac{p_{i}(e)+p_{j}(e)}{2}\right)^{2}
+$$
+
+Basic mathematical calculations give that for any $e$,
+
+$$
+\begin{aligned}
+\left(\frac{p_{i}(e)+p_{j}(e)}{2}\right)^{2} & =\frac{p_{i}(e)^{2}+p_{j}(e)^{2}+2 p_{i}(e) p_{j}(e)}{4} \\
+& =\frac{p_{i}(e)^{2}}{2}+\frac{p_{j}(e)^{2}}{2}-\frac{p_{i}(e)^{2}}{4}-\frac{p_{j}(e)^{2}}{4}+\frac{2 p_{i}(e) p_{j}(e)}{4} \\
+& =\frac{p_{i}(e)^{2}}{2}+\frac{p_{j}(e)^{2}}{2}-\left(\frac{p_{i}(e)-p_{j}(e)}{2}\right)^{2}
+\end{aligned}
+$$
+
+Replacing (10) back into (9) gives
+
+$$
+\Phi_{i}\left(\mathcal{M}_{i, j}\right)=\sum_{e \in E}\left(\frac{p_{i}(e)+p_{j}(e)}{2}\right)-\varepsilon\left(\frac{p_{i}(e)^{2}}{2}+\frac{p_{j}(e)^{2}}{2}-\left(\frac{p_{i}(e)-p_{j}(e)}{2}\right)^{2}\right)
+$$$$
+\begin{aligned}
+& =\sum_{e \in E}\left(\frac{p_{i}(e)-\varepsilon p_{i}(e)^{2}}{2}\right)+\left(\frac{p_{j}(e)-\varepsilon p_{j}(e)^{2}}{2}\right)+\varepsilon\left(\frac{p_{i}(e)-p_{j}(e)}{2}\right)^{2} \\
+& \text { (By simply moving the terms in the previous line.) } \\
+& =\frac{\Phi_{i}}{2}+\frac{\Phi_{j}}{2}+\varepsilon \sum_{e \in E}\left(\frac{p_{i}(e)-p_{j}(e)}{2}\right)^{2} \\
+& \geq \Phi_{i}-0.01 \varepsilon^{6} p^{3} \mu(G)+\varepsilon \sum_{e \in E}\left(\frac{p_{i}(e)-p_{j}(e)}{2}\right)^{2} \\
+& \left(\text { Since }\left|\Phi_{i}-\Phi_{j}\right| \leq 0.01 \varepsilon^{6} p^{3} \mu(G) \text { by Claim 4.5. }\right)
+\end{aligned}
+$$
+
+The third equality above, simply comes from the definition (4) for $\Phi_{i}$, which implies $\Phi_{i}=\sum_{e} \operatorname{Pr}[e \in$ $\left.\mathcal{M}_{i}\left(H_{i}\right)\right]-\varepsilon \operatorname{Pr}\left[e \in \mathcal{M}_{i}\left(H_{i}\right)\right]^{2}=\sum_{e} p_{i}(e)-\varepsilon p_{i}(e)^{2}$, and from the same bound applied on $\Phi_{j}$.
+
+Now define subset $D_{i}^{\prime}:=\left\{e \in D_{i} \mid p_{j}(e)<0.5 \varepsilon^{2} p\right\}$ of $D_{i}$. Using this subset only instead of the set $E$ of edges in the inequality above gives
+
+$$
+\begin{aligned}
+\Phi_{i}\left(\mathcal{M}_{i, j}\right) & \geq \Phi_{i}-0.01 \varepsilon^{6} p^{3} \mu(G)+\varepsilon \sum_{e \in D_{i}^{\prime}}\left(\frac{p_{i}(e)-p_{j}(e)}{2}\right)^{2} \\
+& \geq \Phi_{i}-0.01 \varepsilon^{6} p^{3} \mu(G)+\varepsilon \sum_{e \in D_{i}^{\prime}}\left(\frac{\varepsilon^{2} p-0.5 \varepsilon^{2} p}{2}\right)^{2}
+\end{aligned}
+$$
+
+(Since for any $e \in D_{i}^{\prime}, p_{j}(e)<0.5 \varepsilon^{2} p$ by definition of $D_{i}^{\prime}$ and $p_{i}(e) \geq \varepsilon^{2} p$ by definition of $D_{i}$.)
+
+$$
+\begin{aligned}
+& =\Phi_{i}-0.01 \varepsilon^{6} p^{3} \mu(G)+\varepsilon \sum_{e \in D_{i}^{\prime}} \frac{\varepsilon^{4} p^{2}}{16} \\
+& =\Phi_{i}-0.01 \varepsilon^{6} p^{3} \mu(G)+\frac{\varepsilon^{5} p^{2}}{16}\left|D_{i}^{\prime}\right|
+\end{aligned}
+$$
+
+To obtain the claimed contradiction, we will prove that
+
+$$
+\left|D_{i}^{\prime}\right| \geq 0.5 \varepsilon p \mu(G)
+$$
+
+which combined by inequality above proves
+
+$$
+\Phi_{i}\left(\mathcal{M}_{i, j}\right) \geq \Phi_{i}-0.01 \varepsilon^{6} p^{3} \mu(G)+\frac{\varepsilon^{6} p^{3}}{32} \mu(G)>\Phi_{i}+0.01 \varepsilon^{6} p^{3} \mu(G)
+$$
+
+which contradicts $\Phi_{i}$ being the maximum objective achievable.
+To complete the proof, it thus only remains to prove (11). We have
+
+$$
+\mathbb{E}\left|D_{i} \cap \mathcal{M}_{j}\left(H_{j}\right)\right|=\sum_{e \in D_{i}} p_{j}(e)=\sum_{e \in D_{i} \backslash D_{i}^{\prime}} p_{j}(e)+\sum_{e \in D_{i}^{\prime}} p_{j}(e) \geq \sum_{e \in D_{i} \backslash D_{i}^{\prime}} p_{j}(e) \geq\left(\left|D_{i}\right|-\left|D_{i}^{\prime}\right|\right) 0.5 \varepsilon^{2} p
+$$
+
+Also note that
+
+$$
+\varepsilon p \mu(G) \stackrel{(7)}{\leq} \mathbb{E}\left|D_{i} \cap \mathcal{M}_{i}\left(H_{i}\right)\right|=\sum_{e \in D_{i}} p_{i}(e) \leq \sum_{e \in D_{i}} 1=\left|D_{i}\right|
+$$
+
+Combining the two bounds above gives
+
+$$
+\mathbb{E}\left|D_{i} \cap \mathcal{M}_{j}\left(H_{j}\right)\right| \geq\left(\varepsilon p \mu(G)-\left|D_{i}^{\prime}\right|\right) 0.5 \varepsilon^{2} p=0.5 \varepsilon^{3} p^{2} \mu(G)-0.5 \varepsilon^{2} p\left|D_{i}^{\prime}\right|
+$$which combined with the bound $\mathbb{E}\left|D_{i} \cap \mathcal{M}_{j}\left(H_{j}\right)\right|<0.25 \varepsilon^{3} p^{2} \cdot \mu(G)$ of (8) gives
+
+$$
+0.25 \varepsilon^{3} p^{2} \mu(G)>0.5 \varepsilon^{3} p^{2} \mu(G)-0.5 \varepsilon^{2} p\left|D_{i}^{\prime}\right|
+$$
+
+By moving the terms, we get
+
+$$
+\left|D_{i}^{\prime}\right|>\frac{0.25 \varepsilon^{3} p^{2} \mu(G)}{0.5 \varepsilon^{2} p}=0.5 \varepsilon p \mu(G)
+$$
+
+This is the desired bound of inequality (11), which as discussed above completes the proof.
+
+# 5 Tool II: A New Vertex-Independent Matching Lemma 
+
+The notion of "vertex-independent matchings" for stochastic graphs was introduced first in [6]. In this section, we present a new vertex-independent matching lemma for bipartite graphs, that unlike the previous ones $[6,4]$, which required the vertices to be far apart in the graph to have independence, guarantees independence for any pair of non-adjacent nodes, even if there is a short path of length 3 between them. This stronger guarantee on the independence is the key to improve per-vertex queries from $O_{p}(1)$ down to $\operatorname{poly}(1 / p)$.
+
+We use the vertex-independent lemma to prove the following which use for our bipartite MVC approximate algorithm.
+Lemma 5.1. Let $G=(V, E)$ be a bipartite graph, let realization $G_{p}=\left(V, E_{p}\right)$ be a random subgraph of $G$ that includes each of its edges independently with probability $p$. Let $(Q, S)$ be a partitioning of $E$ and denote $Q_{p}:=Q \cap E_{p}$ and $S_{p}:=S \cap E_{p}$. Suppose also that we are given a (possibly randomized) matching algorithm $\mathcal{M}$, and a fractional matching $\mathbf{q}$ on $E$ such that:
+
+1. For any edge $e \in Q, q_{e}=\operatorname{Pr}_{Q_{p}, \mathcal{M}}\left[e \in \mathcal{M}\left(Q_{p}\right)\right]$.
+2. For any edge $e \in S, q_{e} \leq \varepsilon^{5} p$ for some $\varepsilon>0$.
+
+Then $\mathbb{E}\left[\mu\left(G_{p}\right)\right] \geq(1-6 \varepsilon) \frac{\varepsilon}{e+1}|\mathbf{q}|$.
+We first present the vertex-independent matching algorithm in Section 5.1 and use it to prove Lemma 5.1 in Section 5.2.
+
+### 5.1 The Vertex-Independent Matching Algorithm
+
+In this section we present our vertex-independent matching algorithm which satisfies the following:
+Lemma 5.2 (Bipartite Vertex-Independent Matching Lemma). Let $\Gamma\left(A, B, E_{\Gamma}\right)$ be a bipartite graph, let $\Gamma_{p}$ be a random subgraph of $\Gamma$ that contains any of its edges independently with probability $p$, let $\mathcal{A}$ be an arbitrary matching algorithm, possibly randomized, and let $M_{\mathcal{A}}$ be the matching obtained by running $\overline{\mathcal{A}}$ on $\Gamma_{p}$. There is a randomized algorithm (Algorithm 1) for constructing a matching $M_{\mathcal{B}}$ of $\Gamma_{p}$ such that:
+(i) $\mathbb{E}\left|M_{\mathcal{B}}\right| \geq\left(1-\frac{1}{e}\right) \cdot \mathbb{E}\left|M_{\mathcal{A}}\right|$.
+(ii) For any vertex $v \in A, \operatorname{Pr}\left[v \in M_{\mathcal{B}}\right] \leq \operatorname{Pr}[v$ proposes $]=\operatorname{Pr}\left[v \in M_{\mathcal{A}}\right]$.
+(See Algorithm 1 for how the vertices on the $A$ side "propose".)
+(iii) For any vertex $u \in B, \operatorname{Pr}\left[u \in M_{\mathcal{B}}\right] \leq \operatorname{Pr}\left[u \in M_{\mathcal{A}}\right]$.(iv) For any non-adjacent $v \in A, u \in B$ (i.e. $(u, v) \notin E$ ), whether $v$ proposes (see Algorithm 1) is independent of event $u \in M_{\mathcal{B}}$.
+
+We emphasize that $M_{\mathcal{A}}$ (resp. $M_{\mathcal{B}}$ ) has two sources of randomization, one in the randomization of graph $\Gamma_{p}$, and one the possible randomization in algorithm $\mathcal{A}$ (resp. $\mathcal{B}$ ). The probabilistic statements above are with regards to both.
+
+Proof. We start by describing the algorithm for constructing matching $M_{\mathcal{B}}$.
+For any vertex $v \in A$, let us use $R_{v}$ to denote the realization status of edges connected to $v$ in graph $\Gamma_{p}$. That is, $R_{v}$ reveals which edges connected to $v$ are realized and which ones are not realized, but crucially does not reveal any information about the realization of the rest of the edges. Using this information, for any edge $e=(v, u)$ with $v \in A, u \in B$, we define $p_{e}:=\operatorname{Pr}\left[e \in M_{\mathcal{A}} \mid R_{v}\right]$. That is, in defining $p_{e}$ for any edge $e=(v, u)$ we only need to know which edges connected to $v$ are realized in $\Gamma_{p}$, and are essentially unaware of realization of the rest of the edges in $\Gamma_{p}$. Similarly, for any vertex $v \in A$ we denote $p_{v}:=\sum_{e \ni v} p_{e}=\operatorname{Pr}\left[v \in M_{\mathcal{A}} \mid R_{v}\right]$.
+
+Observe that for any $v \in A, 0 \leq p_{v} \leq 1$ since $p_{v}$ corresponds to the probability that $v$ is matched in $M_{\mathcal{A}}$ conditioned on the realization of its edges. Importantly, however, this does not hold for vertices of the other partition, and $\sum_{e \ni u} p_{e}$ may, in fact, exceed one for $u \in B$.
+
+Having defined $p_{e}$ and $p_{v}$ as above, the claimed Algorithm 1 in Lemma 5.2 can be formalized:
+
+```
+Algorithm 1. The algorithm for constructing matching \(M_{\mathcal{B}}\) on \(\Gamma_{p}\).
+for any vertex \(v \in A\) do
+    Vertex \(v\) either proposes to exactly one neighbor \(u\), or does not propose at all. This is
+        decided by a random procedure, where each neighbor \(u\) has probability exactly \(p_{(u, v)}\)
+        of being proposed to by \(v\), and there is a probability \(1-p_{v}\) that \(v\) does not propose.
+    for any vertex \(u \in B\) do
+        Among the vertices who sent proposals to vertex \(u\), if any, \(u\) chooses an arbitrary
+        winner \(v\) and we add \((u, v)\) to matching \(M_{\mathcal{B}}^{\prime}\).
+    return \(M_{\mathcal{B}}\).
+```
+
+We now prove the properties of Lemma 5.2.
+Property $(i)$. Fix an arbitrary vertex $u \in B$, and let $\left\{v_{1}, \ldots, v_{d}\right\}$ be its neighbors in $A$. Let $Y_{i}$ be the indicator random variable for the event that $v_{i}$ proposes to $u$. First, observe that
+
+$$
+\mathbb{E}\left[Y_{i}\right]=\mathbb{E}\left[p_{\left(v_{i}, u\right)}\right]=\mathbb{E}\left[\operatorname{Pr}\left[\left(u, v_{i}\right) \in \mathcal{A}\left(\Gamma_{p}\right) \mid R_{v}\right]\right]=\operatorname{Pr}\left[\left(u, v_{i}\right) \in \mathcal{A}\left(\Gamma_{p}\right)\right]
+$$
+
+As a result,
+
+$$
+\sum_{i} \mathbb{E}\left[Y_{i}\right]=\sum_{i} \operatorname{Pr}\left[\left(u, v_{i}\right) \in \mathcal{A}\left(\Gamma_{p}\right)\right]=\operatorname{Pr}\left[u \in \mathcal{A}\left(\Gamma_{p}\right)\right]
+$$
+
+Moreover, observe that $R_{v_{1}}, \ldots, R_{v_{d}}$ are mutually independent since the edges of $v_{1}, \ldots, v_{d}$ are all disjoint. Thus, the proposals of $v_{1}, \ldots, v_{d}$ are also mutually independent and so are random variables $Y_{1}, \ldots, Y_{d}$. Now observe that $u$ remains unmatched in $M_{\mathcal{B}}$ if and only if none of its neighbors proposes to it; combined with the independence discussed, this implies
+
+$$
+\operatorname{Pr}\left[u \in M_{\mathcal{B}}\right]=1-\prod_{i} \operatorname{Pr}\left[Y_{i}=0\right]=1-\prod_{i}\left(1-\mathbb{E}\left[Y_{i}\right]\right)
+$$Fixing the sum $\sum_{i} \mathbb{E}\left[Y_{i}\right]$ to be $S, 1-\prod_{i}\left(1-\mathbb{E}\left[Y_{i}\right]\right)$ is minimized for $\mathbb{E}\left[Y_{1}\right]=\ldots=\mathbb{E}\left[Y_{d}\right]=\frac{S}{d}$. Thus
+
+$$
+\operatorname{Pr}\left[u \in M_{\mathcal{B}}\right] \geq 1-\prod_{i=1}^{d}\left(1-\frac{S}{d}\right)=1-\left(1-\frac{S}{d}\right)^{d} \geq(1-1 / e) S \stackrel{(13)}{=}(1-1 / e) \operatorname{Pr}\left[u \in \mathcal{A}\left(\Gamma_{p}\right)\right]
+$$
+
+Now, by linearity of expectation over all choices of $u \in B$, we get
+
+$$
+\mathbb{E}\left|M_{\mathcal{B}}\right|=\sum_{u \in B} \operatorname{Pr}\left[u \in M_{\mathcal{B}}\right] \stackrel{(14)}{\geq}(1-1 / e) \sum_{u \in B} \operatorname{Pr}\left[u \in \mathcal{A}\left(\Gamma_{p}\right)\right]=\left(1-1 / e\right) \mathbb{E}\left|M_{\mathcal{A}}\right|
+$$
+
+completing the proof.
+Property (ii). If a vertex $v \in A$ does not propose, it remains unmatched in $M_{\mathcal{B}}$. Thus:
+
+$$
+\operatorname{Pr}\left[v \in M_{\mathcal{B}}\right] \leq \operatorname{Pr}\left[v \text { proposes }\right]=\mathbb{E}\left[p_{v}\right]=\operatorname{Pr}\left[v \in M_{\mathcal{A}}\right]
+$$
+
+Property (iii). For any vertex $u \in B$,
+
+$$
+\operatorname{Pr}\left[u \in M_{\mathcal{B}}\right] \leq \operatorname{Pr}[u \text { receives a proposal }] \leq \sum_{v \in N(u)} \mathbb{E}\left[p_{(v, u)}\right]=\operatorname{Pr}\left[u \in M_{\mathcal{A}}\right]
+$$
+
+Property (iv). Observe that in order to determine $u \in M_{\mathcal{B}}$, it suffices to reveal the proposals of its neighbors in $A$. If one of them proposes to $u$ then $u$ is matched and otherwise it is not. Now since $(u, v) \notin E$ as assumed by Property (iv), the proposals of $v$ remains completely unknown and independent of $u \in M_{\mathcal{B}}$.
+
+# 5.2 Proving Lemma 5.1 via the Vertex-Independent Lemma 5.2 
+
+To prove Lemma 5.1, we prove two different bounds on the expected size of $\mu\left(G_{p}\right)$. The first one is easy to prove and is as follows:
+Claim 5.3. $\mathbb{E}\left[\mu\left(G_{p}\right)\right] \geq \mathbf{q}(Q)$.
+Proof. As assumed in Lemma 5.1, $q_{e}=\operatorname{Pr}\left[e \in \mathcal{M}\left(Q_{p}\right)\right]$ for any $e \in Q$. By linearity of expectation, this implies $\mathbb{E}\left|\mathcal{M}\left(Q_{p}\right)\right|=\mathbf{q}(Q)$. Since $Q_{p} \subseteq E_{p}$, any edge in $\mathcal{M}\left(Q_{p}\right)$ appears in $G_{p}$ and thus the same lower bound also holds for $\mathbb{E}\left[\mu\left(G_{p}\right)\right]$ completing the proof.
+
+The second bound is the main part of the proof, and reads as follows:
+Claim 5.4. $\mathbb{E}\left[\mu\left(G_{p}\right)\right] \geq(1-6 \varepsilon)\left(\frac{e-1}{e} \cdot \mathbf{q}(Q)+\mathbf{q}(S)\right)$.
+Let us first see how the combination of Claims 5.3 and 5.4 proves Lemma 5.1. Observe that since each edge of $G$ is either in $Q$ or $S,|\mathbf{q}|=\mathbf{q}(Q)+\mathbf{q}(S)$. Now consider two cases:
+Case $1-\mathbf{q}(Q) \geq \frac{e}{e+1}|\mathbf{q}|:$ In this case, Claim 5.3 already implies Lemma 5.1.
+Case $2-\mathbf{q}(Q)<\frac{e}{e+1}|\mathbf{q}|:$ In this case, by Claim 5.4, we have
+
+$$
+\mathbb{E}\left[\mu\left(G_{p}\right)\right] \geq(1-6 \varepsilon)\left(\frac{e-1}{e} \cdot \mathbf{q}(Q)+\mathbf{q}(S)\right)
+$$The right hand side is minimized, when as much of the weight of $\mathbf{q}$ comes from $Q$ instead of $S$. But, by the assumption of Case $2, \mathbf{q}(Q)<\frac{e}{e+1}|\mathbf{q}|$. Thus:
+
+$$
+\mathbb{E}_{G_{p}}\left[\mu\left(G_{p}\right)\right] \geq(1-6 \varepsilon)\left(\frac{e-1}{e} \cdot \frac{e}{e+1} \cdot|\mathbf{q}|+\frac{1}{e+1} \cdot|\mathbf{q}|\right)=(1-6 \varepsilon) \frac{e}{e+1}|\mathbf{q}|
+$$
+
+which is the desired bound of Lemma 5.1.
+
+# 5.2.1 Proof of Claim 5.4 
+
+In order to argue that $G_{p}$ has a matching of our desired expected size, we construct a fractional matching $\mathbf{x}$ on it. Since the graph is bipartite, any fractional matching can be turned into an integral matching of at least the same size. As a result, it suffices to argue that fractional matching $\mathbf{x}$ has our desired size in expectation.
+
+To construct fractional matching $\mathbf{x}$, we first use the vertex-independent matching Algorithm 1 of Lemma 5.2 to construct an integral matching $M_{\mathcal{B}}$ on $Q_{p}$ (the parameters that we feed into Lemma 5.2 are formalized below). We then use $M_{\mathcal{B}}$ to define $\mathbf{y}: E \rightarrow \mathbb{R}_{+}$which will be very close to our final fractional matching $\mathbf{x}$, except that for a small fraction of vertices, the value of $y_{v}:=\sum_{e \ni v} y_{e}$ may exceed one due to deviations in our random process. We then scale down $\mathbf{y}$ to obtain our fractional matching $\mathbf{x}$ and finally argue that $\mathbf{x}$ is large enough.
+
+For brevity, we use ( $v$ prop) and ( $\overline{v \text { prop }}$ ) to indicate respectively the events that a vertex $v \in A$ proposes and does not propose in Algorithm 1 for constructing $M_{\mathcal{B}}$.
+
+The formal definition of $\mathbf{y}$, given matching $M_{\mathcal{B}}$ is given below:
+
+$$
+y_{e} \leftarrow \begin{cases}1 & \text { if } e \in M_{\mathcal{B}}\left(\text { this implies } e \in Q_{p}\right) \\ q_{e} /(p \operatorname{Pr}[\overline{v \text { prop }}] \operatorname{Pr}\left[u \notin M_{\mathcal{B}}\right]) & \text { if } e \in S_{p}, u \notin M_{\mathcal{B}}, \text { and } \overline{v \text { prop }} \\ 0 & \text { otherwise }\end{cases}
+$$
+
+As discussed, $\mathbf{y}$ is not necessarily a valid fractional matching since for some vertices $v, y_{v}$ may be larger than 1 due to some low probability (but still likely to occur) events. To resolve this, we define the final, always valid, fractional matching $\mathbf{x}$ as follows:
+
+$$
+x_{e} \leftarrow \begin{cases}y_{e} /(1+\varepsilon) & \text { if } y_{v} \leq 1+\varepsilon \text { and } y_{u} \leq 1+\varepsilon \\ 0 & \text { otherwise }\end{cases} \quad \forall e=(u, v) \in E
+$$
+
+The Matching $M_{\mathcal{B}}$ : As discussed, we use Lemma 5.2 to construct matching $M_{\mathcal{B}}$. In order to use this lemma, we have to specify: $(i)$ what graph we run the matching algorithm of this lemma on, and (ii) what algorithm $\mathcal{A}$ we feed into the lemma. For the first question, the graph $\Gamma$ on which we run the lemma is simply the subgraph $Q$ of $G$, and we let $\Gamma_{p}$ correspond to the realized edges $Q_{p}$. This ensures that the reported matching $M_{\mathcal{B}}$ of Lemma 5.2 satisfies $M_{\mathcal{B}} \subseteq Q_{p}$. For the second question, we first define an auxiliary matching $M_{\mathcal{A}}^{\prime}:=\mathcal{M}\left(Q_{p}\right)$ and let $M_{\mathcal{A}}$ include each edge of $M_{\mathcal{A}}^{\prime}$ independently with probability $1-\varepsilon$. This down sampling step is rather technical and is there to just ensure $\operatorname{Pr}\left[w \in M_{\mathcal{A}}\right] \leq 1-\varepsilon$ for any vertex $w$.
+
+Defining $M_{\mathcal{A}}$ this way, as a corollary of Lemma 5.2 we get:
+Corollary 5.5. The matching $M_{\mathcal{B}}$ constructed as above on subgraph $Q_{p}$ satisfies:
+(i) $\mathbb{E}\left|M_{\mathcal{B}}\right| \geq\left(1-\frac{1}{e}\right) \mathbb{E}\left|M_{\mathcal{A}}\right|=(1-\varepsilon)\left(1-\frac{1}{e}\right) \cdot \mathbf{q}(Q)$.(ii) For any vertex $v \in A, \operatorname{Pr}\left[v \in M_{\mathcal{B}}\right] \leq \operatorname{Pr}[v \operatorname{prop}]=\operatorname{Pr}\left[v \in M_{\mathcal{A}}\right]=(1-\varepsilon) \operatorname{Pr}\left[v \in \mathcal{M}\left(Q_{p}\right)\right]$.
+(iii) For any vertex $u \in B, \operatorname{Pr}\left[u \in M_{\mathcal{B}}\right] \leq \operatorname{Pr}\left[u \in M_{\mathcal{A}}\right]=(1-\varepsilon) \operatorname{Pr}\left[u \in \mathcal{M}\left(Q_{p}\right)\right]$.
+(iv) For any $v \in A, u \in B$ with $(u, v) \in S$, events ( $v$ prop) and $\left(u \in M_{\mathcal{B}}\right)$ are independent.
+
+Proof. The first three are simply followed by the properties of Lemma 5.2 combined with the definition of $M_{\mathcal{A}}$ above. The last property holds since $(u, v) \in S$ implies $(u, v) \notin Q$ (since each there are no parallel edges and each edge belongs to exactly one of $Q$ and $S$ ) which combined with Property (iv) of Lemma 5.2 implies the stated independence.
+
+Having defined $M_{\mathcal{B}}$, the definitions of $\mathbf{y}$ and $\mathbf{x}$ are complete. We now turn to analyze their size. We first analyze the size of $\mathbf{y}$ and then prove the size of $\mathbf{x}$ is actually very close to that of $\mathbf{y}$ by bounding the probability of deviations leading to vertices to have $y_{v}>1+\varepsilon$.
+
+The Expected Size of y: We have $\mathbb{E}|\mathbf{y}|=\sum_{e \in E} \mathbb{E}\left[y_{e}\right]=\sum_{e \in Q} \mathbb{E}\left[y_{e}\right]+\sum_{e \in S} \mathbb{E}\left[y_{e}\right]$. For edges $e \in Q$ we have $y_{e}=1$ iff $e \in M_{\mathcal{B}}$, which combined with $M_{\mathcal{B}} \subseteq Q_{p}$ implies $\sum_{e \in Q} \mathbb{E}\left[y_{e}\right]=\mathbb{E}\left|M_{\mathcal{B}}\right|$. On the other hand, by definition of $\mathbf{y}$ on edges in $S$, we have
+
+$$
+\mathbb{E}|\mathbf{y}|=\mathbb{E}\left|M_{\mathcal{B}}\right|+\sum_{e \in S} \operatorname{Pr}\left[e \in S_{p}, u \notin M_{\mathcal{B}}, \overline{v \text { prop }}\right] \cdot \frac{q_{e}}{p \operatorname{Pr}\left[u \notin M_{\mathcal{B}}\right] \operatorname{Pr}[\overline{v \text { prop }]}}
+$$
+
+For any $e \in S, e \in S_{p}$ iff $e$ is realized which is independent of how matching $M_{\mathcal{B}}$ is constructed. This holds because in constructing matching $M_{\mathcal{B}}$ we do not look at the realized edges $S_{p}$ of $S$. On the other hand, by Corrolary 5.5 Property (iv), $u \in M_{\mathcal{B}}$ and $\overline{v \text { prop }}$ are also independent, hence
+
+$$
+\begin{aligned}
+\mathbb{E}|\mathbf{y}| & =\mathbb{E}\left|M_{\mathcal{B}}\right|+\sum_{e \in S} q_{e} \\
+& \geq(1-\varepsilon)(1-1 / e) \cdot \mathbf{q}(Q)+\sum_{e \in S} q_{e} \quad \text { (By Corollary } 5.5 \text { Property }(i)) \\
+& \geq(1-\varepsilon)\left((1-1 / e) \cdot \mathbf{q}(Q)+\mathbf{q}(S)\right)
+\end{aligned}
+$$
+
+Note that $\mathbf{y}$, as proved above, is as large as the lower bound required by Claim 5.4. However, we want to show that $\mathbb{E}|\mathbf{x}|$ is also this large (up to $1-\Theta(\varepsilon)$ factors). This is what we prove next.
+
+The Expected Size of x: Take an edge $e=(v, u) \in E$. Observe from the construction of $\mathbf{x}$ that either $x_{e}=y_{e} /(1+\varepsilon)$, or $x_{e}=0$ if $y_{v}>1+\varepsilon$ or $y_{u}>1+\varepsilon$. This implies that
+
+$$
+\mathbb{E}|\mathbf{x}|=\sum_{e \in E} \mathbb{E}\left[x_{e}\right]=\sum_{e=(u, v) \in E} \mathbb{E}\left[y_{e} /(1+\varepsilon) \mid y_{v} \leq 1+\varepsilon, y_{u} \leq 1+\varepsilon\right]
+$$
+
+Now an edge $e \in E$ either belongs to $Q$ or $S$. For edges $e=(u, v) \in Q$, it is not hard to see that we have $x_{e}=y_{e} /(1+\varepsilon)$ with probability one, and thus
+
+$$
+\mathbb{E}\left[x_{e}\right]=\mathbb{E}\left[y_{e}\right] /(1+\varepsilon) \quad \forall e \in Q
+$$
+
+The reason behind this, is that if $e=(u, v) \in Q$ then by construction of $\mathbf{y}, y_{e}=\mathbf{1}\left(e \in M_{\mathcal{B}}\right)$. Further, if it occurs that $y_{e}=1$, then both of its endpoints are matched in $M_{\mathcal{B}}$ and hence we have $y_{e^{\prime}}=0$ for all other edges $e^{\prime}$ connected to either $u$ or $v$, again by construction of $\mathbf{y}$. As a result, $y_{e}=1$ implies $y_{u}=y_{v}=1$ and thus $x_{e}=y_{e} /(1+\varepsilon)$; otherwise $x_{e}=y_{e}=0$, proving (18).
+
+The situation, however, is more complicated for edges $e \in S$ as in this case $\mathbf{y}$ on the endpoints of $e$ may exceed one. We show, however, that this occurs with a small enough probability that we can still argue that it does not affect the expected value of $x_{e}$ by much, and $\mathbb{E}\left[x_{e}\right] \approx \mathbb{E}\left[y_{e}\right]$.Claim 5.6. For any vertex $u \in B, \mathbb{E}\left[y_{u} \mid u \notin M_{\mathcal{B}}\right] \leq q_{u}$.
+Proof. Let $v_{1}, \ldots, v_{d}$ be the neighbors of $u$ in $S$, and let $e_{i}=\left(u, v_{i}\right)$. We have
+
+$$
+\mathbb{E}\left[y_{u} \mid u \notin M_{\mathcal{B}}\right]=\sum_{i=1}^{d} \frac{q_{e_{i}}}{p \operatorname{Pr}\left[u \notin M_{\mathcal{B}}\right] \operatorname{Pr}[\overline{v_{i} \text { prop }}]} \cdot \operatorname{Pr}\left[e_{i} \in S_{p}, u \notin M_{\mathcal{B}}, \overline{v_{i} \text { prop }} \mid u \notin M_{\mathcal{B}}\right]
+$$
+
+By independence of events in the probability (justified before), we can simplify this to
+
+$$
+\mathbb{E}\left[y_{u} \mid u \notin M_{\mathcal{B}}\right]=\sum_{i=1}^{d} \frac{q_{e_{i}}}{\operatorname{Pr}\left[u \notin M_{\mathcal{B}}\right]}=\frac{\sum_{i=1}^{d} q_{e_{i}}}{\operatorname{Pr}\left[u \notin M_{\mathcal{B}}\right]}
+$$
+
+Now let $q_{u}^{S}$ denote the sum of fractional value written on edges of $u$ in $S$ and let $q_{u}^{Q}$ denote the same but on edges of $v$ in $Q$. The nominator equals $q_{u}^{S}$. Also from Corollary 5.5 Property (iii), thus $\operatorname{Pr}\left[u \in M_{\mathcal{B}}\right] \leq(1-\varepsilon) q_{u}^{Q}$, we get $\operatorname{Pr}\left[u \notin M_{\mathcal{B}}\right] \geq 1-(1-\varepsilon) q_{u}^{Q} \geq 1-q_{u}^{Q}$. Combining them gives
+
+$$
+\mathbb{E}\left[y_{u} \mid u \notin M_{\mathcal{B}}\right] \leq \frac{q_{u}^{S}}{1-q_{u}^{Q}}=\frac{q_{u} \cdot q_{u}^{S}}{q_{u}\left(1-q_{u}^{Q}\right)}=\frac{q_{u} \cdot q_{u}^{S}}{q_{u}-q_{u} \cdot q_{u}^{Q}} \leq \frac{q_{u} \cdot q_{u}^{S}}{q_{u}-q_{u}^{Q}}=\frac{q_{u} \cdot q_{u}^{S}}{q_{u}^{S}}=q_{u}
+$$
+
+as desired.
+Claim 5.7. For any vertex $u \in B, \mathbb{E}\left[y_{u} \mid y_{u} \leq 1+\varepsilon, u \notin M_{\mathcal{B}}\right] \geq \mathbb{E}\left[y_{u}\right]-\varepsilon q_{u}$.
+Proof. As proved in Claim 5.6, $\mathbb{E}\left[y_{u} \mid u \notin M_{\mathcal{B}}\right] \leq q_{u}$. We prove the desired inequality of the claim via a concentration bound on random variable $y_{u}^{\prime}:=\left(y_{u} \mid u \notin M_{\mathcal{B}}\right)$.
+
+Let $v_{1}, \ldots, v_{d}$ be the neighbors of $u$ in $S$, and let $e_{i}=\left(u, v_{i}\right)$. Let us for simplicity define random variable $y_{e_{i}}^{\prime}:=\left(y_{e_{i}} \mid u \notin M_{\mathcal{B}}\right)$. Since we have conditioned on $u \notin M_{\mathcal{B}}$, we get by definition of $\mathbf{y}$ that $y_{u}^{\prime}=\sum_{i=1}^{d} y_{e_{i}}^{\prime}$. Now we argue that $y_{e_{1}}^{\prime}, \ldots, y_{e_{d}}^{\prime}$ are actually independent. To see this, observe that once we condition on $u \notin \mathcal{B}$, the only random process that determines each $y_{e_{i}}^{\prime}$ is whether edge $e_{i}$ is realized (i.e. $e_{i} \in S_{p}$ ) and if vertex $v_{i}$ proposes. Both events are independent of $u \notin M_{\mathcal{B}}$ since, recall, to determine $u \notin M_{\mathcal{B}}$ we only need to know the proposals of its neighbors in $Q$, and $v_{1}, \ldots, v_{d}$ are all neighbors of $u$ in $S$.
+
+This independence allows us to prove a concentration bound on $y_{u}^{\prime}$ and prove the claim. We do this via the second moment method. We have
+
+$$
+\operatorname{Var}\left[y_{u}^{\prime}\right]=\sum_{i=1}^{d} \operatorname{Var}\left[y_{e_{i}}^{\prime}\right]=\sum_{i=1}^{d} \mathbb{E}\left[\left(y_{e_{i}}^{\prime}\right)^{2}\right]-\mathbb{E}\left[y_{e_{i}}^{\prime}\right]^{2} \leq \sum_{i=1}^{d} \mathbb{E}\left[\left(y_{e_{i}}^{\prime}\right)^{2}\right] \stackrel{\text { see below }}{\leq} \tau \cdot \mathbb{E}\left[y_{u}^{\prime}\right] \stackrel{\text { Claim } 5.6}{\leq} \tau \cdot q_{u}
+$$
+
+where $\tau$ is the maximum possible outcome of $y_{e_{i}}^{\prime}$ for any $i \in[d]$.
+Plugging this into Chebyshev's inequality, we get
+
+$$
+\operatorname{Pr}\left[y_{u}^{\prime}>\mathbb{E}\left[y_{u}^{\prime}\right]+\delta\right] \leq \frac{\operatorname{Var}\left[y_{u}^{\prime}\right]}{\varepsilon^{2}} \leq \frac{\tau q_{u}}{\delta^{2}}
+$$
+
+Finally, for each edge $e_{i}$, by construction of $\mathbf{y}, y_{e_{i}} \leq q_{e_{i}} /\left(p \operatorname{Pr}[\overline{v_{i} \text { prop }}] \operatorname{Pr}\left[u \notin M_{\mathcal{B}}\right]\right) \leq q_{e_{i}} / p \varepsilon^{2}$ where the latter follows from Corollary 5.5. Combined with $q_{e_{i}} \leq \varepsilon^{5} p$ by Lemma 5.1 and $e_{i} \in S$, we get $\tau \leq \varepsilon^{3}$. We thus get $\operatorname{Pr}\left[y_{u}^{\prime}>1+\varepsilon\right] \leq \operatorname{Pr}\left[y_{u}^{\prime}>\mathbb{E}\left[y_{u}^{\prime}\right]+\varepsilon\right] \leq \frac{\varepsilon^{3}}{\varepsilon^{2}} q_{u}$. This concentration of $y_{u}^{\prime}$ implies $\mathbb{E}\left[y_{u} \mid y_{u}>1+\varepsilon, u \notin M_{\mathcal{B}}\right] \leq \varepsilon q_{u}$ and thus the stated bound of the claim.Similarly, for each vertex $v \in A$ we can first bound the expected value of $y_{v}$ conditioned on ( $\bar{v}$ prop) and then prove this is concentrated, and overall argue $\mathbf{x}$ remains close to $\mathbf{y}$. Namely:
+Claim 5.8. For any $v \in A, \mathbb{E}\left[y_{v} \mid y_{v} \leq 1+\varepsilon, \bar{v}\right.$ prop $] \geq \mathbb{E}\left[y_{v}\right]-\varepsilon q_{v}$.
+Since the proof is similar to Claim 5.7 for vertices in $B$ and there are only minor differences, we defer it to Appendix A.
+
+To complete the proof that $\mathbb{E}|\mathbf{x}| \approx \mathbb{E}|\mathbf{y}|$, note that
+
+$$
+\begin{aligned}
+\mathbb{E}|\mathbf{x}| & =\frac{1}{2} \sum_{w \in A \cup B} \mathbb{E}\left[x_{w}\right]=\frac{1}{2} \sum_{w \in A \cup B} \frac{\mathbb{E}\left[y_{w} \mid y_{w} \leq 1+\varepsilon\right]}{1+\varepsilon} \stackrel{\text { Claims 5.7, 5.8 }}{=}\left(\frac{1}{2} \sum_{w \in A \cup B} \frac{\mathbb{E}\left[y_{w}\right]}{1+\varepsilon}\right)-3 \varepsilon|\mathbf{q}| \\
+& \geq \frac{1}{1+\varepsilon}|\mathbf{y}|-3 \varepsilon|\mathbf{q}| \stackrel{(17)}{\geq}(1-\varepsilon)((1-\varepsilon)((1-1 / e) \cdot \mathbf{q}(Q)+\mathbf{q}(S))) -3 \varepsilon|\mathbf{q}| \\
+& \geq(1-6 \varepsilon)((1-1 / e) \cdot \mathbf{q}(Q)+\mathbf{q}(S))
+\end{aligned}
+$$
+
+Since as discussed $\mathbb{E}\left[\mu\left(G_{p}\right)\right] \geq \mathbb{E}|\mathbf{x}|$, this completes the proof of Claim 5.4.
+
+# 6 Upper Bounds 
+
+In this section, we present our main algorithms for the stochastic vertex cover problem.
+
+### 6.1 Bipartite Graphs: 1.36-Approximation with poly $\left(\frac{1}{p}\right)$ Queries
+
+Our main result in this section is the following stochastic vertex cover result for bipartite graphs:
+Theorem 6.1. For any $p \in(0,1]$, any bipartite graph $G=(V, E)$ has a subgraph $Q$ of maximum degree $O\left(1 / p^{6}\right)$ where querying only the edges in $Q$ suffices to find $C \subseteq V$ such that:
+
+1. $C$ is a vertex cover of $G_{p}$ with probability 1 .
+2. The expected size of $C$ is at most $1.367\left(\approx \frac{e+1}{e}\right)$ times the size of $\mathbb{E}\left[\nu\left(G_{p}\right)\right]$.
+3. Both $Q$ and $C$ can be found in polynomial time.
+
+To prove Theorem 6.1, we first use the Half-Stochastic Matching Lemma 4.1 to obtain a partitioning $(Q, S)$ of $E$. We then query the edges in $Q$, and report the MVC of $H=Q_{p} \cup S$ as the vertex cover for $G_{p}$. We finally use the algorithm $\mathcal{M}$ provided by this lemma, as well as Lemma 5.1 to analyze the approximation ratio of this algorithm.
+
+The formal algorithm is as follows:
+
+Algorithm 2. The algorithm for Theorem 6.1.
+1 Let $Q, S$ be the partitioning found by Lemma 4.1 for the following parameters: $G$ is the given base graph, $p$ is the realization probability, and let $\varepsilon>0$ be a sufficiently small constant which adjusts how close the approximation will be to $\frac{e+1}{e}$.
+2 Query the edges in $Q$ and let $Q_{p}$ be the edges in $Q$ that are realized.
+3 Return a minimum vertex cover $C$ of graph $H=Q_{p} \cup S$.
+Intuitively, what we do in Algorithm 2 is to query only the edges in $Q$, assume that the rest of the edges in $S$ are all realized, and report a MVC of the resulting graph $H=Q_{p} \cup S$. Note thatthe vast majority of the edges in $G$ belong to $S$ since $Q$ has only a constant maximum degree. As a result, we have to argue that the extra constraints imposed by assuming that all these edges are realized, do not increase the vertex cover size by much.
+
+Before analyzing the size of the vertex cover $C$, let us explain why it is always a valid vertex cover of $G_{p}$ and analyze the query-complexity of Algorithm 2. These will be simple consequences of the properties provided by Lemma 4.1.
+
+Query-Complexity and Validity of the Vertex Cover: By Property (i) of Lemma 4.1 the maximum degree in $Q$ is at most $O\left(1 / \varepsilon^{11} p^{6}\right)$; thus, we query at most $O\left(1 / p^{6}\right)$ edges per vertex. The validity of the vertex cover is also easy to confirm. By definition of $H$, an edge $e \in E$ is not in $H$ if and only if it belongs to $Q$ and is not realized. Therefore, all realized edges must belong to $H$ implying that $G_{p}$ is a subgraph of $H$. As a result, a vertex cover of $H$ covers all the edges in $G_{p}$.
+
+The Approximation Ratio: We use Lemma 5.1, as well as the properties of the partitioning provided by Lemma 4.1, to show that the expected size of the MVC in graph $H$, which is reported by Algorithm 2 as the output, is not larger than (almost) $\frac{e+1}{e}$ times the expected size of the MVC in the actual realization $G_{p}$, namely that for any arbitrarily small constant $\delta^{\prime}$ (affecting $\varepsilon$ in Algorithm 2) it holds that:
+
+$$
+\mathbb{E}_{H}[\nu(H)] \leq\left(1+\delta^{\prime}\right) \frac{e+1}{e} \cdot \mathbb{E}_{G_{p}}\left[\nu\left(G_{p}\right)\right]
+$$
+
+Since the graph is bipartite, by König's theorem, the size of maximum matching and MVC are the same. As such, it suffices to prove
+
+$$
+\mathbb{E}_{H}[\mu(H)] \leq\left(1+\delta^{\prime}\right) \frac{e+1}{e} \cdot \mathbb{E}_{G_{p}}\left[\mu\left(G_{p}\right)\right]
+$$
+
+In order to show this, we define a fractional matching $\mathbf{q}$ on $G$ with size $|\mathbf{q}| \geq(1-2 \varepsilon) \mathbb{E}[\mu(H)]$. We then show that this fractional matching $\mathbf{q}$ satisfies the required properties of Lemma 5.1 and as a result, implies $\mathbb{E}\left[\mu\left(G_{p}\right)\right]$ has the desired size of (19).
+
+The Fractional Matching q: Consider (random) matching $\mathcal{M}(H)$ and recall that $\mathcal{M}$ is the matching algorithm provided by Lemma 4.1. For each edge $e \in E$, we simply let $q_{e} \leftarrow \operatorname{Pr}[e \in$ $\mathcal{M}(H)]$. Clearly $\mathbf{q}$ is a valid fractional matching since the probabilities around each vertex correspond to its probability of being matched and thus do not exceed one. Moreover, $|\mathbf{q}|=\mathbb{E}[\mathcal{M}(H)]$ by linearity of expectation, combined with Lemma 4.1 Property (ii) that $\mathbb{E}|\mathcal{M}(H)| \geq(1-2 \varepsilon) \mathbb{E}[\mu(H)]$, we get $|\mathbf{q}| \geq(1-2 \varepsilon) \mathbb{E}[\mu(H)]$; hence $|\mathbf{q}|$ has the claimed size too. It remains to prove the two assumptions of Lemma 5.1 are also satisfied by $\mathbf{q}$. The first one requires us to give a matching algorithm $\mathcal{M}^{\prime}$ where $q_{e}=\operatorname{Pr}\left[e \in \mathcal{M}^{\prime}\left(Q_{p}\right)\right]$ for all $e \in Q$. Letting $\mathcal{M}^{\prime}\left(Q_{p}\right):=\mathcal{M}(H) \cap Q_{p}$ suffices for this purpose, since recall that any edge in $\mathcal{M}(H) \cap Q$ is already in $Q_{p}$ by definition of graph $H$ in Lemma 4.1 and thus $\operatorname{Pr}\left[e \in \mathcal{M}^{\prime}\left(Q_{p}\right)\right]=q_{e}$. For the second assumption we need $q_{e} \leq \delta^{5} p$ for all $e \in S$ (here we used $\delta$ instead of $\varepsilon$ to avoid confusion with parameter $\varepsilon$ that we feed into Lemma 4.1). Indeed, by Property (iii), we have $q_{e} \leq \varepsilon^{2} p$ and it suffices to let $\delta=\varepsilon^{2 / 5}$. We can, now, apply Lemma 5.1 to obtain:
+
+$$
+\mathbb{E}\left[\mu\left(G_{p}\right)\right] \geq(1-4 \delta) \frac{e}{e+1}|\mathbf{q}| \geq(1-4 \delta)(1-2 \varepsilon) \frac{e}{e+1} \mathbb{E}[\mu(H)]
+$$
+
+Since we can let $\varepsilon$ (and thus $\delta$ ) be any desirably small constant, this proves (19) and our claim that our reported vertex cover has size at most (arbitrarily close to) $\frac{e+1}{e} \mathbb{E}\left[\nu\left(G_{p}\right)\right]$.Stochastic Matchings: Finally, we note that the same tools we used for this problem also lead to Corollary 1.1. To prove it, we in fact, provide a novel analysis for a well-known Monte Carlo algorithm for the stochastic matching problem that is very different from the algorithm we use for Theorem 6.1. This is why the number of queries in Corrolary 1.1 and Theorem 6.1 are different. But the new analysis, is also based on Lemma 5.1 similar to above.
+
+We analyze the following algorithm proposed first in [7] and further analyzed in $[6,4]$.
+
+```
+Algorithm 3. A Monte-Carlo algorithm for stochastic matching [7].
+1 For large enough \(R=O\left(\frac{\log 1 / p}{p}\right)\), take independent realizations \(G_{1}, \ldots, G_{R}\) of \(G\).
+2 For some deterministic maximum matching algorithm \(\mathrm{MM}(\cdot)\), query subgraph
+    \(Q:=\mathrm{MM}\left(G_{1}\right) \cup \ldots \cup \mathrm{MM}\left(G_{R}\right)\) of \(G\) and report the maximum matching in \(Q_{p}\).
+```
+
+The following lemma is implied in [7] for Algorithm 3:
+Claim 6.1 ([7]). For any desirably small constant $\varepsilon>0$ (affecting the hidden constants in $R$ ), there is a partitioning $C, N$ of $Q$, and a fractional matching $\mathbf{q}$ on $Q$ such that $(i) \mathbb{E}[\mathbf{q}] \geq(1-\varepsilon) \mathbb{E}\left[\mu\left(G_{p}\right)\right]$, (ii) for each edge $e \in N, q_{e} \leq \varepsilon^{5} p$, (iii) for each $e \in C, q_{e}=\operatorname{Pr}\left[e \in \operatorname{MM}\left(G_{p}\right)\right]$.
+
+Here we briefly describe the intuition behind Claim 6.1. For the complete proof see [7].
+Proof sketch of Claim 6.1. Partition the edges of graph $G$ into two subsets: crucial edges $e$ defined as those with $\operatorname{Pr}\left[e \in \operatorname{MM}\left(G_{p}\right)\right] \geq \tau$ for a small enough parameter $\tau=\varepsilon^{O(1)} p$, and non-crucial edges which include all the rest of edges $e$ with $\operatorname{Pr}\left[e \in \operatorname{MM}\left(G_{p}\right)\right]<\tau$.
+
+Let subgraphs $C$ and $N$ of Claim 6.1 be respectively the set of crucial and non-crucial edges of $G$ that belong to $Q$. We define $\mathbf{q}$ such that the size of $\mathbf{q}$ on $C$ is $(1-\varepsilon)$ times the expected contribution of crucial edges to $\mathrm{MM}\left(G_{p}\right)$ and, similarly, the size of $\mathbf{q}$ on $N$ is $(1-\varepsilon)$ times the expected contribution of non-crucial edges to $\operatorname{MM}\left(G_{p}\right)$. This way, we guarantee property $(i)$.
+
+To define $\mathbf{q}$ on $C$, for any edge $e \in C$ we let $q_{e}=\operatorname{Pr}\left[e \in \operatorname{MM}\left(G_{p}\right)\right]$. It can be easily confirmed that if the parameter $R$ of Algorithm 3 is larger than $\log (1 / \varepsilon) / \tau$, then each crucial edge is added to $Q$ with probability at least $1-\varepsilon$. As such, fractional matching $\mathbf{q}$ on $C$ has size at least $(1-\varepsilon)$ fraction of the expected contribution of crucial edges to $\operatorname{MM}\left(G_{p}\right)$.
+
+On the flip side, however, $Q$ includes only a small fraction of non-crucial edges. Hence, to maintain the property that $\mathbf{q}$ on $N$ is almost as large as the expected contribution of non-crucial edges to $\operatorname{MM}\left(G_{p}\right)$, the value of $q_{e}$ must be much larger than $\operatorname{Pr}\left[e \in \operatorname{MM}\left(G_{p}\right)\right]$ for $e \in N$. To do this, suppose that we define $q_{e}$ to be the fraction of matchings $\operatorname{MM}\left(G_{1}\right), \ldots, \operatorname{MM}\left(G_{R}\right)$ that include $e$. Observe that each edge $e$ in the graph, crucial or non-crucial, is expected to appear in exactly $\operatorname{Pr}\left[e \in \operatorname{MM}\left(G_{p}\right)\right]$ fraction of matchings $\operatorname{MM}\left(G_{1}\right), \ldots, \operatorname{MM}\left(G_{R}\right)$ since each one includes $e$ with probability exactly $\operatorname{Pr}\left[e \in \operatorname{MM}\left(G_{p}\right)\right]$. Hence, by defining $\mathbf{q}$ on $N$ this way, we get that the expected size of $\mathbf{q}$ on $N$ is at least the expected contribution of $N$ to $\operatorname{MM}\left(G_{p}\right)$. Unfortunately, however, $\mathbf{q}$ may violate fractional matching constraints with this construction. Namely, that $q_{v}$ for a vertex $v$ may exceed one. The next important observation is that this violation cannot be too large, since the fraction of matchings $\operatorname{MM}\left(G_{1}\right), \ldots, \operatorname{MM}\left(G_{R}\right)$ in which a vertex $v$ is matched via a non-crucial edge is sufficiently concentrated around the probability that $v$ is matched via a non-crucial edge in $\operatorname{MM}\left(G_{p}\right)$. The final fractional matching is obtained by slightly modifying this fractional matching (particularly by discarding vertices that deviate too much and multiplying the rest of the values by some $(1-\varepsilon)$ factor) so that no constraints are violated.
+
+Having it, we can now plug $\mathbf{q}$ into Lemma 5.1 and obtain that $\mathbb{E}\left[\mu\left(Q_{p}\right)\right] \geq(1-5 \varepsilon)\left(\frac{e}{e+1}\right) \mathbb{E}\left[\mu\left(G_{p}\right)\right]$,thereby proving Corollary 1.1.
+
+# 6.2 General Graphs: $(2+\varepsilon)$-Approximation with $O\left(\frac{1}{p}\right)$ Per-Vertex Queries 
+
+In this section, we prove the following result:
+Theorem 6.2. For any $\varepsilon>0$ and $p \in(0,1]$, any (general) graph $G=(V, E)$ has a subgraph $Q$ of maximum degree $O\left(\frac{1}{\varepsilon^{3} p}\right)$ where querying only the edges in $Q$ suffices to find $C \subseteq V$ such that:
+
+1. $C$ is a vertex cover of $G_{p}$ with probability 1 .
+2. The size of $C$ is in expectation at most $(2+\varepsilon)$ times the minimum vertex cover of $G_{p}$.
+3. It is possible to find $Q$ and $C$ in polynomial time.
+
+We start with a subroutine for constructing a fractional matching on a given graph, and then describe our algorithm which proves Theorem 6.2.
+
+A fractional matching subroutine: Consider a simple and well-known fractional matching algorithm which starts with a zero-size fractional matching and gradually increases the fractional values on the edges all at the same (additive) rate. Once the fractional value around a vertex reaches one, we mark this vertex as inactive and stop increasing the fractional value of its edges. We will use a slightly different variant of this algorithm in Algorithm 4 where the vertices may be made inactive sooner; i.e., once they reach a given budget; this variant is formalized below.
+
+Let $G$ be a graph, and for each vertex $v$, let $b(v) \in(0,1]$ be a given budget. Initially, every vertex $v$ is active and for each edge $e$ we set $x_{e}:=0$. The algorithm proceeds in at most $n$ steps. In each step, for any edge $e$ whose both endpoints are active, we increase $x_{e}$ for all the edges in the same rate until for a vertex we have $x_{v}:=\sum_{e \ni v} x_{e}=b(v)$. When this event happens for a vertex $v$ it becomes inactive, which implies that for its edges $e, x_{e}$ will no longer change. Algorithm 4 is the pseudo-code of this process.
+
+It is clear that throughout the algorithm we have $x_{v} \leq b(v) \leq 1$ for every vertex $v$. Hence, at every point in the algorithm, vector $\mathbf{x}:=\left(x_{e}\right)_{e \in E}$ is a fractional matching of $G$. Let us define $\mathbf{x}^{(t)}$ to be equal to $\mathbf{x}$ from an iteration of the algorithm after which for at least one edge we have $x_{e}>t$. (If $x_{e}>t$ never happens then $\mathbf{x}^{(t)}$, is from the last iteration of the algorithm.) We can intuitively think of the algorithm above as a continuous process over a time interval of $[0,1]$ that gradually increases the fractional matching on all edges with active endpoints, all at the same additive rate, until every vertex becomes inactive. The value of $\mathbf{x}^{(t)}$ can thus be interpreted as the fractional matching constructed by time $t$ of this process.
+
+```
+Algorithm 4. Filling \((G=(V, E), b: V \rightarrow(0,1])\)
+1 For any edge \(e \in E\), set \(x_{e}:=0\).
+2 repeat
+3 Call a vertex inactive iff \(x_{v}:=\sum_{e \ni v} x_{e}=b(v)\), and active otherwise.
+4 Call an edge active iff both its endpoints are active, and inactive otherwise.
+5 Pick the minimum parameter \(\delta \in(0,1)\) such that setting \(x_{e} \leftarrow x_{e}+\delta\) for all the active
+        edges, results in at least one new inactive vertex.
+    6 Set \(x_{e} \leftarrow x_{e}+\delta\) for all active edges.
+7 until All the vertices are inactive
+8 return fractional matching \(\mathbf{x} \leftarrow\left(x_{e}\right)_{e \in E}\).
+```Our stochastic vertex cover algorithm. We use Algorithm 5 to decide which edges to query and which vertices to put in the vertex cover. Here we give an informal overview of this algorithm.
+
+The algorithm starts by running Algorithm 4 on the static graph $G$ with a budget of 1 per vertex, to obtain a fractional matching $\mathbf{x}$. We will, in fact, only need the fractional matching $\mathbf{x}^{\prime}$ constructed by this algorithm up to time $t:=\Theta\left(\varepsilon^{3} p\right)$, i.e. $\mathbf{x}^{\prime}:=\mathbf{x}^{(t)}$. Once we have $\mathbf{x}^{\prime}$ and before we query any edge, we commit the vertices with fractional matching value 1 in $\mathbf{x}^{\prime}$ to be in our final vertex cover. Let $F:=\left\{v \in V: x_{v}^{\prime}=1\right\}$ denote the set of these vertices and let $Q$ be the edges in $E$ that do not have an endpoint in $F$. Note that any edge in $E \backslash Q$ is already covered by $F$; hence we do not need to query them. We, thus, only query the edges in $Q$. Let $Q_{p}$ be the subset of edges in $Q$ that turn out to be realized. At least one of the endpoints of each edge in $Q_{p}$ should be added to the vertex cover. To decide which ones join the vertex cover, we again run Algorithm 4, but this time on subgraph $Q_{p}$ and we set the budget of each vertex $v$ to be $1-x_{v}^{\prime}$. Let $\mathbf{y}$ be the resulting fractional matching on $Q_{p}$. We report the set $C:=\left\{v \in V: x_{v}^{\prime}+y_{v}=1\right\}$ as the vertex cover. (Note from the definition that $F \subseteq C$, hence satisfying our earlier claim that we "commit" $F$ to be in the final vertex cover.)
+
+```
+Algorithm 5. The algorithm for Theorem 6.2.
+1 Let \(\mathbf{x}:=\operatorname{Filling}(G, b)\) where \(b(v)=1\) for each \(v \in V\).
+2 Fix \(t=\Theta\left(\varepsilon^{3} p\right)\) and let \(\mathbf{x}^{\prime}:=\mathbf{x}^{(t)}\).
+3 Let \(F:=\left\{v \in V: x_{v}^{\prime}=1\right\}\).
+4 Query edges \(Q:=\left\{e=(u, v) \in E: u \notin F\right.\) and \(v \notin F\}\) with no endpoint in \(F\).
+5 Let \(Q_{p}\) be the realized edges in \(Q\).
+6 Run \(\mathbf{y}:=\operatorname{Filling}\left(Q_{p}, b^{\prime}\right)\) where \(b^{\prime}(v)=1-x_{v}^{\prime}\) for each \(v \in V\).
+7 Report \(C:=\left\{v \in V: x_{v}^{\prime}+y_{v}=1\right\}\) as the vertex cover of \(G_{p}\).
+```
+
+Validity of the vertex cover. The proof of why the set $C$ reported by Algorithm 5 is always a valid vertex cover of $G_{p}$ is simple. We start by formalizing our earlier claim that all vertices in $F$ also appear in $C$. To see this, observe that any vertex $v$ in $F$ by definition has $x_{v}^{\prime}=1$ which also implies $y_{v}=0$ since $b^{\prime}(v)=1-x_{v}^{\prime}=0$; this in turn implies $x_{v}^{\prime}+y_{v}=1$ and thus by definition $v \in C$. Now take an edge $e$ of the realization $G_{p}$. If $e$ has an endpoint in $F$, then this endpoint is in $C$, covering $e$. Therefore, let us take an edge $e=(u, v)$ in $G_{p}$ whose both endpoints are in $V \backslash F$. Observe that by definition we have $e \in Q_{p}$. Now once we run $\operatorname{Filling}\left(Q_{p}, b^{\prime}\right)$, we increase the fractional value on $e$ until one of its endpoints $v$ reaches its budget $b^{\prime}(v)$. Since we have set $b^{\prime}(v)=1-x_{v}^{\prime}$ and $y_{v}=b^{\prime}(v)$, we have $x_{v}^{\prime}+y_{v}=1-b^{\prime}(v)+b^{\prime}(v)=1$ and thus $v$ belongs to $C$, covering $e$.
+
+Analysis of the number of queries. Observe that in Algorithm 5, we only query the edges in $Q$. Thus, it suffices to prove that the maximum degree in $Q$ is at most $O\left(1 / \varepsilon^{3} p\right)$ to prove that Algorithm 5 queries at most $O\left(1 / \varepsilon^{3} p\right)$ edges per vertex. Consider an iteration $i$ of the algorithm when $\mathbf{x}=\mathbf{x}^{t}$, and let $\mathbf{x}^{\prime}$ be the fractional matching from the next iteration (if any). By definition of $\mathbf{x}^{t}$ and $Q$, at iteration $i$, any edge $e \in Q$ has two active endpoints and thus is active itself. Moreover, by Algorithm 4, at any iteration, all the edges that have been active in the previous iteration have the same fractional value; thus, we have $x_{e}^{\prime}>t$ for any $e \in Q$. Moreover, as a result of $\mathbf{x}^{\prime}$ being a valid fractional matching, any vertex has at most $1 / t=\Theta\left(1 / \varepsilon^{3} p\right)$ edges in $Q$.
+
+Running time of the Algorithm. The algorithm is clearly polynomial time as in each iteration of $\operatorname{Filling}(G, b)$, at least one vertex becomes inactive and this can happen at most $n$ times.Analysis of the approximation ratio. The more challenging part is to prove that this vertex cover $C$ reported by Algorithm 5 is in expectation at most $(2+\varepsilon)$ times larger than the minimum vertex cover of $G_{p}$. To prove this, in Lemma 6.2, we show that it is possible to construct a fractional matching $\mathbf{y}$ of graph $G_{p}$ such that $(2+\varepsilon) \mathbb{E}[|\mathbf{y}|] \geq \mathbb{E}[|C|]$. By weak duality, the minimum vertex cover of a graph is larger than any of its fractional matchings; hence, $C$ is a $(2+\varepsilon)$-approximate minimum vertex cover.
+Lemma 6.2. There exists a fractional matching $\mathbf{y}$ of $G_{p}$ such that $(2+\varepsilon) \mathbb{E}[|\mathbf{y}|] \geq \mathbb{E}[|C|]$.
+Proof. We start by giving Algorithm 6 that constructs a fractional matching of $G_{p}$.
+
+```
+Algorithm 6. The algorithm for Lemma 6.2.
+1 For any edge \(e \in S_{p}\) we set \(y_{e} \leftarrow \frac{x_{e}^{(t)}}{(1+\alpha) p}\) for \(\alpha=0.25 \varepsilon\).
+2 If a vertex \(v\) does not satisfy \(\sum_{e \ni v} y_{e} \geq x_{v}^{(t)}\) then, for any edge \(e \ni v\) set \(y_{e} \leftarrow 0\).
+3 For any \(e \in Q_{p}\) set \(y_{e} \leftarrow x_{e}^{\prime}\) where \(\mathbf{x}^{\prime} \leftarrow \operatorname{Filling}\left(Q_{p}, b\right)\) with \(b(v)=1-x_{v}^{(t)}\) for any \(v \in V \backslash F\).
+4 Report \(\mathbf{y}\) as the fractional matching of \(G_{p}\).
+```
+
+This algorithm consists of two stages. In the first stage, we construct a fractional matching on edges in $S_{p}$ and in the second stage, we add the edges of $Q_{p}$ to this matching. The first stage starts by setting
+
+$$
+x_{e}:=\frac{x_{e}^{(t)}}{(1+\alpha) p}
+$$
+
+for any edge $e \in S$ that is realized, where $\alpha=0.25 \varepsilon$. Let us call a vertex bad iff it satisfies $x_{v}:=\sum_{e \ni v} x_{e}>x_{v}^{(t)}$. For any bad vertex $v$ we decrease $x_{e}$ of all the edges $e \ni v$ to zero.
+
+In the second stage of the algorithm, we construct a fractional matching on edges in $Q_{p}$. Consider $x^{\prime}:=\operatorname{Filling}\left(Q_{p}, b\right)$ with $b(v)=1-x_{v}^{(t)}$ for any $v \in Q$. Clearly, combining $\mathbf{x}^{\prime}$ with $\mathbf{y}$ gives us a valid fractional matching since for any vertex $v \in V$ we have $\sum_{v \in V} x_{v}^{\prime}+y_{v}<1$. Hence, for any edge in $Q_{p}$ we set $y_{e}:=x_{e}^{\prime}$. To complete the proof of this lemma, it suffices to take vertex cover $C$ outputted by Algorithm 5 and prove
+
+$$
+(1+0.5 \varepsilon) \mathbb{E}\left[\sum_{v \in C} y_{v}\right] \geq|C|
+$$
+
+as it gives us
+
+$$
+(2+\varepsilon) \mathbb{E}[|X|]=2(1+0.5 \varepsilon) \mathbb{E}[|X|] \geq(1+0.5 \varepsilon) \mathbb{E}\left[\sum_{v \in V} y_{v}\right] \geq(1+0.5 \varepsilon) \mathbb{E}\left[\sum_{v \in C} y_{v}\right] \geq|C|
+$$
+
+For any vertex $v \in C$, let $z_{v}:=\sum_{e \ni, v, e \in S}$ and let $w_{v}:=\sum_{e \ni, v, e \in Q}$. By Algorithm 5, any vertex $v \in C$ satisfies $w_{v}+x_{v}^{(t)}=1$. In the rest of the proof we focus on proving
+
+$$
+\sum_{v \in C} x_{v}^{(t)} \leq \sum_{v \in C}(1+0.5 \varepsilon) \mathbb{E}\left[z_{v}\right]
+$$
+
+since it results in (20) as follows:
+
+$$
+|C|=\sum_{v \in C}\left(w_{v}+x_{v}^{(t)}\right) \stackrel{(21)}{\leq} \sum_{v \in C} w_{v}+(1+0.5 \varepsilon) \mathbb{E}\left[z_{v}\right] \leq \sum_{v \in C}(1+0.5 \varepsilon) \mathbb{E}\left[y_{v}\right]=(1+0.5 \varepsilon) \mathbb{E}\left[\sum_{v \in C} y_{v}\right]
+$$To prove (21), let us start by noting that if we set $z_{e}=\frac{x_{e}^{(t)}}{(1+\alpha) p}$ for any realized edge in $S$, we get $\sum_{v \in C} x_{v}^{(t)}=(1+\alpha) \sum_{v \in C} \mathbb{E}\left[z_{v}\right]$ and proves (21). However, in our algorithm we decrease $z_{e}$ to zero for the edges around any bad vertex and get $z_{v}=0$ for any such vertex. Thus, using Chebyshev's inequality, we will show that for any $v$, probability of being bad is small and as a result reducing the fractional value of the edges around these vertices does not affect the expected size of our matching significantly. Since for any $v \in S$, we have $\mathbb{E}\left[z_{v}\right]=x_{v}^{(t)} /(1+\alpha)$, we get
+
+$$
+\operatorname{Pr}\left[z_{v}>x_{v}^{(t)}\right]=\operatorname{Pr}\left[z_{v}>\mathbb{E}\left[z_{v}\right](1+\alpha)\right] \leq \operatorname{Pr}\left[z_{v}-\mathbb{E}\left[z_{v}\right]>\alpha\right]
+$$
+
+Since any edge gets value of $x_{e}^{(t)} /(1+\alpha) p$ with probability $p$ (if realized) and zero otherwise, for any edge $e \ni v$, we have:
+
+$$
+\operatorname{Var}\left[z_{e}\right]=\mathbb{E}\left[z_{e}^{2}\right]-\mathbb{E}\left[z_{e}\right]^{2}=p\left(x_{e}^{(t)} /(1+\alpha) p\right)^{2}-\left(x_{e}^{(t)} /(1+\alpha)\right)^{2} \leq \frac{\left(x_{e}^{(t)}\right)^{2}(1-p)}{p} \leq \frac{t^{2}}{p}
+$$
+
+Since edges are realized independently, this gives us
+
+$$
+\operatorname{Var}\left[z_{v}\right]=\sum_{e \ni v} \operatorname{Var}\left[z_{v}\right] \leq \frac{1}{t} \frac{t^{2}}{p}=\frac{t}{p}
+$$
+
+Using Chebyshev's inequality, we have
+
+$$
+\operatorname{Pr}\left[z_{v}-\mathbb{E}\left[z_{v}\right]>\alpha\right] \leq \frac{\operatorname{Var}\left[z_{v}\right]}{\alpha^{2}} \leq \frac{t}{p \alpha^{2}}
+$$
+
+Now let us investigate the expected size of the fractional matching after decreasing $z_{e}$ to zero for any edge $e \ni v$ adjacent to a bad vertex $v$. We have
+
+$$
+\mathbb{E}\left[\sum_{v \in V} z_{v}\right] \geq \frac{1}{1+\alpha} \sum_{v \in V} x_{v}^{(t)}\left(1-\frac{t}{p \alpha^{2}}\right)
+$$
+
+By setting $t=0.25 \alpha^{2} \varepsilon p=\Theta\left(\varepsilon^{3} p\right)$, we get
+
+$$
+\mathbb{E}\left[\sum_{v \in V} z_{v}\right] \geq \frac{1-0.25 \varepsilon}{1+0.25 \varepsilon} \sum_{v \in V} x_{v}^{(t)} \geq \frac{1}{1+0.5 \varepsilon} \sum_{v \in V} x_{v}^{(t)}
+$$
+
+This gives us (21) and completes the proof.
+
+# 6.3 Bipartite Graphs: $(1+\varepsilon)$-Approximation with $O_{p}(1)$ Per-Vertex Queries 
+
+In this section, we will prove the following result:
+Theorem 6.3. For any constant $\varepsilon>0$ and constant $p \in(0,1]$, any bipartite graph $G=(V, E)$ has a constant degree subgraph $Q$ where querying only the edges in $Q$ suffices to find $C \subseteq V$ such that
+
+1. $C$ is a vertex cover of $G_{p}$ with probability 1 .
+2. The size of $C$ is in expectation at most $(1+\varepsilon)$ times the minimum vertex cover of $G_{p}$.
+3. It is possible to find $Q$ and $C$ in polynomial time.We start by the following lemma. While it is a folklore result, to be self-contained we also provide a proof for it.
+Claim 6.3. Given $M_{1}$ and $M_{2}$, two random matchings of graph $G$ with $\mathbb{E}\left[\left|M_{2}\right|\right] \geq \mathbb{E}\left[\left|M_{1}\right|\right]$, let $D$ denote their symmetric difference. For any $\varepsilon \in(0,1)$ graph $D$ contains at least $\mathbb{E}\left[\left|M_{2}\right|\right]-\mathbb{E}\left[\left|M_{1}\right|\right]-$ $\frac{\varepsilon \mathbb{E}\left[\left|M_{2}\right|\right]}{2}$ maximal paths of length at most $4 / \varepsilon+1$ who start and end with edges in $M_{2}$.
+
+Proof. Any maximal path of graph $D$ that starts and ends with edges in $M_{2}$ is also called an augmenting paths. Since $D$ is the symmetric difference of $\mathbb{E}\left[\left|M_{1}\right|\right]$ and $\mathbb{E}\left[\left|M_{2}\right|\right]$ it has $\mathbb{E}\left[\left|M_{2}\right|\right]-$ $\mathbb{E}\left[\left|M_{1}\right|\right]$ more edges from $M_{2}$ compared to $M_{1}$. As a result, it contains at least $\mathbb{E}\left[\left|M_{2}\right|\right]-\mathbb{E}\left[\left|M_{1}\right|\right]$ augmenting paths. Also, note that any augmenting paths longer than $4 / \varepsilon+1$, contains at least $2 / \varepsilon$ edges from $M_{2}$. Hence, there are most $\mathbb{E}\left[\left|M_{2}\right|\right] /(2 / \varepsilon)$ augmenting paths of length greater than $4 / \varepsilon+1$. As such, $D$ contains at least
+
+$$
+\mathbb{E}\left[\left|M_{2}\right|\right]-\mathbb{E}\left[\left|M_{1}\right|\right]-\frac{\varepsilon \mathbb{E}\left[\left|M_{2}\right|\right]}{2}
+$$
+
+augmenting paths of length at most $4 / \varepsilon+1$.
+Proof of Theorem 6.3. We provide a reduction to approximate stochastic matchings. Suppose that we have a stochastic matching algorithm $\mu_{\delta}$ that provides a $(1-\delta)$-approximation via $f(\delta, p)$ pervertex queries - such algorithm exists as proved in [6] for
+
+$$
+f(\delta, p)=\exp \left(\exp \left(O\left(\delta^{-1}\right)\right) \times \log \log p^{-1}\right)\right)
+$$
+
+and takes polynomial time to run for constant $\delta$ and $p$. We give a $(1+\varepsilon)$-approximate stochastic minimum vertex cover algorithm that queries $f\left(\frac{\varepsilon p^{2 / \varepsilon+2}}{4}, p\right)=O_{\varepsilon, p}(1)$ edges per vertex.
+
+The Reduction: For $\delta=\frac{\varepsilon p^{2 / \varepsilon+2}}{4}$, let $Q$ denote the set of edges queried by algorithm $\mu_{\delta}$ and let $S=E \backslash Q$. We claim that querying set $Q$ and picking a minimum vertex cover of $\left(Q_{P} \cup S\right)$ is a $(1+\varepsilon)$-approximate vertex cover algorithm. Let $\nu_{\varepsilon}$ be the described algorithm. First, this clearly gives us a valid vertex cover of $G_{p}$ as it covers all the realized edges of $Q$ and all the edges that are not queried (i.e., edges in $S$ ). Thus, to complete the proof we need to show
+
+$$
+\mathbb{E}\left[\nu\left(Q_{P} \cup S\right)\right] \leq(1+\varepsilon) \cdot \mathbb{E}\left[\nu\left(G_{p}\right)\right]
+$$
+
+For the sake of contradiction, we assume that this inequality does not hold and show that it implies $\mathbb{E}\left[\left|\mu\left(Q_{p}\right)\right|\right]<(1-\delta) \mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|\right]$, contradicting that $\mu_{\delta}$ is a $(1-\delta)$-approximate stochastic matching algorithm. Note that since $G$ is bipartite, the size of its maximum matching and minimum vertex cover are equal by König's theorem. This implies that if (23) does not hold, then we have
+
+$$
+\mathbb{E}\left[\mu\left(Q_{P} \cup S\right)\right]>(1+\varepsilon) \mathbb{E}\left[\mu\left(G_{p}\right)\right]
+$$
+
+We will show that in this case, matching $\mu\left(Q_{p}\right)$ can be augmented using edges in $S_{p}$ to a matching whose size is larger than that of $\mu\left(G_{p}\right)$ in expectation, which is a contradiction. Let $D$ denote the symmetric difference of $M_{1}:=\operatorname{MM}\left(Q_{p}\right)$ and $M_{2}:=\operatorname{MM}\left(Q_{P} \cup S\right)$ where $\operatorname{MM}(\cdot)$ returns an arbitrary maximum matching. Namely, $D$ contains an edge $e$ if it is in exactly one of these matchings. By Claim 6.3, graph $D$ in expectation contains at least $\mathbb{E}\left[\left|M_{2}\right|\right]-\mathbb{E}\left[\left|M_{1}\right|\right]-\frac{\varepsilon \mathbb{E}\left[\left|M_{1}\right|\right]}{2}$ maximal paths of length at most $\frac{4}{\varepsilon}+1$ which start and end with edges in $M_{2}$ (i.e., augmenting paths), where
+
+$$
+\mathbb{E}\left[\left|M_{2}\right|\right]-\mathbb{E}\left[\left|M_{1}\right|\right]-\frac{\varepsilon \mathbb{E}\left[\left|M_{1}\right|\right]}{2} \geq \mathbb{E}\left[\left|\mu\left(Q_{P} \cup S\right)\right|\right]-\mathbb{E}\left[\left|\mu\left(Q_{p}\right)\right|\right]-\frac{\varepsilon \mathbb{E}\left[\left|\mu\left(Q_{p}\right)\right|\right]}{2}
+$$$$
+\begin{aligned}
+& \geq \mathbb{E}\left[\left|\mu\left(Q_{P} \cup S\right)\right|\right]-\mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|\right]-\frac{\varepsilon \mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|\right]}{2} \\
+& \left({ }^{(24)}(1+\varepsilon) \mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|\right]-\mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|\right]-\frac{\varepsilon \mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|\right]}{2} \\
+& >\frac{\varepsilon \mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|\right]}{2}
+\end{aligned}
+$$
+
+Consider one of these augmenting paths $P$. If all the edges of $P$ are in $G_{p}$, flipping the membership of its edges in $M_{1}$ increases the size of this matching by one. Note that any of these augmenting paths has at most $\frac{2}{\varepsilon}+2$ edges from $S$ and these edges are realized (are in $G_{p}$ ) independently with probability $p$. As a result, each one of these paths is in $G_{p}$ with probability at least $p^{\frac{2}{\varepsilon}+2}$. Since we have at least $\frac{\varepsilon \mathbb{E}\left[\left|\mu\left(G_{p}\right)\right|]}{2}$ of these paths, applying all of them on $M_{1}$ results in increasing its expected size by at least
+
+$$
+p^{\frac{2}{\varepsilon}+2} \cdot \frac{\varepsilon \mathbb{E}\left[\mu\left(G_{p}\right)\right]}{2}=2 \delta \mathbb{E}\left[\mu\left(G_{p}\right)\right]
+$$
+
+This means that the resulting matching has size at least
+
+$$
+\mathbb{E}\left|M_{1}\right|+2 \delta \mathbb{E}\left[\mu\left(G_{p}\right)\right] \geq(1-\delta) \mathbb{E}\left[\mu\left(G_{p}\right)\right]+2 \delta \mathbb{E}\left[\mu\left(G_{p}\right)\right]>\mathbb{E}\left[\mu\left(G_{p}\right)\right]
+$$
+
+which is a contradiction by the fact that $\mathbb{E}\left[\mu\left(G_{p}\right)\right]$ is an upper bound for $\mathbb{E}\left|M_{1}\right|$.
+
+# 7 Lower Bounds 
+
+In this section, we prove several lower bounds for both the stochastic vertex cover problem and also the stochastic matching problem. Below we state these results as a series of theorems, and give their proofs later in the section.
+Theorem 7.1. For any constant $p<1$, there exist an n-vertex bipartite stochastic graph $G$ with realization probability $p$ such that finding an exact minimum vertex cover or an exact maximum matching of $G$ with any constant probability requires querying $\Omega\left(\frac{n^{2}}{\log ^{x} n}\right)$ edges of this graph.
+Theorem 7.2. Finding a maximal matching of $n$-vertex stochastic graphs with a constant realization probability $p \in(0,1)$ requires $\Omega\left(n \log _{b} n\right)$ total queries for $b=\frac{1}{1-p}$.
+Theorem 7.3. There are absolute constants $p_{0}, \varepsilon_{0} \in(0,1)$ such that for any $p \leq p_{0}$ and $\varepsilon \leq \varepsilon_{0}$, finding a $(1-\varepsilon)$-approximate maximum matching for a bipartite stochastic graph $G_{p}$, requires querying a subgraph of maximum degree $\Omega\left(\frac{1}{\varepsilon p}\right)$.
+Theorem 7.4. There are absolute constants $p_{0}, \varepsilon_{0} \in(0,1)$ such that for any $p \leq p_{0}$ and $\varepsilon \leq \varepsilon_{0}$, finding a $(1+\varepsilon)$-approximate minimum vertex cover for a bipartite stochastic graph $G_{p}$, requires querying a subgraph of maximum degree $\Omega\left(\frac{1}{\varepsilon p}\right)$.
+Theorem 7.5. Finding a constant approximation of minimum vertex cover of n-vertex stochastic bipartite graphs with realization probability $p$ requires $\Omega\left(\frac{n}{p}\right)$ total queries.
+
+A graph that is particularly useful for our lower bounds is illustrated in Figure 1 and defined formally in Definition 7.1.
+Definition 7.1 ( $S(d, s, N)$-graphs - Figure 1). For positive integers $d, s$, and $N$, an $S(d, s, N)$ graph is defined on $2 N(s+1)$ vertices. Of these nodes, $2 N$ form an induced d-regular bipartite graph $B$, with $N$ nodes in each partition. In addition, each vertex of $B$ is also connected to $s$ vertices outside $B$, each with degree exactly 1. We use $S$ to denote the set of vertices outside $B$.
+
+Figure 1: An example of graph $S(d, s, N)$ formalized in Definition 7.1 for $d=3, s=5$, and $N=6$.
+
+In proving our theorems we use, two essential properties of $S(d, s, N)$-graphs which we state below as Lemma 7.2 and Lemma 7.3.
+
+Lemma 7.2. Given a stochastic $S(d, s, N)$-graph $G$ with realization probability $p$, consider its subgraphs $B$ and $S$ from Definition 7.1 and let $H$ be the induced subgraph of vertices in $B$ that do not have any realized edges to vertices in $S$. If $M$ is a $(1-\varepsilon)$-approximate maximum matching of $G_{p}$, it contains a matching of expected size at least $\left|\mu\left(H_{p}\right)\right|-2 N \varepsilon$ from $H$.
+
+Proof. Let $M_{a p x}$ be an arbitrary $(1-\varepsilon)$-approximate maximum matching of $G_{p}$. To prove this lemma, we will show
+
+$$
+\left|M_{a p x} \cap H\right| \geq\left|\mu\left(H_{p}\right)\right|-2 N \varepsilon
+$$
+
+We start by giving a lower bound for $\left|M_{a p x}\right|$. We do so by constructing a matching of graph $G_{p}$ which we denote by $M_{1}$. In $M_{1}$, we match any vertex $v \in B$ that has a realized edge to a vertex in $S$ (i.e., any vertex in $B$ that is not in $H$ ) using one of these edges. We also add a maximum matching of subgraph $H_{p}$ to $M_{1}$. Let $V_{H}$ and $V_{B}$ respectively denote the vertex sets of graphs $H$ and $B$. Observe that we have $\left|M_{1}\right|=\left|V_{B}-V_{H}\right|+\left|\mu\left(H_{p}\right)\right|$. Knowing that $M_{a p x}$ is a $(1-\varepsilon)$-approximate maximum matching, gives us:
+
+$$
+\left|M_{a p x}\right| \geq(1-\varepsilon)\left(\left|V_{B}\right|-\left|V_{H}\right|+\left|\mu\left(H_{p}\right)\right|\right) \geq\left|V_{B}\right|-\left|V_{H}\right|+\left|\mu\left(H_{p}\right)\right|-\varepsilon 2 N
+$$
+
+We complete the proof by noting that the expected size of the maximum matching on $G_{p} \backslash H_{p}$ is upper bounded by $\left|V_{B}\right|-\left|V_{H}\right|$ since any edge in $G_{p} \backslash H_{p}$ has an endpoint in $V_{B} \backslash V_{H}$ and $\left|V_{B} \backslash V_{H}\right|=\left|V_{B}\right|-\left|V_{H}\right|$. This completes the proof since it indicates that the remaining $\left|\mu\left(H_{p}\right)\right|-\varepsilon 2 N$ edges of matching $M_{a p x}$ come from $H_{p}$.
+
+Lemma 7.3. Given a stochastic $S(d, s, N)$-graph $G$ with realization probability $p$, consider its subgraphs $B$ and $S$ from Definition 7.1 and let $H$ be the induced subgraph of vertices in $B$ that do not have any realized edges to vertices in $S$. Any $(1+\varepsilon)$-approximate minimum vertex cover of $G_{p}$, in expectation includes at most $\left|\nu\left(H_{p}\right)\right|+2 N \varepsilon$ vertices from $H$.
+
+Proof. Let $\nu_{a p x}$ be an arbitrary $(1+\varepsilon)$-approximate minimum vertex cover of $G_{p}$. To prove this lemma, we will show
+
+$$
+\left|\nu_{a p x} \cap H_{p}\right| \leq \nu\left(H_{p}\right)+2 N \varepsilon
+$$
+
+We start by giving an upper bound for $\left|\nu_{a p x}\right|$. We do so by constructing a vertex cover of graph $G_{p}$ which we denote by $\nu_{1}$. This vertex cover includes any vertex $v \in B$ that has a realized edge to a vertex in $S$ (i.e., any vertex in $B$ that is not in $H$ ). This covers all the edges that are not in $H$.Thus, we complete $\nu_{1}$ by adding a minimum vertex cover of $H_{p}$ to it. Let $V_{H}$ and $V_{B}$ respectively denote the vertex sets of graphs $H$ and $B$. Observe that we have $\left|\nu_{1}\right|=\left|V_{B}-V_{H}\right|+\left|\nu\left(H_{p}\right)\right|$. As a result of $\nu_{a p x}$ being a $(1+\varepsilon)$-approximate minimum vertex cover we get:
+
+$$
+\left|\nu_{a p x}\right| \leq(1+\varepsilon)\left(\left|V_{B}\right|-\left|V_{H}\right|+\left|\nu\left(H_{p}\right)\right|\right) \leq\left|V_{B}\right|-\left|V_{H}\right|+\left|\nu\left(H_{p}\right)\right|+\varepsilon 2 N
+$$
+
+We complete the proof by noting that $\left|V_{B}\right|-\left|V_{H}\right|$ is a lower bound for the number of vertices in $V_{B} \backslash V_{H}$ that are in vertex cover since any vertex in $V_{B} \backslash V_{H}$ is connected to at least a degree-one vertex. This concludes the proof as it indicates that at most $\left|\mu\left(H_{p}\right)\right|+\varepsilon 2 N$ vertices of $\nu_{a p x}$ can come from $H_{p}$.
+
+# 7.1 Proof of Theorem 7.1 
+
+We start the proof by the following Lemma.
+Lemma 7.4. For any constant $p<1$, there exist an n-vertex bipartite stochastic graph $G$ with realization probability $p$ and a constant $c \geq 0$ such that finding an exact maximum matching or an exact minimum vertex cover of $G$ with probability at least $c$ requires querying $\Omega\left(\frac{n^{2}}{\log ^{2} n}\right)$ edges of this graph.
+
+Proof. To prove this lemma, we start by an $n$-vertex graph $G$, a $S(N, s, N)$-graph for $s=\log _{1-p} 1 / N$. We then prove the existence of a constant $c$ for which the statement of the lemma holds. Particularly, we will show that it is not possible to find an exact maximum matching/minimum vertex cover of $G_{p}$ with probability at least $c$ using only $o\left(n^{2} / \log ^{2} n\right)$ queries.
+
+Consider subgraphs $B$ and $S$ of $G$ from Definition 7.1 and let $H$ be the induced subgraph of vertices in $B$ that do not have any realized edges to vertices in $S$. Based on Lemma 7.2, any maximum matching of $G_{p}$ should include a maximum matching of $H_{p}$. Also, based on Lemma 7.3, any minimum vertex cover of $G_{p}$, includes exactly $\left|\nu\left(H_{p}\right)\right|$ vertices from $H_{p}$. Thus, to be able to find an exact minimum vertex cover/maximum matching of $G_{p}$ we need to find a minimum vertex cover/maximum matching of $H_{p}$. Thus, we will focus on graph $H_{p}$.
+
+Since $s=\Theta(\log N)$, we have $n=\Theta(N \log N)$ and $N=\Omega(n / \log n)$ (based on Definition 7.1). This implies that if at most $o\left(n^{2} / \log ^{2} n\right)$ edges are queried from $G$, then any edge $e$ chosen uniformly at random from $B$ (defined in Definition 7.1) is queried with probability $o(1)$ (since $B$ has $N^{2}=$ $\left.\Omega\left(n^{2} / \log ^{2} n\right)\right)$ edges). Therefore, it suffices to show that if any random edge from $B$ is queried with probability $o(1)$, then it is not possible to find an exact maximum matching/minimum vertex cover of $H_{p}$ with probability at least $c$ for a constant $c$.
+
+We claim that with a constant probability subgraph $H_{p}$ has only one vertex in each part. Let us denote this event by $E$ and compute its probability. Since each vertex $v \in B$ is in $H$ independently with probability $(1-p)^{s}=1 / N$, we have
+
+$$
+\operatorname{Pr}[E]=\left(N(1 / N)(1-1 / N)^{N-1}\right)^{2} \geq 1 / e^{2}
+$$
+
+When event $E$ happens; i.e., $H$ has only one vertex in each part, to be able to find its maximum matching, if edge $(u, v)$ is realized it also should be queried. This edge is realized with probability $p$, however, as discussed above, probability of this edge being queried is $o(1)$. This implies that with probability at least $1 / e^{2}(p-o(1))$, which is a constant, the queried edges do not contain a maximum matching of $G_{p}$. Similarly, if edge $(u, v)$ is not queried, to have a valid vertex cover, we need to put one of its endpoints in the vertex cover, however, this vertex cover is not minimum if edge $(u, v)$ is not realized. This event happens with probability $1 / e^{2}(1-p-o(1))$ which is again a constant. As a result, setting $c=\min \left(1 / e^{2}(1-p-o(1)), 1 / e^{2}(p-o(1))\right)$ completes the proof.Given Lemma 7.4, we are now ready to prove Theorem 7.1.
+Proof of Theorem 7.1. We use proof by contradiction. We first assume the existence of a constant $\alpha$ such that given any $n$-vertex stochastic graph $G$, it is possible to find an exact minimum vertex cover/maximum matching of this graph with probability at least $\alpha$ using only $o\left(n^{2} / \log ^{2} n\right)$ queries. We then show that this results in a contradiction. Based on Lemma 7.4, for any $N$ there exists an $N$-vertex bipartite stochastic graph $G^{\prime}$ with realization probability $p$ and a constant $c \geq 0$ such that finding an exact minimum vertex cover or an exact maximum matching of $G^{\prime}$ with probability at least $c$ requires $\Omega\left(N^{2} / \log ^{2} N\right)$ queries. Define graph $G$ to include $s=\left\lceil\log _{1-c}(1-\alpha)\right\rceil$ copies of $G^{\prime}$ with $N=n / s$. Since $n=\Theta(N)$, querying $o\left(\frac{n^{2}}{\log ^{2} n}\right)$ edges of $G$, means queries $o\left(\frac{N^{2}}{\log ^{2} N}\right)$ edges of each subgraph. Observe that finding an exact maximum matching/minimum vertex cover of $G$ means finding an exact maximum matching/minimum vertex cover of all these $s$ subgraphs. This implies that the queried edges of $G$ contain an exact maximum matching/minimum vertex cover of $G_{p}$ with probability at most $1-(1-c)^{s} \leq 1-(1-\alpha) \leq \alpha$. We conclude the proof of this theorem by noting that this is a contradiction with the initial assumption.
+
+# 7.2 Proof of Theorem 7.2 
+
+Proof of Theorem 7.2. Consider an $n$-vertex clique $G$ with realization probability $p$. It is known that for any constant $p \in(0,1)$, the expected size of the maximum independent set in $G_{p}$ is $\Theta\left(\log _{b} n\right)$ for $b=1 /(1-p)$. (See Theorem 7.3 in Book [13].) This is useful for giving a lower bound for the size of any maximal matching $M$ of $G_{p}$ since vertices that are not in $M$ form an independent set. This implies $2|M| \geq n-\left|\operatorname{MIS}\left(G_{p}\right)\right|$ where $\operatorname{MIS}\left(G_{p}\right)$ is the maximum independent set of $G_{p}$. Let $Q$ be the subgraph we choose to query. If $Q_{p}$ contains a maximal matching then its maximum independent set should not be larger than that of $G_{p}$. Therefore, to complete the proof, it suffices to show that if
+
+$$
+\left|Q_{p}\right|=o\left(n \log _{b} n\right)<\frac{n \log _{b} n}{4}
+$$
+
+then $\mathbb{E}\left[\left|\operatorname{MIS}\left(Q_{p}\right)\right|\right]=\omega\left(\log _{b} n\right)$. To prove this, we will show that the expected number of singleton vertices in $Q_{p}$ is $\omega\left(\log _{b} n\right)$. Note that based on (25), at least half of vertices have degree at most $\frac{\log _{b} n}{2}$ in $Q$. For any such vertex $v$ we have:
+
+$$
+\operatorname{Pr}\left[v \text { is singleton in } Q_{p}\right] \geq(1-p)^{\frac{\log _{b} n}{2}}=(1 / b)^{\frac{\log _{b} n}{2}}=\left(\frac{1}{n}\right)^{\frac{1}{2}}
+$$
+
+For any constant $p \in(0,1)$, this gives us:
+
+$$
+\mathbb{E}\left[\left|\operatorname{MIS}\left(Q_{p}\right)\right|\right] \geq \mathbb{E}\left[\text { number of singleton vertices in } Q_{p}\right] \geq \frac{n}{2} \cdot\left(\frac{1}{n}\right)^{\frac{1}{2}}=\frac{\sqrt{n}}{2}=\omega\left(\log _{b} n\right)
+$$
+
+and completes the proof.
+
+### 7.3 Proof of Theorem 7.3
+
+Proof of Theorem 7.3. Consider the bipartite graph $G=S(N, s, N)$ for $s=\left\lfloor\log _{1-p} 10 \varepsilon\right\rfloor$ (given that $10 \varepsilon \leq 1-p$ holds for small enough values of $\varepsilon$ and $p$ ), and let $n$ be the total number of vertices in $G$. To prove this theorem, we show that finding a $(1-\varepsilon)$-approximate maximum matching of $G_{p}$ requires $\Omega\left(\frac{1}{\varepsilon p}\right)$ queries for a vertex. Consider subgraphs $B$ and $S$ of $G$ from Definition 7.1 and let $H$ be the induced subgraph of vertices in $B$ that do not have any realized edges to vertices in$S$. Based on Lemma 7.2, any $(1-\varepsilon)$-approximate maximum matching of $G_{p}$, includes a matching of expected size at least $\left|\mu\left(H_{p}\right)\right|-2 N \varepsilon$ from $H$. Let $X_{1}$ and $X_{2}$ with be the set of vertices in two parts of the bipartite graph $H$ with $\left|X_{1}\right| \leq\left|X_{2}\right|$. Note that the expected number of vertices in each part is
+
+$$
+(1-p)^{\left\lfloor\log _{1-p} 10 \varepsilon\right\rfloor} N \geq 10 \varepsilon N
+$$
+
+thus, $\mathbb{E}\left[\left|X_{1}\right|\right] \geq 5 \varepsilon N$. It is well-known that such random graph $H_{p}$ that has an edge between any two vertices in $X_{1}$ and $X_{2}$ with a constant probability $p$ has a matching of size $\left|X_{1}\right|$ with high probability. However, for the sake of this proof we only use the fact that a matching of size $\left|X_{1}\right|$ exists with probability at least $\frac{4}{5}$. This gives us $\mathbb{E}\left[\left|\mu\left(H_{p}\right)\right|\right] \geq 4 \varepsilon N$. As a result, to find a matching of size at least $\left|\mu\left(H_{p}\right)\right|-2 \varepsilon N$ in $H_{p}$, any randomly chosen vertex $v \in X_{1}$ should have at least one queried edge in $H_{p}$ with probability at least $\frac{1}{2}$. Let $g_{v}$ be the expected number of edges queried for vertex $v$. Since the other endpoint of any of these queried edges is in $H_{p}$ with probability
+
+$$
+(1-p)^{\left\lfloor\log _{1-p} 10 \varepsilon\right\rfloor} \leq 10 \varepsilon /(1-p)
+$$
+
+and $e$ is realized with probability $p$, we should have $\frac{10 \varepsilon p g_{v}}{1-p} \geq 1 / 2$ which for any $p \leq 0.99$ gives us $g_{v} \geq \frac{1-p}{20 \varepsilon p}=\Omega\left(\frac{1}{\varepsilon p}\right)$ and concludes the proof.
+
+# 7.4 Proof of Theorem 7.4 
+
+Proof of Theorem 7.4. Consider the bipartite graph $G=S(d, s, N)$ for
+
+$$
+s=\left\lfloor\log _{1-p} 96 \varepsilon\right\rfloor \quad \text { and } \quad d=1 /\left(2^{15} \varepsilon p\right)
+$$
+
+and let $n$ be the total number of vertices in $G$. To prove this theorem, we show that it is not possible to find a $(1+\varepsilon)$-approximate minimum vertex cover of $G_{p}$ using only $o(1 / \varepsilon p)$ queries per vertex. We use proof by contradiction. We assume the existence of a $(1+\varepsilon)$-approximate minimum vertex $\nu_{a p x}$, achieved by querying only $o(1 / \varepsilon p)$ edges per vertex and show that it results in a contradiction. Consider subgraphs $B$ and $S$ of $G$ from Definition 7.1, and let $H$ be the induced subgraph of vertices in $B$ that do not have any realized edges to vertices in $S$. Based on Lemma 7.3, any $(1+\varepsilon)$-approximate minimum vertex cover of $G_{p}$, includes at most $\left|\nu\left(H_{p}\right)\right|+2 N \varepsilon$ vertices from $H$, which means
+
+$$
+\left|\nu_{a p x} \cap H\right| \leq\left|\nu\left(H_{p}\right)\right|+2 N \varepsilon
+$$
+
+Let us define a subgraph $H^{\prime}$ of $H$ to contain all the edges of $H$ that are not queried. To be a valid vertex cover, $\nu_{a p x}$ should include a minimum vertex cover of $H^{\prime}$; i.e.,
+
+$$
+\left|\nu\left(H^{\prime}\right)\right| \leq\left|\nu_{a p x} \cap H\right|
+$$
+
+Thus, to achieve a contradiction, it suffices to prove that the following equation does not hold if any vertex has $d^{\prime}=1 /\left(2^{16} \varepsilon p\right)+1$ edges in $B$ that are not queried:
+
+$$
+\left|\nu\left(H^{\prime}\right)\right| \leq\left|\nu\left(H_{p}\right)\right|+2 N \varepsilon
+$$
+
+Let us assume w.o.l.g., that exactly $d^{\prime}$ edges are not queried for any vertex in $B$ as it only decreases the size of the minimum vertex cover. We start by giving a lower bound for $\left|\nu\left(H^{\prime}\right)\right|$. We do so by constructing a fractional matching $M$ on $H^{\prime}$. Since by weak duality, the minimum vertex cover of a graph is at least as large as any fractional matching of the graph, this will also be a lower bound for $\left|\nu\left(H^{\prime}\right)\right|$. Define $x:=\left(d^{\prime}-1\right)(1-p)^{s}+1$. For any edge $e$, let $m_{e}$ be the fractional value we assignto edge $e$ in matching $M$. We set $m_{e}:=1 / x$ for any edge $e \in H_{p}^{\prime}$ iff both its endpoints have degree at most $x$ in $H_{p}^{\prime}$ and zero otherwise. $M$ is obviously a valid fractional matching since the sum of values assigned to the edges around any vertex is at most one. Also, for any edge $e=(u, v) \in B$, we have
+
+$$
+\mathbb{E}\left[m_{e}\right]=\operatorname{Pr}\left[e \in H^{\prime}\right] \cdot \operatorname{Pr}\left[d_{v, H^{\prime}} \leq x \mid e \in H^{\prime}\right] \cdot \operatorname{Pr}\left[d_{u, H^{\prime}} \leq x \mid e \in H^{\prime}\right]
+$$
+
+where $d_{v, H^{\prime}}$ is the degree of vertex $v$ in graph $H^{\prime}$. To compute $\operatorname{Pr}\left[e \in H^{\prime}\right]$, note that each endpoint of this edge is in $H$ with probability $(1-p)^{s}$. Combining this with $s=\left\lfloor\log _{1-p} 96 \varepsilon\right\rfloor$ gives us
+
+$$
+(96 \varepsilon)^{2} \leq \operatorname{Pr}\left[e \in H^{\prime}\right]
+$$
+
+Consider any vertex $v \in H^{\prime}$ and any of its edges $e \in H^{\prime}$, and let $d_{v, e, H^{\prime}}$ denote the degree of vertex $v$ in $H^{\prime} \backslash\{e\}$. Since $v$ has $d^{\prime}-1$ edges in $B \backslash\{e\}$, we have $\mathbb{E}\left[d_{v, e, H^{\prime}}\right]=\left(d^{\prime}-1\right)(1-p)^{s}=x-1$. Moreover, we claim that as a result of $d_{v, e, H^{\prime}}$ being sum of independent Bernoulli random variables, we have $\operatorname{Pr}\left[d_{v, e, H^{\prime}}>x-1\right]<0.75$. This can be achieved using a simple application of Chernoff bound, and implies
+
+$$
+\operatorname{Pr}\left[d_{v, H^{\prime}} \leq x \mid e \in H^{\prime}\right] \geq \frac{1}{4}
+$$
+
+Combining this with (28) and (27) gives us:
+
+$$
+|M| \geq N d^{\prime} \frac{1}{x}(96 \varepsilon)^{2} \frac{1}{16} \geq \frac{N 96^{2} \varepsilon^{2}}{2^{16} \varepsilon p x 16}
+$$
+
+Observe that for a small enough $p$, we have
+
+$$
+x=\left(d^{\prime}-1\right)(1-p)^{s}+1 \leq \frac{96}{2^{16} p(1-p)}+1 \leq \frac{2 \cdot 96}{2^{16} p(1-p)}
+$$
+
+This implies:
+
+$$
+|M| \geq \frac{N 96^{2} \varepsilon^{2}}{16 \cdot 2^{16} \varepsilon p(1-p)} \frac{2^{16} p(1-p)}{2 \cdot 96} \geq \frac{N 96 \varepsilon}{32}
+$$
+
+After finding a lower bound for $|M|$ which is also a lower bound for $\left|\nu\left(H^{\prime}\right)\right|$ we need to find an upper bound for $\left|\nu\left(H_{p}\right)\right|$. Recall that $H$ is the induced subgraph of vertices in $B$ that do not have any realized edges to vertices in $S$. To give an upper bound for $\left|\nu\left(H_{p}\right)\right|$, we start by computing the expected number of edges in this graph which we denote by $\left|H_{p}\right|$. Each edge $e \in B$ is in $H_{p}$ with probability $p(1-p)^{2} s \leq p 96^{2} \varepsilon^{2} /(1-p)^{2}$. Since $B$ has $N /\left(2^{15} \varepsilon p\right)$ edges, for a large enough $(1-p)$ we get
+
+$$
+\left|H_{p}\right| \leq \frac{N 96^{2} \varepsilon}{2^{15}(1-p)^{2}} \leq \frac{2 N 96^{2} \varepsilon}{2^{15}}
+$$
+
+This is also an upper bound for $\left|\nu\left(H_{p}\right)\right|$ since minimum vertex cover is not larger than the total number of edges. Based on (26), to complete the proof we need to show that
+
+$$
+\frac{N 96 \varepsilon}{32} \geq \frac{2 N 96^{2} \varepsilon}{2^{15}}+2 N \varepsilon
+$$
+
+If we simplify both sides of the equation we get
+
+$$
+\frac{N 96 \varepsilon}{32}=3 N \varepsilon \geq 2.6 N \varepsilon \geq \frac{2 N 96^{2} \varepsilon}{2^{15}} \geq+2 N \varepsilon
+$$
+
+which concludes the proof.# 7.5 Proof of Theorem 7.5 
+
+Proof of Theorem 7.5. Suppose we want to get a $c$-approximate vertex cover for a $c>1$. For any $p<\frac{1}{3 c}$, we construct a graph $G$ for which finding such an approximation needs at least $\Omega(n / p)$ queries. Graph $G$ is an arbitrary $d$-regular bipartite graph with $d=\frac{1}{3 c p}$. (Here we assume for simplicity that $d$ is an integer.) In $G_{p}$, any vertex $v$ is a singleton with probability at least $1-d p$ which means $d n p / 2$ is an upper bound for the expected size of the vertex cover.
+
+On the other hand, if we do not query an edge, we have to put one of its endpoints in the vertex cover. We claim that to get a $c$-approximate at least half of the edges $(d n / 4)$ should be queried. Since any vertex can cover at most $d$ edges, not querying $d n / 4$ edges results in a vertex cover of size at least $n / 4$. Thus, if at most $d n / 4$ edges are queried, the approximation factor of the algorithm would be at least $\frac{n / 4}{d n p / 2}=\frac{1}{2 d p}=\frac{3 c}{2} \geq c$. To conclude, to be able to get a $c$-approximate at least $\frac{n}{6 c p}=\Omega(n / c p)$ (half the number of edges) queries are needed.
+
+### 7.6 Why Random Queries Do Not Work
+
+One simple approach that, in the first sight, might seem appealing for finding approximate vertex covers of a stochastic graph $G$ is simply picking a random subset of edges of any vertex to form a subgraph $Q$, query these edges and find the vertex cover based on that. In this section, we will show that this approach, in fact, does not have a good performance for some instances of the problem. Namely, we show that there exists a graph $G$ such that querying a subgraph $Q$ of $G$ obtained via sampling $s=o(n)$ edges per any vertex does not give us better than a $\left(\frac{1}{p}-o(1)\right)$-approximate vertex cover of $G_{p}$. Note that to find a valid vertex cover, any edge in $G$ that is not queried should be covered; i.e., edges in $S:=G \backslash Q$. Therefore, the final vertex cover found via this sampling technique has size at least $\left|\nu\left(S \cup Q_{p}\right)\right|$ in expectation.
+
+We construct an $n$-vertex bipartite graph $G$ as follows. For a number $N$ with $N=o(n)$ and $N=\omega(s)$, graph $G$ contains a complete bipartite graph $H$ of $N$ vertices and a matching $M$ of size $(n-N) / 2$. Moreover, for any $e=(u, v) \in M$, vertex $u$ has edges to all the vertices in one part of $H$ and $v$ has edges to all the vertices in the other part of $H$. Note that such a number $N$ exists since $s=o(n)$. Let us first give an upper bound for $\left|\nu\left(G_{p}\right)\right|$ by constructing a vertex cover $C$ of this graph. $C$ contains all the vertices of graph $H$ and an endpoint of any edge in $M$ that is realized (an endpoint of any edge in $M \cup G_{p}$ ). This set clearly covers all the edges of $G_{p}$. Since any edge in $M$ is realized with probability $p$, we have
+
+$$
+\mathbb{E}\left[\left|\nu\left(G_{p}\right)\right|\right] \leq \mathbb{E}[|C|]=N+\frac{p(n-N)}{2} \leq p n / 2+N / 2=p n / 2+o(n)
+$$
+
+Having established this upper bound, the next step is to give a lower bound for $\left|\nu\left(S \cup Q_{p}\right)\right|$. Consider an edge $e=(u, v) \in M$, and let us compute $\operatorname{Pr}[e \in Q]$. Both end pints of this edge have degree $N / 2+1$ in graph $G$. Since each vertex randomly chooses $s$ edges, for the probability of $e$ being sampled we have:
+
+$$
+\operatorname{Pr}[e \in Q] \leq \frac{2 s}{N / 2+1}=o(1)
+$$
+
+As a result the expected number of edges sampled from matching $M$ is at most $(1-o(1))|M|$. Since any edge that is not queried (sampled) should be covered, any valid vertex cover of $S \cup Q_{p}$ should contain at least one end point of edges in $M$ that are not sampled. Hence, we have
+
+$$
+\mathbb{E}\left[\left|\nu\left(S \cup Q_{p}\right)\right|\right] \geq(1-o(1))|M|=(1-o(1))(n-N) / 2=n / 2-o(n)
+$$Combining this with (30) gives us:
+
+$$
+\frac{\mathbb{E}\left[\left|\nu\left(S \cup Q_{p}\right)\right|\right]}{\mathbb{E}\left[\left|\nu\left(G_{p}\right)\right|\right]} \geq \frac{n / 2-o(n)}{p n / 2+o(n)}=\frac{1}{p}-o(1)
+$$
+
+This proves our claim as it means that by randomly sampling $o(n)$ edges for any vertex in graph $G$, one cannot construct a valid vertex cover of $G_{p}$ with an approximation ratio smaller than $(1 / p-o(1))$.
+
+# References 
+
+[1] Sepehr Assadi and Aaron Bernstein. Towards a Unified Theory of Sparsification for Matching Problems. In 2nd Symposium on Simplicity in Algorithms, SOSA@SODA 2019, January 8-9, 2019 - San Diego, CA, USA, pages 11:1-11:20, 2019.
+[2] Sepehr Assadi, Sanjeev Khanna, and Yang Li. The Stochastic Matching Problem with (Very) Few Queries. In Proceedings of the 2016 ACM Conference on Economics and Computation, EC '16, Maastricht, The Netherlands, July 24-28, 2016, pages 43-60, 2016.
+[3] Sepehr Assadi, Sanjeev Khanna, and Yang Li. The Stochastic Matching Problem: Beating Half with a Non-Adaptive Algorithm. In Proceedings of the 2017 ACM Conference on Economics and Computation, EC '17, Cambridge, MA, USA, June 26-30, 2017, pages 99-116, 2017.
+[4] Soheil Behnezhad and Mahsa Derakhshan. Stochastic weight matching: $(1-\varepsilon)$-approximation. In Foundations of Computer Science (FOCS 20), to appear, 2020.
+[5] Soheil Behnezhad, Mahsa Derakhshan, Alireza Farhadi, MohammadTaghi Hajiaghayi, and Nima Reyhani. Stochastic Matching on Uniformly Sparse Graphs. In Algorithmic Game Theory - 12th International Symposium, SAGT 2019, Athens, Greece, September 30 - October 3, 2019, Proceedings, pages 357-373, 2019.
+[6] Soheil Behnezhad, Mahsa Derakhshan, and MohammadTaghi Hajiaghayi. Stochastic Matching with Few Queries: $(1-\varepsilon)$ Approximation. In Proceedings of the 52nd Annual ACM SIGACT Symposium on Theory of Computing, STOC 2020, to appear, 2020.
+[7] Soheil Behnezhad, Alireza Farhadi, MohammadTaghi Hajiaghayi, and Nima Reyhani. Stochastic Matching with Few Queries: New Algorithms and Tools. In Proceedings of the Thirtieth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2019, San Diego, California, USA, January 6-9, 2019, pages 2855-2874, 2019.
+[8] Soheil Behnezhad and Nima Reyhani. Almost Optimal Stochastic Weighted Matching with Few Queries. In Proceedings of the 2018 ACM Conference on Economics and Computation, Ithaca, NY, USA, June 18-22, 2018, pages 235-249, 2018.
+[9] Avrim Blum, John P. Dickerson, Nika Haghtalab, Ariel D. Procaccia, Tuomas Sandholm, and Ankit Sharma. Ignorance is Almost Bliss: Near-Optimal Stochastic Matching With Few Queries. In Proceedings of the Sixteenth ACM Conference on Economics and Computation, EC '15, Portland, OR, USA, June 15-19, 2015, pages 325-342, 2015.
+[10] Avrim Blum, John P. Dickerson, Nika Haghtalab, Ariel D. Procaccia, Tuomas Sandholm, and Ankit Sharma. Ignorance Is Almost Bliss: Near-Optimal Stochastic Matching with Few Queries. Operations Research, 68(1):16-34, 2020.[11] Charles J Colbourn. The combinatorics of network reliability. Oxford University Press, Inc., 1987 .
+[12] Devdatt P Dubhashi and Desh Ranjan. Balls and bins: A study in negative dependence. BRICS Report Series, 3(25), 1996.
+[13] Alan Frieze and Michał Karoński. Introduction to random graphs. Cambridge University Press, 2016 .
+[14] Michel X. Goemans and Jan Vondrák. Covering minimum spanning trees of random subgraphs. In Proceedings of the Fifteenth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2004, New Orleans, Louisiana, USA, January 11-14, 2004, pages 934-941, 2004.
+[15] Michel X. Goemans and Jan Vondrák. Covering minimum spanning trees of random subgraphs. Random Struct. Algorithms, 29(3):257-276, 2006.
+[16] Heng Guo and Mark Jerrum. A polynomial-time approximation algorithm for all-terminal network reliability. SIAM J. Comput., 48(3):964-978, 2019.
+[17] Kumar Joag-Dev and Frank Proschan. Negative association of random variables with applications. The Annals of Statistics, pages 286-295, 1983.
+[18] David R. Karger. A phase transition and a quadratic time unbiased estimator for network reliability. In Proccedings of the 52nd Annual ACM SIGACT Symposium on Theory of Computing, STOC 2020, Chicago, IL, USA, June 22-26, 2020, pages 485-495, 2020.
+[19] Subhash Khot and Oded Regev. Vertex cover might be hard to approximate to within $2-\varepsilon$. J. Comput. Syst. Sci., 74(3):335-349, 2008.
+[20] Alam Khursheed and KM Lai Saxena. Positive dependence in multivariate distributions. Communications in Statistics-Theory and Methods, 10(12):1183-1196, 1981.
+[21] Jan Vondrák. Shortest-path metric approximation for random subgraphs. Random Struct. Algorithms, 30(1-2):95-104, 2007.
+[22] Yutaro Yamaguchi and Takanori Maehara. Stochastic Packing Integer Programs with Few Queries. In Proceedings of the Twenty-Ninth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2018, New Orleans, LA, USA, January 7-10, 2018, pages 293-310, 2018.
+
+# A Deferred Proofs 
+
+## A. 1 Polynomial-Time Implementation of Algorithm 2
+
+Algorithm 2 which proves Theorem 6.1 relies on a partitioning of Lemma 4.1. The described proof for this lemma, as stated above, is not through a polynomial-time construction. In this section, we address this issue and explain how the guarantee of Lemma 4.1 can also be achieved in polynomial (randomized) time, which leads to Algorithm 2 running in polynomial-time.
+
+The reason that our algorithm for finding the partitioning $(Q, S)$ of Lemma 4.1 is not polynomialtime, is that we assume each matching algorithm $\mathcal{M}_{i}$ maximizes the quadratic objective (4) whichis not clear how to do in polynomial time. Here, however, we show how it is possible to get around this barrier and achieve the same guarantee in polynomial time too.
+
+Suppose that we define partitionings $\left(Q_{i}, S_{i}\right)$ as before, but instead of using a matching algorithm $\mathcal{M}_{i}$ for each which maximizes $\Phi_{i}\left(\mathcal{M}_{i}\right)$, we use simply an arbitrary maximum matching algorithm $\mathcal{M}_{i}^{\prime}$. What can go wrong? We used the assumption that $\mathcal{M}_{i}$ maximizes $\Phi_{i}\left(\mathcal{M}_{i}\right)$ in Claim 4.4 which led to Claim 4.5, proving existence of $\Omega\left(\varepsilon^{6} p^{3} k\right)$ partitionings where every pair of them achieve the same objective up to an additive $O\left(\varepsilon^{6} p^{3} \mu(G)\right)$ difference. It was also used crucially in the proof of Claim 4.6, where we constructed an algorithm $\mathcal{M}_{i, j}$ which returns either the output of $\mathcal{M}_{i}\left(H_{i}\right)$ or that of $\mathcal{M}_{j}\left(H_{j}\right)$ each with probability $1 / 2$. There we argued that if the desired bound of Claim 4.6 does not hold, then $\Phi_{i}\left(\mathcal{M}_{i, j}\right)>\Phi_{i}\left(\mathcal{M}_{i}\right)+0.01 \varepsilon^{6} p^{3} \mu(G)$ (see (12)), contradicting the assumption that $\Phi_{i}\left(\mathcal{M}_{i}\right)$ is the maximum possible achievable objective. However, in order for this to lead to a contradiction, we do not necessarily need $\Phi_{i}\left(\mathcal{M}_{i}\right)$ to have the maximum possible value. Rather, it is sufficient to merely guarantee $\Phi_{i}\left(\mathcal{M}_{i, j}\right)<\Phi_{i}\left(\mathcal{M}_{i}\right)+0.01 \varepsilon^{6} p^{3} \mu(G)$ for all $i<j$. Also in order to guarantee Claim 4.5, it suffices to have, say, $\Phi_{i}\left(\mathcal{M}_{i}\right) \geq \Phi_{j}\left(\mathcal{M}_{j}\right) \pm O\left((\varepsilon p)^{10}\right)$ for all $i<j$.
+
+To achieve this guarantee, we first present in Claim A. 1 a polynomial-time randomized algorithm for estimating $\Phi_{i}\left(\mathcal{M}^{\prime}\right)$ with $O(1)$ additive error, for any given polynomial-time algorithm $\mathcal{M}^{\prime}$.
+
+Claim A.1. Given any matching algorithm $\mathcal{M}^{\prime}$, it is possible to estimate the value of $\Phi_{i}\left(\mathcal{M}^{\prime}\right)$ (for any $i$ ) with $O(1)$ additive error in polynomial time, with high probability.
+
+Proof. For each edge $e$, let $p_{e}:=\operatorname{Pr}\left[e \in \mathcal{M}^{\prime}\left(H_{i}\right)\right]$ and recall from (4) that $\Phi_{i}\left(\mathcal{M}^{\prime}\right)=\sum_{e \in E} p_{e}-\varepsilon p_{e}^{2}$. We do not know the value of $p_{e}$ but can estimate it by random sampling. Take $t=n^{6}$ independent outputs $M_{1}, \ldots, M_{t}$ of the random matching $\mathcal{M}^{\prime}\left(H_{i}\right)$. Let $X_{e}:=\sum_{i=1}^{t} \mathbf{1}\left(e \in M_{i}\right)$ be the number of these matchings that include $e$. Since $\mathbb{E} X_{e}=t \cdot p_{e}$, a simple application of Chernoff bound gives
+
+$$
+\operatorname{Pr}\left[\left|X_{e}-t p_{e}\right| \geq \sqrt{2 t \ln n}\right] \leq 2 e^{-4 \ln n} \leq 2 n^{-4}
+$$
+
+Therefore, by letting $q_{e}:=\frac{1}{t} X_{e}$ and a union bound over the less than $n^{2} / 2$ choices of $e$, we get that with probability at least $1-n^{-2}$, for any edge $e$ it holds that $\left|q_{e}-p_{e}\right|<\frac{\sqrt{2 t \ln n}}{t}<\frac{1}{n^{2}}$.
+
+Using this estimator $q_{e}$ instead of $p_{e}$, with probability $1-n^{-2}$ we get the following estimator with constant additive error
+
+$$
+\sum_{e \in E} q_{e}-\varepsilon q_{e}^{2}=\Phi_{i}\left(\mathcal{M}^{\prime}\right) \pm O\left(n^{2} \cdot \frac{1}{n^{2}}\right)=\Phi_{i}\left(\mathcal{M}^{\prime}\right) \pm O(1)
+$$
+
+completing the proof.
+Having this estimator, we then use an arbitrary maximum matching algorithm $\mathcal{M}_{i}^{\prime}$ for each partitioning $\left(Q_{i}, S_{i}\right)$ and based on that construct the next partitioning $\left(Q_{i+1}, S_{i+1}\right)$. Then for a margin $\delta=\Theta\left((\varepsilon p)^{10} \mu(G)\right)$, if it happens for some $j>i$, that our estimator predicts $\Phi_{j}\left(\mathcal{M}_{j}^{\prime}\right)>$ $\Phi_{i}\left(\mathcal{M}_{i}^{\prime}\right)+\delta$ or $\Phi_{i}\left(\mathcal{M}_{i, j}^{\prime}\right)>\Phi_{i}\left(\mathcal{M}_{i}^{\prime}\right)+\delta$ (where $\Phi_{i}\left(\mathcal{M}_{i, j}^{\prime}\right)$ returns the matching $\Phi_{i}\left(\mathcal{M}_{i}^{\prime}\right)$ with probability $1 / 2$ and $\Phi_{j}\left(\mathcal{M}_{j}^{\prime}\right)$ otherwise), we simply use that algorithm instead of $\mathcal{M}_{i}^{\prime}$ for $i$. Note that using this new algorithm may cause $D_{i}$ to change and so we may need to re-construct the the partitionings $\left(Q_{i+1}, S_{i+1}\right), \ldots,\left(Q_{k}, S_{k}\right)$.
+
+Finally, we argue why this process stops after polynomially many iterations. Every time that we change the matching algorithm of a partitioning $\left(Q_{i}, S_{i}\right)$, its objective $\Phi_{i}$ (and not just its estimation) increases by $O\left((\varepsilon p)^{10} \mu(G)\right)$. On the other hand, by definition (4), the value of $\Phi_{i}$ for any $i$ is upper bounded by the maximum matching $\mu(G)$ of $G$. Hence, this $\Theta\left((\varepsilon p)^{10} \mu(G)\right)$ increasein $\Phi_{i}$ can only happen for at most $O\left((\varepsilon p)^{-10}\right)$ steps for any fixed partitioning $\left(Q_{i}, S_{i}\right)$. This, in turn, implies that the total number of changing the matching algorithm for any of the $k$ partitionings is bounded by $k^{O\left(1 / \varepsilon^{10} p^{10}\right)}=O_{\varepsilon, p}(1)$. As a result, the whole process takes $O_{\varepsilon, p}(1) \cdot \operatorname{poly}(n)$ time.
+
+# A. 2 Proof of Claim 5.8 
+
+In this section, we prove Claim 5.8. We start with the notation we use in the proof.
+Notation: We fix an arbitrary vertex $v \in A$ and prove Claim 5.8 for it. We use $u_{1}, \ldots, u_{d}$ to denote the neighbors of $v$ in $S$, and denote $e_{j}=\left(u_{j}, v\right)$. We also let $A^{\prime}=\left\{v_{1}, \ldots, v_{n^{\prime}}\right\}=A \backslash\{v\}$ be the set of all vertices in $A$ excluding $v$.
+
+We start with an auxiliary claim that will be helpful both in bounding the expected value of random variable ( $y_{v} \mid \bar{v}$ prop) and also proving a concentration bound for it.
+Claim A.2. It holds that $\frac{1}{\operatorname{Pr}[\bar{v} \text { prop }]} \sum_{i=1}^{d} q_{e_{i}} \leq q_{v}$.
+Proof. Observe from Corrolary 5.5 Property (ii) that $\operatorname{Pr}[v$ prop $]=(1-\varepsilon) \operatorname{Pr}\left[v \in \mathcal{M}\left(Q_{p}\right)\right]$. Thus,
+
+$$
+\operatorname{Pr}[\bar{v} \text { prop }]=1-\operatorname{Pr}[v \text { prop }]=1-(1-\varepsilon) \operatorname{Pr}\left[v \in \mathcal{M}\left(Q_{p}\right)\right] \geq 1-\operatorname{Pr}\left[v \in \mathcal{M}\left(Q_{p}\right)\right]
+$$
+
+As a result, we get
+
+$$
+\frac{\sum_{i=1}^{d} q_{e_{i}}}{\operatorname{Pr}[\bar{v} \text { prop }]} \leq \frac{\sum_{i=1}^{d} q_{e_{i}}}{1-\operatorname{Pr}\left[v \in \mathcal{M}\left(Q_{p}\right)\right]}
+$$
+
+Let $q_{v}^{S}$ denote the sum of $q_{e}$ 's written on edges $e \in S$ connected to $v$ and let $q_{v}^{Q}$ denote the same but on edges of $v$ in $Q$. Observe that the nominator of the fraction above is exactly $q_{v}^{S}$ and the denominator is $1-q_{v}^{Q}$ by the first assumption of Lemma 5.1. Combined with $q_{v}^{S}+q_{v}^{Q}=q_{v}$ and $q_{v} \leq 1$ (since $\mathbf{q}$ is a valid fractional matching by Lemma 5.1) we get
+
+$$
+\frac{\sum_{i=1}^{d} q_{e_{i}}}{1-\operatorname{Pr}\left[v \in \mathcal{M}\left(Q_{p}\right)\right]}=\frac{q_{v}^{S}}{1-q_{v}^{Q}}=\frac{q_{v} \cdot q_{v}^{S}}{q_{v}\left(1-q_{v}^{Q}\right)}=\frac{q_{v} \cdot q_{v}^{S}}{q_{v}-q_{v} \cdot q_{v}^{Q}} \leq \frac{q_{v} \cdot q_{v}^{S}}{q_{v}-q_{v}^{Q}}=\frac{q_{v} \cdot q_{v}^{S}}{q_{v}^{S}}=q_{v}
+$$
+
+which is the stated bound.
+Let us first bound the expected value of $y_{v}$ conditioned on event ( $\bar{v}$ prop).
+Claim A.3. Let $v$ be as above. Then $\mathbb{E}\left[y_{v} \mid \bar{v}\right.$ prop $] \leq q_{v}$.
+Proof. We have
+
+$$
+\mathbb{E}\left[y_{v} \mid \bar{v} \text { prop }\right]=\sum_{i=1}^{d} \frac{q_{e_{i}}}{p \operatorname{Pr}\left[u_{i} \notin M_{\mathcal{B}}\right] \operatorname{Pr}[\bar{v} \text { prop }]} \cdot \operatorname{Pr}\left[e_{i} \in S_{p}, u \notin M_{\mathcal{B}}, \bar{v} \text { prop } \mid \bar{v} \text { prop }\right]
+$$
+
+Event $e_{i} \in S_{p}$ is independent of $u \notin M_{\mathcal{B}}, \bar{v}$ prop as discussed before and $\bar{v}$ prop and $u \notin M_{\mathcal{B}}$ are also independent by Corollary 5.5 Property (iv). This means
+
+$$
+\mathbb{E}\left[y_{v} \mid \bar{v} \text { prop }\right]=\sum_{i=1}^{d} \frac{q_{e_{i}}}{p \operatorname{Pr}\left[u_{i} \notin M_{\mathcal{B}}\right] \operatorname{Pr}[\bar{v} \text { prop }]} \cdot p \operatorname{Pr}\left[u_{i} \notin M_{\mathcal{B}}\right]=\frac{1}{\operatorname{Pr}[\bar{v} \text { prop }]} \sum_{i=1}^{d} q_{e_{i}}
+$$
+
+Applying Claim A. 2 on the RHS concludes the claim.Claim A.4. For any pair of edges $e_{i}=\left(v, u_{i}\right)$ and $e_{j}=\left(v, u_{j}\right)$ with $e_{i} \neq e_{j}$ and $\left\{u_{i}, u_{j}\right\} \subseteq$ $\left\{u_{1}, \ldots, u_{d}\right\}$, let $y_{e_{i}}^{\prime}=\left(y_{e_{i}} \mid \overline{v \text { prop }}\right)$ and $y_{e_{j}}^{\prime}=\left(y_{e_{j}} \mid \overline{v \text { prop }}\right)$. We have $\operatorname{Cov}\left(y_{e_{i}}^{\prime}, y_{e_{j}}^{\prime}\right) \leq 0$.
+
+Proof. To prove this claim, we will use some known facts about negatively associated (NA) random variables. By definition, a set of random variables are NA, if any two monotone nondecreasing functions $f$ and $g$ defined on disjoint subsets of them satisfy $\mathbb{E}[f . g] \leq \mathbb{E}[g] . \mathbb{E}[f]$. Below are three facts about negative association based on $[20,17,12]$.
+(1) Any set of Bernoulli random variables whose sum is upper-bounded by one are NA.
+(2) If $A$ is a set of NA random variables, $B$ is a set of NA random variables with $A$ and $B$ independent of each other, $A \cup B$ is also a set of NA random variables.
+(3) Let $X=\left\{x_{1}, \ldots, x_{m}\right\}$ be a set of NA random variables. If $f_{1}, \ldots, f_{k}$ are a set of monotone nondecreasing functions defined on disjoint subsets of $X$, then $f_{1}, \ldots, f_{k}$ are NA.
+(4) Let $\left\{x_{1}, \ldots x_{m}\right\}$ be a set of NA random variables. Then, for any $i \neq j, \operatorname{Cov}\left(x_{i}, x_{j}\right) \leq 0$.
+
+We will start by showing that random variables $y_{e_{1}}^{\prime}, \ldots, y_{e_{d}}^{\prime}$ are NA where for any $i \in[d]$, we define $y_{e_{i}}^{\prime}=\left(y_{e_{i}} \mid \overline{v \text { prop }}\right)$. For the rest of the proof, we will omit the condition $\overline{v \text { prop }}$ from all the statements for simplicity.
+
+For any pair of vertices $i \in A /\{v\}$ and $j \in B$, let us define Bernoulli random variable $x_{i, j}$ to be equal to one iff vertex $i$ sends a proposal to vertex $j$. Note that for any $i$, we have $\sum_{j \in B} x_{i, j} \leq 1$. Also, since vertices send their proposals independently from each other, invoking the first two facts above implies $\left\{x_{i, j}: \forall i \in A /\{v\}, j \in B\right\}$ is a set of NA Bernoulli random variables. Now, for any vertex $u_{j} \in\left\{u_{1}, \ldots, u_{d}\right\}$, we define random variable $z_{j}$ to be equal to one if $u_{j} \in M_{\mathcal{B}}$. Note that we have $z_{j}=1$ iff $j$ receives at least one proposal from $A /\{v\}$ and so it is a monotone nondecreasing function of $\left\{x_{i, j}: i \in A /\{v\}\right\}$. Since for any $z_{j}$ and $z_{j}^{\prime}$ these subsets are disjoint, invoking the third fact implies $z_{i}, \ldots, z_{d}$ are NA. Finally, for any edge, we know $y_{e_{i}}^{\prime}$ is a monotone nondecreasing function of $z_{i}$ and whether $e_{i}$ is realized. Based on the third fact, this implies negative association of $y_{e_{1}}^{\prime}, \ldots, y_{e_{d}}^{\prime}$. Thus, by the fourth property $\operatorname{Cov}\left(y_{e_{i}}^{\prime}, y_{e_{j}}^{\prime}\right) \leq 0$ for any $i \neq j$.
+
+We are now ready to prove Claim 5.8 .
+Proof. As proved in Claim 5.6, $\mathbb{E}\left[y_{v} \mid \overline{v \text { prop }}\right] \leq q_{v}$. We prove the desired inequality of the claim via a concentration bound on random variable $y_{v}^{\prime}:=\left(y_{v} \mid \overline{v \text { prop }}\right)$. Let us for simplicity also define random variable $y_{e_{i}}^{\prime}:=\left(y_{e} \mid \overline{v \text { prop }}\right)$ and observe that $y_{v}^{\prime}=\sum_{i=1}^{d} y_{e_{i}}^{\prime}$.
+
+By Claim A. 4 we know $\operatorname{Cov}\left(y_{e_{i}}^{\prime}, y_{e_{j}}^{\prime}\right) \leq 0$ for any $i \neq j$. We can thus bound the variance of $y_{v}^{\prime}$ as follows:
+
+$$
+\begin{aligned}
+\operatorname{Var}\left[y_{v}^{\prime}\right] & =\sum_{i=1}^{d} \operatorname{Var}\left[y_{e_{i}}^{\prime}\right]+2 \sum_{1 \leq i<j \leq d} \operatorname{Cov}\left(y_{e_{i}}^{\prime}, y_{e_{j}}^{\prime}\right) \\
+& \leq \sum_{i=1}^{d} \mathbb{E}\left[\left(y_{e_{i}}^{\prime}\right)^{2}\right]-\mathbb{E}\left[y_{e_{i}}^{\prime}\right]^{2} \leq \sum_{i=1}^{d} \mathbb{E}\left[\left(y_{e_{i}}^{\prime}\right)^{2}\right] \stackrel{\text { see below }}{\leq} \tau \cdot \mathbb{E}\left[y_{v}^{\prime}\right] \stackrel{\text { Claim }}{\leq} \tau \cdot q_{v}
+\end{aligned}
+$$
+
+where $\tau$ is the maximum possible outcome of $y_{e_{i}}^{\prime}$ for any $i \in[d]$.
+Plugging this into Chebyshev's inequality, we get
+
+$$
+\operatorname{Pr}\left[y_{v}^{\prime}>\mathbb{E}\left[y_{v}^{\prime}\right]+\delta\right] \leq \frac{\operatorname{Var}\left[y_{v}^{\prime}\right]}{\delta^{2}} \leq \frac{\tau q_{v}}{\delta^{2}}
+$$Finally, for each edge $e_{i}$, by construction of $\mathbf{y}, y_{e_{i}}^{\prime} \leq y_{e_{i}} \leq q_{e_{i}} /\left(p \operatorname{Pr}[\bar{v} \overline{\text { prop }}] \operatorname{Pr}\left[u_{i} \notin M_{B}\right]\right) \leq q_{e_{i}} / p \varepsilon^{2}$ where the latter follows from Corollary 5.5. Combined with $q_{e_{i}} \leq \varepsilon^{5} p$ by Lemma 5.1 and $e_{i} \in S$, we get $\tau \leq \varepsilon^{3}$. We thus get $\operatorname{Pr}\left[y_{v}^{\prime}>1+\varepsilon\right] \leq \operatorname{Pr}\left[y_{v}^{\prime}>\mathbb{E}\left[y_{v}^{\prime}\right]+\varepsilon\right] \leq \frac{\varepsilon^{3}}{\varepsilon^{2}} q_{v}$. This concentration of $y_{v}^{\prime}$ implies $\mathbb{E}\left[y_{v} \mid y_{v} \leq 1+\varepsilon, \bar{v} \overline{\text { prop }}\right] \leq \varepsilon q_{v}$ and thus the stated bound of the claim.

@@ -1,0 +1,273 @@
+# Decision-focused Graph Neural Networks for Combinatorial Optimization ${ }^{\star}$ 
+
+Yang Liu ${ }^{1}$, Chuan Zhou ${ }^{1}$, Peng Zhang ${ }^{2}$, Shirui Pan ${ }^{3}$, Zhao Li ${ }^{4}$ and Hongyang Chen ${ }^{5}$<br>${ }^{1}$ Academy of Mathematics and Systems Science, Chinese Academy of Sciences<br>${ }^{2}$ Guangzhou University ${ }^{3}$ Griffith University ${ }^{4}$ Hangzhou Yugu Technology ${ }^{5}$ Zhejiang Lab<br>\{liuyang2020, zhouchuan\} @amss.ac.cn, p.zhang@gzhu.edu.cn, s.pan@griffith.edu.au, lzjoey@gmail.com, dr.h.chen@ieee.org
+
+
+#### Abstract
+
+In recent years, there has been notable interest in investigating combinatorial optimization (CO) problems by neural-based framework. An emerging strategy to tackle these challenging problems involves the adoption of graph neural networks (GNNs) as an alternative to traditional algorithms, a subject that has attracted considerable attention. Despite the growing popularity of GNNs and traditional algorithm solvers in the realm of CO, there is limited research on their integrated use and the correlation between them within an end-to-end framework. The primary focus of our work is to formulate a more efficient and precise framework for CO by employing decision-focused learning on graphs. Additionally, we introduce a decisionfocused framework that utilizes GNNs to address CO problems with auxiliary support. To realize an end-to-end approach, we have designed two cascaded modules: (a) an unsupervised trained graph predictive model, and (b) a solver for quadratic binary unconstrained optimization. Empirical evaluations are conducted on various classical tasks, including maximum cut, maximum independent set, and minimum vertex cover. The experimental results on classical CO problems (i.e. MaxCut, MIS, and MVC) demonstrate the superiority of our method over both the standalone GNN approach and classical methods.
+
+
+## 1 Introduction
+
+There is a growing interest that has emerged at the intersection of operations research and deep learning to address combinatorial optimization problems (COPs) recently. Demonstrations of successful COP applications have spanned diverse domains, including transportation [Wang and Tang, 2021; Bi et al., 2022], healthcare [Juan et al., 2015; Lee et al., 2021], and social analysis [Li et al., 2018; Du et al., 2022], providing valuable insights for future advancements. The problem set encompasses several pivotal tasks, such as maximum cut [Hadlock, 1975], maximum independent set
+
+[^0][Tarjan and Trojanowski, 1977], and minimum vertex cover [Cai et al., 2013].
+
+Graph neural networks (GNNs) have attracted significant attention in the realm of deep learning, owing to their successful execution in diverse graph-based tasks, such as node classification, link prediction, and graph classification. Furthermore, researchers have employed GNNs to address combinatorial optimization problems, exemplified by PI-GNN [Schuetz et al., 2022], an innovative approach inspired by physics. PI-GNN designs a GNN architecture capable of accurately solving COPs with provable guarantees. Within PI-GNN, a graph neural network is introduced, utilizing a Hamiltonian to encode COPs and subsequently solving them using a simulated annealing algorithm.
+
+As mentioned earlier, GNNs have recently emerged as a potent tool for tackling COPs. However, current GNN-based methods often face limitations due to their reliance on heuristics and the absence of theoretical guarantees on performance. While some researchers have attempted to solve COPs exclusively using GNNs, significant debate, and uncertainty persist regarding the efficacy of GNNs compared to traditional combinatorial optimization algorithms [Angelini and RicciTersenghi, 2022; Boettcher, 2022]. For instance, Angelini [Angelini and Ricci-Tersenghi, 2022] has asserted that a simple greedy algorithm might outperform GNNs. The authors underscore the importance of comprehending the conditions under which GNNs can effectively tackle complex problems and whether fundamental limitations exist in their capabilities. In this paper, we present our distinctive perspective on addressing classical COPs.
+
+In our research, our emphasis is on the decision-focused learning (DFL) framework, also recognized as "predict-thenoptimize," which seamlessly integrates prediction and optimization into a unified end-to-end system, streamlining the data-decision pipeline. More specifically, we introduce a DFL framework named G-DFL4CO, employing GNNs to address COPs. Addressing these notoriously challenging NPhard problems, we present two interconnected modules: (1) a predictive model based on a graph neural network trained in an unsupervised or self-supervised manner, and (2) an optimizer utilizing a quadratic binary unconstrained optimization solver. We bridge the gap between neural networks and combinatorial optimization. To showcase the efficiency and precision of our framework, we conduct empirical evaluations
+
+
+[^0]:    *Preprint.on several well-established COPs, including maximum cut, maximum independent set, and minimum vertex cover.
+
+Our contributions are summarized as follows:
+
+- Our strategy for combinatorial optimization revolves around adopting a decision-making perspective and crafting a decision-focused framework that seamlessly integrates prediction and optimization into a unified end-to-end system. Through the utilization of this framework, our objective is to enhance the efficiency and precision of combinatorial optimization, offering a more effective solution to intricate optimization problems.
+- For addressing combinatorial optimization problems with GNNs, we introduce a decision-focused learning framework named G-DFL4CO. This framework comprises two meticulously crafted modules: a graph predictive model trained using unsupervised/self-supervised learning techniques and a quadratic binary unconstrained optimization solver. The integration of these modules offers a robust and efficient methodology for combinatorial optimization, capable of handling complex problems and delivering precise results.
+- In our investigation, we conduct a series of experiments on renowned COPs, including the maximum cut, maximum independent set, and minimum vertex cover. The outcomes of these experiments allow us to showcase that our proposed framework adeptly harnesses the capabilities of GNNs, delivering superior results in solving COPs when contrasted with alternative approaches.
+
+Our work aims to address COPs and is similar to PI-GNN [Schuetz et al., 2022]. Specifically, we focus on developing a decision-focused learning framework for solving such problems, which combines prediction and optimization into an end-to-end system. Our framework is inspired by the traditional decision-focused learning approach [Wilder et al., 2019].
+
+Outline. The structure of our paper is organized as follows: Section 2 discusses the related works in the field, including GNNs for combinatorial optimization and DFL. Section 3 presents the preliminaries required for our proposed framework. Our proposed framework is presented in Section 4, which consists of two modules that are elaborated on in Section 4.1 and Section 4.2. We conduct numerical experiments and analyze the results in Section 5. Finally, we conclude and discuss the findings of our work in Section 6.
+
+## 2 Related works
+
+In this section, we present relevant literature in the domain of machine learning for combinatorial optimization (ML4CO), encompassing topics such as graph neural networks, combinatorial optimization, and decision-focused learning. The latter is a framework that facilitates learning differentiable optimizers with a focus on discrete optimization. Additionally, we elucidate various perspectives and connections between these works and our contributions.
+
+Graph neural networks In the realm of graph neural networks (GNNs), diverse models have been developed, such as graph convolutional networks (GCNs) [Kipf and Welling, Figure 1: The overarching framework of our proposed G-DFL4CO involves an end-to-end decision-focused learning process.
+
+2016], graph attention networks (GATs) [Veličković et al., 2018], graph isomorphism networks (GINs) [Xu et al., 2019], and graph transformer networks [Yun et al., 2019; yun, 2022]. These models have showcased robust performance across a spectrum of graph-based tasks. GCNs employ a localized first-order approximation of spectral graph convolutions, facilitating effective scalability to large graphs. Conversely, GATs employ an attention mechanism to evaluate the influence of different neighbors, accommodating sparse and irregular graphs. GINs, rooted in a permutation-invariant function that aggregates neighboring node features, demonstrate resilience to graph isomorphism. Lastly, graph transformers apply the transformer architecture [Yun et al., 2019; yun, 2022] to graphs, capturing higher-order interactions between nodes.
+
+Combinatorial optimization Combinatorial optimization, a field of extensive research [Boettcher, 2022; Angelini and Ricci-Tersenghi, 2022; Schuetz et al., 2022; Liu et al., 2023], is dedicated to discovering optimal solutions for complex problems characterized by numerous constraints and variables. Various studies have delved into different facets of combinatorial optimization problems and solution techniques. [Kochenberger and Glover, 2006] offers an overview of major combinatorial optimization problems, including the traveling salesman problem and job market scheduling, discussing both exact and heuristic solution methods for these NP-hard problems. Recent surveys have honed in on specific techniques like local search methods [Grasas et al., 2016], linear programming algorithms [Raidl and Puchinger, 2008], and constraint programming [Rossi et al., 2008]. By framing problems using graphs and employing combinatorial optimization techniques, researchers can devise efficient algorithms to address real-world problems. This research area finds applications in various fields such as transportation [Triki et al., 2014], telecommunications [Resende, 2003], manufacturing [Crama, 1997], and logistics [Sbihi and Eglese, 2010], among others. Consequently, combinatorial optimization on graphs assumes a pivotal role in solving intricate problems and augmenting the world’s efficiency and functionality.
+
+Decision-focused learning Decision-focused learning is an instructional approach that prioritizes the acquisition of knowledge and skills directly applicable to improving decision-making. This approach holds particular relevance in fields where decision-making is pivotal, such as busi-Table 1: Notations
+
+| Notations | Descriptions |
+| --- | --- |
+| $\mathcal{G},\mathcal{G}^{\prime}\subseteq\mathcal{G}$ | given (input) graph |
+| $\mathcal{V}=\{v_{i}\}_{i=1}^{N},\mathcal{V}^{\prime}\subseteq\mathcal{V}$ | set of nodes |
+| $\mathcal{E}=\{e_{i}\}_{i=1}^{M},\mathcal{E}^{\prime}\subseteq\mathcal{E}$ | set of edges |
+| $\mathcal{A}\in\{0,1\}^{N\times N},\mathcal{A}^{\prime}\subseteq\mathcal{A}$ | adjacency matrix |
+| $\mathbf{H}(Q)$ | QUBO based Hamiltonian |
+| $f$ | objective function |
+| $\mathbf{x}$ | decision variable |
+
+Table 2: Problem setup and their objective functions.
+
+| Task | Problem (optimization form) ($x_{i}\in\{0,1\}$) |
+| --- | --- |
+| MaxCut | $\max\sum_{(i,j)\in E}x_{i}+x_{j}-2x_{i}x_{j}$ |
+| MIS | $\max\sum_{i \in V} x_{i}$ s.t. $x_{i}+x_{j} \leq 1, \forall(i, j) \in E$ |
+| MVC | $\min \sum_{i \in V} x_{i}$ s.t. $x_{i}+x_{j} \geq 1, \forall(i, j) \in E$ |
+
+ness, finance, and healthcare. It involves end-to-end learning with a two-stage task using gradients in domains where optimization layers are available [Wilder et al., 2019; Shah et al., 2022; Wang et al., 2020]. In today's fast-paced, datadriven world, decision-focused learning is gaining popularity, recognizing the crucial role of making informed decisions swiftly and accurately for success. By arming learners with the necessary tools and knowledge for improved decisionmaking, decision-focused learning contributes to organizations achieving their objectives and maintaining a competitive edge. The primary focus of this paper is to further advance and refine the existing framework, with the ultimate goal of applying it to the field of combinatorial optimization. Combinatorial optimization involves determining the best possible solution from a multitude of combinations and permutations, often in complex and dynamic environments.
+
+## 3 Mathematical background
+
+Notations. We denote $\mathcal{G}=(\mathcal{V}, \mathcal{E})$ for the input graph with $N$ nodes $\left\{v_{i}\right\}_{i=1}^{N}$ and $M$ edges $\left\{e_{i}\right\}_{i=1}^{M}$, where $e_{i}=$ $\left(v_{i_{1}}, v_{i_{2}}\right) \subset \mathcal{V} \times \mathcal{V}$. The sum of the edge weights related to node $v$ is denoted by $d(v)$, and $\mathbf{d}=\{d(v)\}_{v \in \mathcal{V}} \in \mathbb{R}^{N}$ gets the node degrees. Also, we define matrix $\mathbf{D}$ as the degree matrix whose diagonal elements are obtained from $\mathbf{d}$. An overall of notations are presented in Table 1.
+
+### 3.1 Graph and graph neural networks
+
+Given a graph $\mathcal{G}=(\mathcal{V}, \mathcal{E}, \mathcal{A}, \mathcal{X})$, where $\mathcal{V}=\left\{v_{i}\right\}_{i=1}^{N} \in$ $\mathbb{R}^{N}, \mathcal{E}=\left\{\left(v_{i_{1}}, v_{i_{2}}\right)\right\}_{i=1}^{m} \subset \mathcal{V} \times \mathcal{V}$ denote the set of nodes and edges, respectively. $\mathcal{A} \in \mathbb{R}^{N \times N}$ denotes the adjacency matrix of $\mathcal{G}$ and $\mathcal{X}=\left[x_{1}, x_{2}, \cdots, x_{N}\right] \in \mathbb{R}^{N \times D}$ represents the feature space of nodes and $D$ is the dimensional of node feature. $\mathcal{A}$ describes the connection status for all the node pairs. If $\mathcal{A}(i, j)=1$ means node $i$ and $j$ are connected, else $\mathcal{A}(i, j)=0$, otherwise.
+
+Given that the combinatorial optimization in our work can be regarded as a node classification task, we introduce this task first. Node classification involves assigning categories or labels to nodes in a network. In this context, nodes symbolize entities in the network and edges represent relationships between nodes. The process of classifying the nodes in a network aids in identifying nodes with similar connections or properties. In a general problem setting, the labels of $N$ nodes are given by $Y=\left[y_{1}, y_{2}, \cdots, y_{N}\right] \in \mathbb{R}^{N \times L}$, where $L$ denotes the number of categories and $y_{i}$ is a soft one-hot vector $\sum_{j} y_{i j}=1$. The final decision for model prediction is $\hat{y}=\arg \max _{j} y_{i j}$. The target is to learn a classifier from the labeled nodes, formally,
+
+$$
+\operatorname{GNN}(\mathcal{A}, \mathcal{X} \mid \theta)=f(\mathcal{N}(x), x \mid \theta)
+$$
+
+where $\theta$ denotes the parameters of the classifier and $\mathcal{N}(x)$ denotes the neighbors of $x$.
+
+In this part, we introduce the GNNs in detail. Without loss of generality, we give a brief introduction to GCNs. It is originally proposed by [Kipf and Welling, 2016]. The graph layer can be explicitly expressed as follows:
+
+$$
+\mathcal{H}^{k+1}=\sigma\left(\hat{\mathcal{A}} \mathcal{H}^{k} \mathcal{W}^{k}\right)
+$$
+
+where $\mathcal{H}^{k}=\left[h_{1}^{k}, h_{2}^{k}, \cdots, h_{N}^{k}\right]$ is the $k$-th layer of GCNs and $h_{i}^{k}$ is the hidden vector for node $i(i=1,2, \cdots, N)$ and $\hat{\mathcal{A}}=$ $\hat{\mathcal{D}}^{-\frac{1}{2}}(\mathcal{A}+\mathcal{I}) \hat{\mathcal{D}}^{-\frac{1}{2}}$ is the re-normalization of the adjacency matrix, where $\hat{\mathcal{D}}$ is the corresponding degree matrix of $\mathcal{A}+\mathcal{I}$. $\sigma(\cdot)$ is the activate function (i.e. ReLU, tanh). We denote the mapping computed by Equation 1 as one layer GCN in the following sections.
+
+### 3.2 Combinatorial optimization
+
+This section introduces several canonical combinatorial optimization problems, such as the maximum cut problem (MaxCut), maximum independent set problem (MIS), and minimum vertex cover problem (MVC), among others.
+Definition 1 (Maximum cut (MaxCut)). Given a graph $\mathcal{G}=$ $(\mathcal{V}, \mathcal{E})$, a maximum cut, denoted as $\mathcal{V}^{*}$, is a cut whose size equals or surpasses that of any other cut. That is, it is a partition of the set $V$ into two sets $V^{*}$ and $\mathcal{V}^{* C}=\mathcal{V} / \mathcal{V}^{*}$, such that the number of edges between $\mathcal{V}^{*}$ and $\mathcal{V}^{* C}$ exceeds that of any other partition. The task of finding such a partition is referred to as the max cut problem (MaxCut).
+
+MaxCut finds applications in diverse fields, including physics [Barahona et al., 1988], social network analysis [Kochenberger et al., 2013a], and image segmentation [de Sousa et al., 2013; Dunning et al., 2018]. The resolution of MaxCut poses a challenging task, necessitating the creation of efficient algorithms and heuristics.
+Definition 2 (Maximum independent set (MIS)). Given an undirected graph $\mathcal{G}=(\mathcal{V}, \mathcal{E})$, an independent set is defined such that any two points in the set are not connected by edges. The task of identifying the largest independent set in the graph $\mathcal{G}$ is referred to as the maximum independent set problem (MIS).
+
+The issue at hand holds substantial applications across various domains, including wireless network design [Park et al.,
+
+Figure 2: Flow chart illustrating the end-to-end workflow for our proposed framework using a simple example with five nodes.
+
+2017], social network analysis [Chuang and Chen, 2022], and computational biology [Samaga *et al.*, 2010]. The identification of the maximum independent set poses an NP-hard problem, signifying the absence of any known efficient algorithm capable of universal resolution. Consequently, researchers have devised a range of approximation algorithms and heuristics to seek approximate solutions for this problem.
+
+**Definition 3 (Minimum vertex cover (MVC)).** Given an undirected graph G = (V, E), a vertex cover set is defined such that each edge in the graph G has at least one of its endpoints included in the set. The task of identifying the vertex covering set with the fewest number of vertices in the subset is referred to as the minimum vertex cover problem (MVC).
+
+The issue at hand holds significant applications across diverse fields, including network design [Zhang *et al.*, 2014], scheduling [Choi *et al.*, 2011], and facility location [Holmberg, 2001; Li, 2021]. The identification of the minimum vertex cover represents an NP-hard problem, indicating the absence of any known efficient algorithm capable of solving it universally. Consequently, researchers have devised a spectrum of approximation algorithms and heuristics to discover approximate solutions for this problem.
+
+## 4 Our proposed framework
+
+We consider an inductive setting for our problem which includes both learning and optimization. Our input is the subset of the graph, while the testing set is the whole graph. The input graph G<sup>0</sup> = (V<sup>001</sup>, E<sup>001</sup>) is somehow partially observed and we will perform the combinatorial tasks on the whole graph G = (V, E), where E<sup>001</sup> ⊂ E, V<sup>001</sup> ⊂ V (G<sup>001</sup> is a sub-graph of G). This setting enables our model to be highly extensible and adaptable, even to unsupervised learning.
+
+Consider A<sup>001</sup> and A as the adjacency matrices in the training set and the original matrix, respectively. The learning task aims to derive the A from A<sup>001</sup>. For the objective function, we have to introduce a decision variable x ∈ {0, 1}<sup>|V|</sup> for the nodes |V| and the optimization problem is presented as follows,
+
+$$\min\_{\mathbf{x}} f(\mathbf{x}, \mathcal{A}), \tag{2}$$
+
+where f is responding to the specific problem.
+
+Prior to the optimization stage for x, it is necessary to learn A from A<sup>001</sup>, denoted as A = Φ(A<sup>001</sup>, ξ). Consequently, we formulate an end-to-end optimization problem spanning from the input A<sup>001</sup> to the decision x, as illustrated below.
+
+$$\min\_{\mathbf{x} \in \mathcal{F}} f(\mathbf{x}, \mathbb{E}\_{(\mathcal{A}, \xi) \sim \mathcal{D}} [\Phi(\mathcal{A}^0, \xi)]), \tag{3}$$
+
+To enhance comprehension of our framework, an illustrative depiction is provided in Figure 1. The framework shares similarities with traditional decision-focused learning, integrating two primary modules: learning and decision-making. Expanding on these two modules, discussed in Section 4.1 and Section 4.2, we will provide a comprehensive and accessible explanation of our framework, G-DFL4CO. This entails a comparison with other baseline approaches within the overarching framework depicted in Figure 1. Subsequent sections will delve into the details of each module.Decision-focused Graph Neural Networks. It is an end-to-end framework, that represents input graphs or decisions on the graph by mapping them to a decision space. The learning problem can be formulated as equation 3.
+
+### 4.1 Graph predictive model
+
+The learning module utilized in our framework is based on Graph Neural Networks (GNNs), specifically employing the original GCNs introduced by *Kipf and Welling (2016)*, and consists of two layers. The task formulated in Equations 2 and 3 involves predicting the entire graph $\mathcal{G}$ using the graph model, with the subgraph $\mathcal{G}^{\prime}$ as the input. This enables the execution of the downstream task in an inductive setting. In our experiments, we maintained the accuracy of the framework while sampling only 80% of the nodes in $\mathcal{G}$. Referring to the first image in Figure 2, it is observed that node 0 remains unobserved. Therefore, for reconstructing the adjacency matrix $\mathcal{A}$ of the entire graph $\mathcal{G}$, it is essential to input the graph to predict the connection status of node 0.
+
+### 4.2 Optimizer
+
+In this section, we introduce the GNN optimizer, which is inspired by PI-GNN *Schuetz et al. (2022)*. To frame our problem, we utilize quadratic binary unconstrained optimization (QUBO), and we use a differentiable loss function to train our framework.
+
+Following the existing work in discrete optimization *Schuetz et al. (2022)*, QUBO can be expressed as the following form from Hamiltonian:
+
+$\mathbf{H}_{QUBO}=\mathbf{x}^{\mathrm{T}}Q\mathbf{x}=\sum_{ij}\mathbf{x}_{i}Q_{ij}\mathbf{x}_{j},$ (4)
+
+where $\mathbf{x}=\left(\mathbf{x}_{1},\mathbf{x}_{2},\cdots,\mathbf{x}_{n}\right)$ is a vector of binary variables for the node decision and the matrix $Q$ is a square matrix of constant numbers, tailored to the actual problem to solve.
+
+We consider a maximum problem in a discrete space and denote the function as $f:\{0,1\}^{N\times N} \longrightarrow \mathbb{R}$. We follow the work *Chen et al. (2020)* and confine our attention to submodular functions that are monotone (i.e. $f(\mathcal{G} \cup\{v\})-f(\mathcal{G}) \geq 0$ ) and normalized (i.e. $f(\emptyset)=0$ ). Through these settings, our framework can easily accommodate more general constraints.
+
+After we compute the objective value defined in Section 3.2, we can obtain an output of our framework for updating the parameters. We can then differentiate the traditional solver to build an end-to-end framework and update parameters through the solvers. More specifically, the problem can be transformed into an unconstrained one with penalty terms and use multilinear extensions $F(\mathbf{x}, \theta)$ as the objective function instead. Then the gradient can be computed as $\frac{d}{d \theta} F(\mathbf{x}, \theta)$. When the parameters $\theta$ are known, the gradient can be expressed in the following form:
+
+$$
+\frac{d}{d \theta_{k j}} \nabla_{\mathbf{x}_{i}} F(\mathbf{x}, \theta)=\left\{\begin{array}{ll}
+-\theta_{i j} \mathbf{x}_{k} \prod_{\ell \neq i, k} 1-\mathbf{x}_{\ell} \theta_{\ell j} & \text { if } k \neq i \\
+\prod_{k \neq i} 1-\mathbf{x}_{k} \theta_{k j} & \text { otherwise. }
+\end{array}\right.
+$$
+
+Above all, we employ a differentiable loss function as follows to train our framework:
+
+$$
+\mathbf{L}=\mathbf{H}_{Q U B O}+\lambda \mathbf{L}_{o b j}
+$$
+
+
+
+Figure 3: Some visualization examples of the d-regular instances $(n=50,100,150)$.
+where $\lambda$ is a coefficient to balance the importance between GNNs and traditional solvers.
+Definition 4 (local maxima). We say $\mathbf{x}^{*}$ is the local maxima of $F(\mathbf{x}, \theta)$ if it satisfies the following conditions:
+
+- $\nabla_{\mathbf{x}} F\left(\mathbf{x}^{*}, \theta\right)=0$
+- $\nabla_{\mathbf{x}}^{2} F\left(\mathbf{x}^{*}, \theta\right) \succ 0$.
+
+Theorem 1. Assume $\mathbf{x}^{*}$ is the local maxima of $F(\mathbf{x}, \theta)$, there exists a neighborhood $\mathcal{I}$ around $\mathbf{x}^{*}$ such that the maximizer of $F(\mathbf{x}, \theta)$ within $\mathcal{I} \cup \mathcal{X}$ is differentiable almost everywhere.
+
+## 5 Experiments
+
+In this section, we conduct experiments to demonstrate the effectiveness of our G-DFL4CO framework on existing combinatorial optimization using benchmark datasets and manually constructed regular graphs. First, we introduce the experimental setup in Section 5.1 including the description of each evaluation task and baseline methods for the three scenarios - MaxCut, MIS, and MVC. In Section 5.2, we present overall experimental results in Table 3, Figure 4, Figure 6, and Figure 5. We compare the results and running time with a degree-based greedy algorithm (DGA) and a GNN-based model (GNN). In Section 5.2, we also give a discussion ofthe framework and experimental results. We release our code in https://anonymous.4open.science/r/GDFL-79A6/.
+
+### 5.1 Scenarios
+
+First, we briefly introduce the three scenarios used in our experiments.
+
+1). MaxCut is a well-known optimization problem in computer science and mathematics. The problem involves dividing a given set of objects into two subsets such that the sum of weights of the edges between the two subsets is maximized. In essence, it seeks to find a cut that separates the two subsets in a way that maximizes the total weight of the edges crossing the cut. The definition of this problem has been previously described in Definition 1.
+2). MIS is a fundamental problem in graph theory and computer science. Given a graph, an independent set is a set of vertices in which no two vertices are adjacent. The MIS problem seeks to find the largest possible independent set in a given graph. This problem has been previously defined in Definition 2.
+3). MVC is a renowned problem in graph theory and computer science. Given a graph, a vertex cover is a set of vertices that covers all the edges in the graph. The MVC problem seeks to find the smallest possible vertex cover in a given graph. This problem has been previously defined in Definition 3.
+Datasets. (1) We have conducted supplementary experiments on Max-Cut benchmark instances and their work on random d-regular graphs. These experiments were performed using the publicly available Gset dataset ${ }^{1}$, which is commonly used for testing Max-Cut algorithms. The results of these experiments are publicly available. The purpose of conducting these experiments was to provide a more comprehensive analysis of the performance of Max-Cut algorithms, as the Gset dataset contains a diverse set of instances that are representative of real-world problems. By testing their algorithm on these instances, we evaluated its performance under a range of conditions and determined its effectiveness in solving Max-Cut problems. (2) Regular graphs.
+Baselines. We compare with some competitive methods: physics-inspired GNN solver (PI-GNN) [Schuetz et al., 2022], an SDP solver using dual scaling (DSDP) [Ling and Xu, 2012], a combination of local search and adaptive perturbation referred to as Breakout Local Search (BLS) [Benlic and Hao, 2013] which provides the best-known solutions for the Gset data set, a Tabu Search metaheuristic (KHLWG) [Kochenberger et al., 2013b] and a recurrent GNN architecture for maximum constraint satisfaction problems (RUNCSP) [Tönshoff et al., 2019].
+
+### 5.2 Results and discussions
+
+We provide testing results for MaxCut on some Gset instances in Table 3. G-DFL4CO outperforms PI-GNN across all the instances and remains relatively error below $1 \%$. Additionally, we test our framework on the regular graphs in different sizes for the three tasks. Our experimental results surpassed
+
+[^0]those of DGA and standalone GNN, while also demonstrating shorter run times. The results can be seen in Figure 4, Figure 6, and Figure 5.
+
+We assert that our framework is effective in solving three significant COPs. We also highlight the importance of incorporating DFL into the process of solving such problems. According to the above results, this approach can lead to more efficient solutions. Additionally, we suggest that this sight has identified a potential link between GNNs and traditional algorithms used for NP problems. Overall, the experimental results support the effectiveness of their framework in addressing COPs, and we believe that these findings could have significant implications for future research in this field.
+
+In DFL framework, we can consider different exploration strategies to generate new sets of edges and use the loss function to evaluate the performance of these edge sets. In addition to randomly selecting some edges and cutting them, greedy algorithms or other heuristic algorithms can also be used to generate new edge sets in the MaxCut problem. These algorithms can often produce high-quality edge sets in a short time, but they may get stuck in local optima. Furthermore, DFL can be combined with other optimization techniques such as genetic algorithms, simulated annealing, and local search. These techniques can help DFL to escape local optima and find better decisions. Overall, DFL is a powerful machine learning method that can be used to solve various COPs. In the MaxCut problem, DFL can guide the choice of which edges should be cut to maximize the total weight of the cut. Although MaxCut is an NP-hard problem, DFL can produce high-quality solutions in a reasonable amount of time.
+
+## 6 Discussion and conclusion
+
+Discussion Combinatorial optimization problem (e.g. traveling salesman problem, maximum cut, and satisfiability problem) has a wide range of beneficial applications in engineering and computer science, including stock market portfolio optimization, budget allocation, and network routing. First, G-DFL4CO may encode the bias present in the training graph, which leads to stereotyped predictions when the prediction is applied to real-world applications. Second, some harmful network activities could be augmented by powerful GNNs, e.g., spamming, phishing, and social engineering. We expect future research should help to resolve these problems.
+Conclusion In this study, we have developed a framework that is centered on decision-making to tackle COPs. The framework employs unsupervised GNNs as its predictive model, and the QUBO optimizer serves as its decisionmaking module. Through our experiments, we have demonstrated the effectiveness of the framework in addressing three crucial COPs. Moreover, we believe that our work has paved the way for a more effective and efficient solution to NP problems by connecting the gap between GNNs and conventional algorithms.
+
+## References
+
+[Angelini and Ricci-Tersenghi, 2022] Maria Chiara Angelini and Federico Ricci-Tersenghi. Cracking nuts with
+
+
+[^0]:    ${ }^{1}$ https://web.stanford.edu/ yyye/yyye/Gset/Table 3: Experimental results for MaxCut on some Gset instances. $\epsilon$ denotes the relative error. The metric is the size of Cut and larger is better.
+
+| Graph | nodes | edges | Methods | | | | | | | $\epsilon$ |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| | | | BLS | DSDP | KHLWG | RUN-CSP | PI-GNN | G-DFL4CO | | |
+| G14 | 800 | 4694 | 3064 | 2922 | 3061 | 2943 | 3026 | 3060 | 0.13% | |
+| G15 | 800 | 4661 | 3050 | 2938 | 3050 | 2928 | 2990 | 3038 | 0.39% | |
+| G22 | 2000 | 19990 | 13359 | 12960 | 13359 | 13028 | 13181 | 13333 | 0.19% | |
+| G49 | 3000 | 6000 | 6000 | 6000 | 6000 | 6000 | 5918 | 6000 | 0% | |
+| G50 | 3000 | 6000 | 5880 | 5880 | 5880 | 5880 | 5820 | 5860 | 0.34% | |
+| G55 | 5000 | 12468 | 10294 | 9960 | 10236 | 10116 | 10138 | 10162 | 1.28% | |
+| G70 | 10000 | 9999 | 9541 | 9456 | 9458 | — | 9421 | 9499 | 0.44% | |
+
+
+
+Figure 4: Comparison of MaxCut solution for d-regular graphs $(d=3,5)$ in different size graphs.
+a sledgehammer: when modern graph neural networks do worse than classical greedy algorithms. arXiv preprint arXiv:2206.13211, 2022.
+[Barahona et al., 1988] Francisco Barahona, Martin Grötschel, Michael Jünger, and Gerhard Reinelt. An application of combinatorial optimization to statistical physics and circuit layout design. Operations Research, 36(3):493-513, 1988.
+[Benlic and Hao, 2013] Una Benlic and Jin-Kao Hao. Breakout local search for the max-cutproblem. Eng. Appl. Artif. Intell., 26(3):1162-1173, 2013.
+[Bi et al., 2022] Wei Bi, Weisheng Lu, Zhan Zhao, and Christopher J Webster. Combinatorial optimization of construction waste collection and transportation: A case study of hong kong. Resources, Conservation and Recycling, 179:106043, 2022.
+[Boettcher, 2022] Stefan Boettcher. Inability of a graph neural network heuristic to outperform greedy algorithms in solving combinatorial optimization problems. Nature Machine Intelligence, pages 1-2, 2022.
+[Cai et al., 2013] Shaowei Cai, Kaile Su, Chuan Luo, and Abdul Sattar. Numvc: An efficient local search algorithm for minimum vertex cover. Journal of Artificial Intelligence Research, 46:687-716, 2013.
+[Chen et al., 2020] Deli Chen, Yankai Lin, Wei Li, Peng Li, Jie Zhou, and Xu Sun. Measuring and relieving the oversmoothing problem for graph neural networks from the
+topological view. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 34, pages 3438-3445, 2020.
+[Choi et al., 2011] Minsu Choi, Jinsang Kim, Won-Kyung Cho, and Jinwook Burm. Area-efficient fast scheduling schemes for mvc prediction architecture. In 2011 IEEE International Symposium of Circuits and Systems (ISCAS), pages 575-578. IEEE, 2011.
+[Chuang and Chen, 2022] Yung-Ting Chuang and Yi-Hsi Chen. Social network analysis and data visualization of mis international collaboration in taiwan. Library Hi Tech, 40(5):1422-1458, 2022.
+[Crama, 1997] Yves Crama. Combinatorial optimization models for production scheduling in automated manufacturing systems. European Journal of Operational Research, 99(1):136-153, 1997.
+[de Sousa et al., 2013] Samuel de Sousa, Yll Haxhimusa, and Walter G Kropatsch. Estimation of distribution algorithm for the max-cut problem. In Graph-Based Representations in Pattern Recognition: 9th IAPR-TC-15 International Workshop, GbRPR 2013, Vienna, Austria, May 1517, 2013. Proceedings 9, pages 244-253. Springer, 2013.
+[Du et al., 2022] Ding-Zhu Du, Panos M Pardalos, Xiaodong Hu, Weili Wu, et al. Introduction to Combinatorial Optimization. Springer, 2022.
+[Dunning et al., 2018] Iain Dunning, Swati Gupta, and John Silberholz. What works best when? a systematic evalua-
+
+Figure 5: Some visualization of Minimum Vertex Cover for several d-regular graphs in the framework of G-DFL4CO.
+
+
+
+Figure 6: Experimental results for Maximum Independent Set for d-regular graphs in different sizes.
+
+tion of heuristics for max-cut and qubo. *INFORMS Journal on Computing*, 30(3):608–624, 2018.
+
+- [Grasas *et al.*, 2016] Alex Grasas, Angel A Juan, and Helena R Lourenço. Simils: a simulation-based extension of the iterated local search metaheuristic for stochastic combinatorial optimization. *Journal of Simulation*, 10(1):69–77, 2016.
+- [Hadlock, 1975] Frank Hadlock. Finding a maximum cut of a planar graph in polynomial time. *SIAM Journal on Computing*, 4(3):221–225, 1975.
+- [Holmberg, 2001] Kaj Holmberg. Experiments with primal-dual decomposition and subgradient methods for the un-capacitating facility location problem. *Optimization*, 49(5-6):495–516, 2001.
+- [Juan *et al.*, 2015] Angel A Juan, Javier Faulin, Scott E Grasman, Markus Rabe, and Gonçalo Figueira. A review of simheuristics: Extending metaheuristics to deal with stochastic combinatorial optimization problems. *Operations Research Perspectives*, 2:62–72, 2015.
+- [Kipf and Welling, 2016] Thomas N Kipf and Max Welling. Semi-supervised classification with graph convolutional networks. In *International Conference on Learning Representations*, 2016.
+- [Kochenberger and Glover, 2006] Gary A Kochenberger and Fred Glover. A unified framework for modeling and solving combinatorial optimization problems: A tutorial. *Multiscale optimization methods and applications*, pages 101–124, 2006.
+- [Kochenberger *et al.*, 2013a] Gary A Kochenberger, Jin-Kao Hao, Zhipeng Lü, Haibo Wang, and Fred Glover. Solving large scale max cut problems via tabu search. *Journal of Heuristics*, 19:565–571, 2013.
+- [Kochenberger *et al.*, 2013b] Gary A. Kochenberger, Jin-Kao Hao, Zhipeng Lü, Haibo Wang, and Fred W. Glover. Solving large scale max cut problems via tabu search. *J. Heuristics*, 19(4):565–571, 2013.
+- [Lee *et al.*, 2021] Changhun Lee, Soohyeok Kim, Sehwa Jeong, Chiehyeon Lim, Jayun Kim, Yeji Kim, and Minyoung Jung. Mind dataset for diet planning and dietary healthcare with machine learning: dataset creation using combinatorial optimization and controllable generation with domain experts. In *Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track (Round 2)*, 2021.
+- [Li *et al.*, 2018] Zhuwen Li, Qifeng Chen, and Vladlen Koltun. Combinatorial optimization with graph convolutional networks and guided tree search. *Advances in neural information processing systems*, 31, 2018.
+- [Li, 2021] Zihan Li. Distributed treatment of rural environmental wastewater by artificial ecological geographic information system. *Environmental Research*, pages 112572–112572, 2021.[Ling and Xu, 2012] Ai-fan Ling and Cheng-Xian Xu. A new discrete filled function method for solving large scale max-cut problems. Numer. Algorithms, 60(3):435-461, 2012.
+[Liu et al., 2023] Yang Liu, Chuan Zhou, Peng Zhang, Shuai Zhang, Xiaoou Zhang, Zhao Li, and Hongyang Chen. Decision-focused graph neural networks for graph learning and optimization. In 2023 IEEE International Conference on Data Mining (ICDM). IEEE, 2023.
+[Park et al., 2017] Pangun Park, Sinem Coleri Ergen, Carlo Fischione, Chenyang Lu, and Karl Henrik Johansson. Wireless network design for control systems: A survey. IEEE Communications Surveys \& Tutorials, 20(2):9781013, 2017.
+[Raidl and Puchinger, 2008] Günther R Raidl and Jakob Puchinger. Combining (integer) linear programming techniques and metaheuristics for combinatorial optimization. Hybrid metaheuristics: An emerging approach to optimization, pages 31-62, 2008.
+[Resende, 2003] Mauricio GC Resende. Combinatorial optimization in telecommunications. Optimization and industry: new frontiers, pages 59-112, 2003.
+[Rossi et al., 2008] Francesca Rossi, Peter Van Beek, and Toby Walsh. Constraint programming. Foundations of Artificial Intelligence, 3:181-211, 2008.
+[Samaga et al., 2010] Regina Samaga, Axel Von Kamp, and Steffen Klamt. Computing combinatorial intervention strategies and failure modes in signaling networks. Journal of Computational Biology, 17(1):39-53, 2010.
+[Sbihi and Eglese, 2010] Abdelkader Sbihi and Richard W Eglese. Combinatorial optimization and green logistics. Annals of Operations Research, 175:159-175, 2010.
+[Schuetz et al., 2022] Martin JA Schuetz, J Kyle Brubaker, and Helmut G Katzgraber. Combinatorial optimization with physics-inspired graph neural networks. Nature Machine Intelligence, 4(4):367-377, 2022.
+[Shah et al., 2022] Sanket Shah, Kai Wang, Bryan Wilder, Andrew Perrault, and Milind Tambe. Decision-focused learning without differentiable optimization: Learning locally optimized decision losses. 2022.
+[Tarjan and Trojanowski, 1977] Robert Endre Tarjan and Anthony E Trojanowski. Finding a maximum independent set. SIAM Journal on Computing, 6(3):537-546, 1977.
+[Tönshoff et al., 2019] Jan Tönshoff, Martin Ritzert, Hinrikus Wolf, and Martin Grohe. RUN-CSP: unsupervised learning of message passing networks for binary constraint satisfaction problems. CoRR, abs/1909.08387, 2019.
+[Triki et al., 2014] Chefi Triki, Simona Oprea, Patriza Beraldi, and Teodor Gabriel Crainic. The stochastic bid generation problem in combinatorial transportation auctions. European Journal of Operational Research, 236(3):991999, 2014.
+[Veličković et al., 2018] Petar Veličković, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Liò, and
+
+Yoshua Bengio. Graph Attention Networks. International Conference on Learning Representations, 2018. accepted as poster.
+[Wang and Tang, 2021] Qi Wang and Chunlei Tang. Deep reinforcement learning for transportation network combinatorial optimization: A survey. Knowledge-Based Systems, 233:107526, 2021.
+[Wang et al., 2020] Kai Wang, Bryan Wilder, Andrew Perrault, and Milind Tambe. Automatically learning compact quality-aware surrogates for optimization problems. Advances in Neural Information Processing Systems, 33:9586-9596, 2020.
+[Wilder et al., 2019] Bryan Wilder, Bistra Dilkina, and Milind Tambe. Melding the data-decisions pipeline: Decision-focused learning for combinatorial optimization. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 33, pages 1658-1665, 2019.
+[Xu et al., 2019] Keyulu Xu, Weihua Hu, Jure Leskovec, and Stefanie Jegelka. How powerful are graph neural networks? In International Conference on Learning Representations, 2019.
+[Yun et al., 2019] Seongjun Yun, Minbyul Jeong, Raehyun Kim, Jaewoo Kang, and Hyunwoo J Kim. Graph transformer networks. In Advances in Neural Information Processing Systems, pages 11960-11970, 2019.
+[yun, 2022] Graph transformer networks: Learning metapath graphs to improve gnns. Neural Networks, 153:104119, 2022.
+[Zhang et al., 2014] Jian Jun Zhang, Xiang Hua Pu, and Zi Hui Zhang. Design and implement of teaching resources management network platform based on mvc. In Applied Mechanics and Materials, volume 631, pages 999-1002. Trans Tech Publ, 2014.

@@ -1,0 +1,741 @@
+# Control of learning in anti-coordination network games 
+
+Ceyhun Eksin ${ }^{\dagger}$ and Keith Paarporn ${ }^{\ddagger}$
+
+
+#### Abstract
+
+We consider control of heterogeneous players repeatedly playing an anti-coordination network game. In an anticoordination game, each player has an incentive to differentiate its action from its neighbors. At each round of play, players take actions according to a learning algorithm that mimics the iterated elimination of strictly dominated strategies. We show that the learning dynamics may fail to reach anti-coordination in certain scenarios. We formulate an optimization problem with the objective to reach maximum anti-coordination while minimizing the number of players to control. We consider both static and dynamic control policy formulations. Relating the problem to a minimum vertex cover problem on bipartite networks, we develop a feasible dynamic policy that is efficient to compute. Solving for optimal policies on benchmark networks show that the vertex cover based policy can be a loose upper bound when there is a potential to make use of cascades caused by the learning dynamics of uncontrolled players. We propose an algorithm that finds feasible, though possibly suboptimal, policies by sequentially adding players to control considering their cascade potential. Numerical experiments on random networks show the cascade-based algorithm can lower the control effort significantly compared to simpler control schemes.
+
+
+## I. INTRODUCTION
+
+Developing methods that achieve globally optimal behavior while conforming with the computational and informational limitations of the players is of interest given the ubiquity of noncooperative interactions that arise among actors in networked systems, e.g., epidemics [1], energy [2], [3], security [4], communication [5] or autonomous systems [6]. Game theoretic learning algorithms are tractable decentralized models for non-cooperative decision-making in networked systems. These algorithms accounting for local information access [7] and coupled action spaces [8] guarantee convergence to individually rational behavior, i.e., a Nash equilibrium action, in certain classes of games, e.g., aggregative [9], [10], potential [11], convex [12]. However, a Nash equilibrium, while being optimal from the perspective of selfish individuals, can be inefficient and undesired at the system level. A canonical example of this is the tragedy of the commons which describes the phenomenon of selfish learning behavior leading to the worst possible outcome for the entire population [13]. Given the possibility of emergence of undesired outcomes, there is a need to develop incentive mechanisms in order to achieve system-wide desired outcomes.
+
+The major challenge in attaining globally desired outcomes in networked systems is that individuals are selfish, hetero-
+
+[^0]geneous, and their actions are coupled while the centralized incentive resources are costly. In this paper, we formulate this challenge as the control of decentralized learning dynamics. That is, players selfishly follow some game-theoretic learning dynamics while a centralized authority aims to direct the emergent behavior toward a desired outcome. The two main issues we address with this formulation are the selection of which players to control, and what control policy to implement given the selected players.
+
+This challenge is addressed in the literature by characterizing the inefficiency of Nash equilibria [14], by designing payoffs prior to start of the game to induce efficient Nash equilibria [15], or by developing control mechanisms [16]-[22]. Our approach falls into the last category of controlling players to guide the learningdynamics towards desirable outcomes. In this category, [16], [17] show a public advertising scheme improves the efficiency of the emergent outcome for players that act according to best-response dynamics and occasionally listen to the advertised behavior. An alternative model designs dynamic control incentives that affect every players' payoffs to which players best respond [18]. Minimum cost uniform and targeted reward policies that induce complete coordination among players that act according to best-response dynamics in a network coordination game are developed in [19]. When the goal is to minimize efficiency, [22] studies malicious attacks that strategically perturb player learning dynamics in a network coordination game. In a combined effort to select which players to control and also how to control them, we depart from these studies by characterizing control schemes when the underlying interaction between players is an anticoordination game.
+
+In this paper, we focus on controlling a subset of the players in a network anti-coordination game with the aim to promote maximum anti-coordination. Players belong to one of two possible types. We assume there is a preferred selfish action for each player in the absence of any neighboring players in the network. That is, a player's payoff decreases as more of its neighbors belonging to the opposite type take the preferred action (Section II). Such payoff dependencies can be used to model individual behavior during the spread of an epidemic in a population where the individual types are healthy and sick, the actions represent the level of precautionary measures taken, and payoffs capture the risk of disease transmission to healthy from sick individuals with the preferred action being not taking any measures [23]. Other examples include modeling individual opinions in a politically polarized environment where players would like to differentiate their actions from players in opposing views [24], or modeling two competing species
+
+
+[^0]:    ${ }^{\dagger}$ Industrial and Systems Engineering Department, Texas A\&M University, College Station, TX. eksinc@tamu.edu
+    ${ }^{\ddagger}$ Electrical and Computer Engineering, University of California, Santa Barbara, CA. kpaarporn@ucsb.edu
+
+Fig. 1. Network game with binary types.
+
+in an environment [25]. In these games, two neighboring players' anti-coordinate when at least one of the players do not take the selfish action, e.g., one player in each link takes a precautionary measure during an epidemic. Maximum anti-coordination is achieved when there does not exist any link with failed anti-coordination.
+
+We assume players follow learning dynamics based on a decentralized process of iterated elimination of strictly dominated actions in the absence of any control [26] (Section III). In the learning process, players eliminate all actions that cannot be in a rational action profile in finite time (Theorem 1). This implies convergence to the unique Nash equilibrium in dominance solvable games.
+
+We formulate the minimum player control for anti-coordination problem (MPCAC) as a mixed integer program where the decision variables include which players to control, and how to control them (Section V). We consider static and dynamic control policies. In static MPCAC, a fixed subset of players' decisions are controlled for the entire learning horizon. In dynamic MPCAC, the control policy can temporally influence player decisions. We find a feasible policy that upper bounds the optimal dynamic MPCAC control policy by solving a minimum cardinality vertex covering problem on a reduced bipartite network (Theorem 2). This feasible policy can be obtained by solving a linear program, and hence is computationally feasible to compute.
+
+In general, the vertex cover-based control policy is suboptimal if there exists a way to cause cascades of anti-coordination among multi-hop neighbors via the learning dynamics by only controlling a few players. We present optimal policies on benchmark networks of arbitrary size for every possible payoff constant values (Section VI). Some of the optimal policies exhibit use of cascades to achieve anti-coordination which exemplify the sub-optimality of the vertex cover-based control policy. Based on the cascade inducing policies, we also propose a greedy algorithm that finds a feasible solution by sequentially selecting the player to control with the highest potential for inducing a cascade of anti-coordination (Section VII). We compare the greedy algorithm with the vertex cover-based control policy, among several other variants, in numerical experiments on random bipartite networks (Section VIII).
+
+## II. ANTI-COORDINATION NETWORK GAMES
+
+A game consists of a population of players $i \in \mathcal{N}:=$ $\{1, \ldots, n\}$ that take action $a_{i} \in \mathcal{A}_{i}$ in order to maximize their utility function $u_{i}(\cdot)$. We assume each player is in one of two possible types $s_{i} \in\{0,1\}$. The population is divided into two disjoint sets $\mathcal{S}_{0}:=\left\{i \in \mathcal{N}: s_{i}=0\right\}$ and $\mathcal{S}_{1}:=\left\{i \in \mathcal{N}: s_{i}=1\right\}$. Only the actions of neighbors that have the opposite type can affect a player's utility function. For instance, if a player is type 0 , then its utility depends on actions of its neighbors in $\mathcal{S}_{1}$. We can capture the payoff dependency of players using a bipartite graph $\mathcal{G}_{B}=\left(\mathcal{S}_{0}, \mathcal{S}_{1}, \mathcal{E}_{B}\right)$—see Figure 1. We define the neighborhood of player $i$ as $\mathcal{N}_{i}:=\left\{j \in \mathcal{N}:(i, j) \in \mathcal{E}_{B}\right\}$. Then the utility function is defined as $u_{i}: \mathcal{A}_{i} \times \mathcal{A}_{\mathcal{N}_{i}} \rightarrow \mathbb{R}$ where $\mathcal{A}_{\mathcal{N}_{i}}=\prod_{j \in \mathcal{N}_{i}} \mathcal{A}_{j}$. Given the bipartite network $\mathcal{G}_{B}$, the network game with binary types can be represented by the tuple $\Gamma=\left\{\mathcal{N}, \mathcal{A}, \mathcal{G}_{B},\left\{u_{i}\right\}_{i \in \mathcal{N}}\right\}$.
+
+The premise of an anti-coordination game is that a player benefits if its opponents yield. Similarly, in an anti-coordination network game, a player benefits if its neighbors in the opposing type yield. We assume player $i$ can take actions between zero and one, i.e., $\mathcal{A}_{i}=[0,1]$ for all $i \in \mathcal{N}$. The following utility function,
+
+$$
+u_{i}\left(a_{i}, a_{\mathcal{N}_{i}}\right)=a_{i}\left(1-\left(c_{0}\left(1-s_{i}\right)+c_{1} s_{i}\right) \sum_{j \in \mathcal{N}_{i}} a_{j}\right)
+$$
+
+with $c_{0} \in(0,1)$ and $c_{1} \in(0,1)$ as constants, captures the preferences of players to differentiate their actions from their neighbors. Here, $a_{\mathcal{N}_{i}}$ are the actions of player $i$ 's neighbors. Action $a_{i}=1$ maximizes the utility if the term inside the parentheses is positive. Otherwise, action $a_{i}=0$ maximizes the utility. The constant 1 inside the parentheses means that the preferred action is 1 regardless of the type of the player $i$. The term that is subtracted from one captures the decrease in the preference of the player to choose action 1. That is, as $i$ 's neighbors increase their action, the benefit of $i$ from choosing the preferred action decreases. This decrease depends on the type of the player. If the player's type is 0 (1), i.e., $s_{i}=0$ $(=1)$, then the decrease is proportional to $c_{0}\left(c_{1}\right)$.
+
+Below we provide examples for the anti-coordination network game $\Gamma$ with payoffs as in (1).
+
+Example 1 (Disease spread on networks) Players want to avoid disease transmission [23]. Each player is either healthy ( $s_{i}=0$ ) or sick ( $s_{i}=1$ ). The network $\mathcal{G}_{B}$ is a contact network with each edge representing a chance of disease transmission between a healthy and a sick player. The action space captures the social distancing level of a player with action $a_{i}=0$ representing self-isolation and action $a_{i}=1$ representing resuming normal activity. Actions between 0 and 1 represent different levels of disease prevention measures, e.g., covering cough, or washing hands often. Resuming normal activity is the preferred action. However, if both players at the two ends of an edge take action 1, then there is a chance of disease transmission. Accordingly, the constant $c_{0}$ captures a healthy player's sensitivity for avoiding a risky interaction. The constant $c_{1}$ captures a sick player's sensitivity to avoid transmitting the disease to one of its healthy neighbors.
+
+Example 2 (Political polarization) Players want to differentiate their actions from those with opposing beliefs [24]. The network represents the social interactions among players in opposing beliefs $\left(\mathcal{S}_{0}\right.$ and $\left.\mathcal{S}_{1}\right)$. Action 1 represents a monetarychoice or support for a cause that is individually desirable in the absence of partisanship. A player's tendency to take the preferred action (action 1) reduces as it has more neighbors that take action 1. That is, a player can opt-out from individual benefits or societal impact to express partisan preferences. Constants $c_{0}$ and $c_{1}$ capture the inclination of players in beliefs 0 and 1 to differentiate themselves from the players in the opposing belief, respectively.
+
+Example 3 (Hawk-Dove network game) Two competing species $\left(\mathcal{S}_{0}\right.$ and $\left.\mathcal{S}_{1}\right)$ face-off in an ecological environment. At each interaction players decide to be hawkish $\left(a_{i}=1\right)$ or dovish $\left(a_{i}=0\right)$. A hawk move gets the highest reward if its neighboring competitors play dove. If both interacting players play dove, they miss the opportunity to overcome their competitor. If both interacting players are hawkish, they challenge each other and face costs. The constants $c_{0}$ and $c_{1}$ represent the costs species 0 and 1 incur, respectively, when they act hawkish against a hawkish competitor.
+
+## III. DECENTRALIZED LEARNING DYNAMICS
+
+Players repeatedly play the anti-coordination network game $\left\{\mathcal{N}, \mathcal{A}, \mathcal{G}_{B},\left\{u_{i}\right\}_{i \in \mathcal{N}}\right\}$ taking actions $a_{i}^{k} \in \mathcal{A}_{i}$ at each stage $k$. We assume each player knows its own type. Players take actions according to a decentralized algorithm details described in Algorithm 1.
+
+Algorithm 1 starts with each player selecting an arbitrary action $\epsilon \in(0,1)$ not equal to zero or one. Player $i$ checks the worst and best possible outcomes in equations (2)-(3), respectively. In (2), player $i$ checks whether it is preferable to select $a_{i}=1$ according to its utility (1) even when its undecided neighbors $\left(\left\{j \in \mathcal{N}_{i}: a_{j, k-1}=\epsilon\right\}\right)$ end up taking action 1. That is, the ceiling operator makes a worst case scenario assumption (all undecided neighbors take action 1) and evaluates its utility from action 1. In (3), player $i$ checks whether it is preferable to select $a_{i}=0$ according to its utility (1) when its undecided neighbors $\left(\left\{j \in \mathcal{N}_{i}: a_{j, k-1}=\epsilon\right\}\right)$ end up taking action 0 . That is, the floor operator makes a best case scenario assumption (all undecided neighbors taking action 0 ) and evaluates $a_{i}=0$ according to (1). Note that the ceil and floor operators do not affect the decided neighbors of a player, i.e., neighboring players whose previous action are 0 or 1 . If (2)-(3) do not hold at step $k$, player $i$ remains "undecided", i.e., $a_{i}^{k}=\epsilon$.
+
+## Algorithm 1 (Local learning algorithm)
+
+Initialize: $a_{i}^{0}=\epsilon$ for all $i \in \mathcal{N}$
+for $k=1,2, \ldots$
+Observe $a_{\mathcal{N}_{i}}^{k-1}$
+
+$$
+\begin{aligned}
+& a_{i}^{k}=1 \quad \text { if } \quad 1>\left(c_{0}\left(1-s_{i}\right)+c_{1} s_{i}\right) \sum_{j \in \mathcal{N}_{i}}\left\lceil a_{j}^{k-1}\right\rceil \\
+& a_{i}^{k}=0 \quad \text { if } \quad 1<\left(c_{0}\left(1-s_{i}\right)+c_{1} s_{i}\right) \sum_{j \in \mathcal{N}_{i}}\left\lfloor a_{j}^{k-1}\right\rfloor \\
+& a_{i}^{k}=\epsilon, \quad \text { otherwise }
+\end{aligned}
+$$
+
+## end
+
+end
+The local algorithm takes as input an initial action profile $a^{0}$, and outputs an infinite sequence of action profiles. We denote the mapping of Algorithm 1 as
+
+$$
+\Phi\left(a^{0}\right) \equiv\left(a^{0}, a^{1}, \ldots\right)
+$$
+
+where $a^{t}:=\left(a_{1}^{t}, \ldots, a_{n}^{t}\right)$, We will use the notation
+
+$$
+\Phi_{k}\left(a^{0}\right) \equiv a^{k}
+$$
+
+to denote the resulting action profile after $k$ iterations of the local algorithm.
+
+Figure 2 shows the iterations of Algorithm 1 on a 7 player network for different payoff constants. We observe that depending on the payoff constants $c_{0}, c_{1}$, the algorithm might yield an action profile where all players are decided, all remain undecided, or some are decided and some remain undecided. In all cases, the algorithm converges in at most $k=3$ steps. Indeed, the algorithm will only require at most $n$ updates to converge where we recall $n$ as the number of players. Additional number of iterates is not needed because once a player decides on action 0 or 1 , they do not revert. Further, if no player updates at a given step, then it implies there cannot be any updates in the future steps. This means some players can remain undecided. We present the convergence properties of Algorithm 1 in the following section.
+
+## IV. CONVERGENCE OF THE LOCAL LEARNING ALGORITHM
+
+## A. Game theoretic preliminaries
+
+We define the rational action by the Nash equilibrium solution concept. A Nash equilibrium (NE) action profile $a^{N E} \in[0,1]^{n}$ is such that no individual has a preferable deviation from its action, that is,
+
+$$
+u_{i}\left(a_{i}^{N E}, a_{\mathcal{N}_{i}}^{\mathrm{NE}}\right) \geq u_{i}\left(a_{i}, a_{\mathcal{N}_{i}}^{\mathrm{NE}}\right) \quad a_{i} \in[0,1], i \in \mathcal{N}
+$$
+
+where $a_{\mathcal{N}_{i}}^{\mathrm{NE}}:=\left\{a_{j}^{\mathrm{NE}}: j \in \mathcal{N}_{i}\right\}$. In other words, the individuals respond to the NE actions of other individuals to maximize their payoffs. For a given neighbor action profile $a_{\mathcal{N}_{i}}$ we have the best response of individual $i$ as follows,
+
+$$
+\begin{aligned}
+B R_{i}\left(a_{\mathcal{N}_{i}}\right) & :=\underset{a_{i} \in[0,1]}{\operatorname{argmax}} u_{i}\left(a_{i}, a_{\mathcal{N}_{i}}\right) \\
+& =\mathbf{1}\left(1>\left(c_{0}\left(1-s_{i}\right)+c_{1} s_{i}\right) \sum_{j \in \mathcal{N}_{i}} a_{j}\right)
+\end{aligned}
+$$
+
+where $\mathbf{1}(\cdot)$ is an indicator function. Since the payoffs are linear in self-actions, the actions that maximize the payoffs are in the extremes- $a_{i}=1$ or $a_{i}=0$-depending on the types and actions of their neighbors. We can equivalently represent the NE definition in (5) by using the best response definition,
+
+$$
+a_{i}^{N E}=B R_{i}\left(a_{\mathcal{N}_{i}}^{\mathrm{NE}}\right) \quad \text { for all } i \in \mathcal{N}
+$$
+
+The notion of strictly dominated is defined as follows.
+
+Fig. 2. Algorithm 1's convergence with respect to different payoff constants (A, B, C) on a 7 player network. Initially, all players are undecided a<sub>i,0</sub> = ε. (A) At step k = 1, players 1, 3, and 4 update their actions to 1 by (2) given 1 > c<sub>0</sub>, players 5 and 6 also update their action to 1 by (2) given 1 > 2c<sub>1</sub>, and players 2 and 7 remain undecided. At step k = 2, player 2 observes previous actions of its neighbors—{a<sub>5,1</sub>, a<sub>6,1</sub>}—and updates its action to 0 by (3) given 2c<sub>0</sub> > 1. At step k = 3, player 7 observes player 2's update—a<sub>2,2</sub> = 0—and updates its action to 1 by (2) given 1 > 2c<sub>1</sub>. All players are decided, and the action profile is the unique Nash equilibrium of the game. (B) All players remain undecided for all times because no player can eliminate any action by (2). (C) At step k = 1, players 1, 3, 4, 5 and 6 update to action 1 similar to case (A). At step k = 2, neither player 2 nor player 1 can eliminate any actions, and both remain undecided. A subset of players are decided while the others remain undecided.
+
+**Definition 1 (Strictly dominated action)** An action a<sub>i</sub> ∈ [0, 1] is strictly dominated if and only if there exists an action a<sub>i</sub> ∈ [0, 1] such that
+
+$$u_i(a_i',a_{\mathcal{N}_i}) > u_i(a_i, a_{\mathcal{N}_i}) \quad \text{for all } a_{\mathcal{N}_i} \in \mathcal{A}_{\mathcal{N}_i} \tag{8}$$
+
+If an action a<sub>i</sub> is strictly dominated then there exists a more preferable action a<sub>i</sub><sup>i</sup> for any circumstance. It is clear that if an action is strictly dominated then it cannot be a rational action from (7).
+
+In a game we can iteratively remove the strictly dominated actions, this process is called the iterated elimination of strictly dominated strategies and is defined below.
+
+**Definition 2 (Iterated elimination)** Set the initial set of actions A<sub>i</sub><sup>0</sup> = [0, 1] for all i, and for any k ∈ ℕ let
+
+$$A_i^k = \{ a_i \in A_i^k - 1 \mid a_i \text{ is not strictly dominated by any } a_{\mathcal{N}_i} \in A_{\mathcal{N}_i}^k \tag{9}$$
+
+We denote the set of player i's actions that survive the iterated elimination by A<sub>i</sub><sup>∞</sup> := ∩<sub>k=0</sub><sup>∞</sup> A<sub>i</sub><sup>k</sup>. When A<sub>i</sub><sup>∞</sup> has a single element, we say A<sub>i</sub><sup>∞</sup> is a singleton. If A<sub>i</sub><sup>∞</sup> is a singleton for all i ∈ N, then the game is dominance solvable, and has a unique Nash equilibrium given by the action profile that survives the iterated elimination process.
+
+### B. Convergence
+
+The following theorem states that Algorithm 1 eliminates all strictly dominated actions in finite number of steps.
+
+**Theorem 1** Algorithm 1 converges in at most n iterations, that is, no player changes its action after the nth update. At the end of n iterations, if all players are decided, i.e., a<sub>i</sub><sup>n</sup> = {0, 1} for all i ∈ N, then all the other actions A<sub>i</sub> \ a<sub>i</sub><sup>n</sup> are strictly dominated and the resultant action profile is a Nash equilibrium. Otherwise, if a player i ∈ N is undecided, i.e., a<sub>i</sub><sup>n</sup> = ε, then there does not exist a<sub>i</sub> ∈ A<sub>i</sub> that can be strictly dominated.
+
+The proof of the theorem is given in the appendix. It relies on showing that Algorithm 1 is a decentralized version of the iterated elimination of strictly dominated actions as given by Definition 2. The intuition for n step convergence is that at each step at least one player needs to eliminate its action using (2) or (3). If no player updates at a time step, the players stop updating because no new eliminations are triggered from then on. Therefore, there could at most be n iterations to rule out n players one player at a time.
+
+### V. MAXIMUM ANTI-COORDINATION PROBLEM
+
+We say the edge between players (i, j) ∈ E<sub>B</sub> is inactive if a<sub>i</sub>a<sub>j</sub> = 0, with a<sub>i</sub>a<sub>j</sub> ∈ {0, 1}. We have maximum anti-coordination when all edges are inactive, that is, ∑<sub>(i,j)∈E<sub>B</sub></sub> a<sub>i</sub>a<sub>j</sub> = 0 with a<sub>i</sub>, a<sub>j</sub> ∈ {0, 1}. The learning dynamics (Algorithm 1) does not guarantee that the resulting action profile satisfies maximum anti-coordination. Hence, to ensure maximum anti-coordination, it is necessary to externally control players' decisions. To this end, we formulate the minimum player control for maximum anti-coordination (MPCAC) optimization problem.Before we define the optimization problems, we define a controlled action profile trajectory in lieu of Algorithm 1. A control profile is an infinite sequence of subsets of players: $\mathcal{X}=\left\{\mathcal{X}^{0}, \mathcal{X}^{1}, \ldots\right\}$ with $\mathcal{X}^{t} \subseteq \mathcal{N}$ for all $t \geq 0$. We say $x_{i}^{t}=1$ if player $i \in \mathcal{X}^{t}$, and $x_{i}^{t}=0$ otherwise. Furthermore, we denote $\delta_{i}^{t} \in\{0,1\}$ as the forced action of player $i$ at time $t \geq 0$ if $i \in \mathcal{X}^{t}$. For convention, and without loss of generality, we say $\delta_{i}^{t}=0$ if $i \notin \mathcal{X}^{t}$. We write $\Delta \equiv\left(\delta^{0}, \delta^{1}, \ldots\right)$ for the sequence of forced action profiles. With the control profile $\mathcal{X}$, the resulting action profile trajectory, with intial action profile $y^{0}$ is written
+
+$$
+\Phi\left(y^{0}, \mathcal{X}, \Delta\right):=\left(a^{0}, a^{1}, \ldots\right)
+$$
+
+where the $a^{t}$ obey the following dynamics for $t=0,1, \ldots$
+
+$$
+\begin{aligned}
+a_{i}^{t} & =\left(1-x_{i}^{t}\right) y_{i}^{t}+x_{i}^{t} \delta_{i}^{t}, \text { for all } i \in \mathcal{N} \\
+y^{t+1} & =\Phi_{1}\left(a^{t}\right)
+\end{aligned}
+$$
+
+Note $\Phi_{1}\left(a^{t}\right)$ is the uncontrolled action at time $t+1$ by (4) given the controlled action profile $a^{t}$ at time $t$. We will refer to the pair $(\mathcal{X}, \Delta)$ as a control policy. In the first formulation of the maximum anti-coordination optimal control problem, we seek to achieve maximum anti-coordination using as few fixed control players as possible. It is formalized as follows.
+
+## Definition 3 (Static MPCAC)
+
+$\min _{\mathcal{X}, i \in \mathcal{N}} J_{s}\left(\mathcal{X}_{s}, \delta\right):=\left|\mathcal{X}_{s}\right|$
+s.t.
+
+$$
+\begin{aligned}
+& a_{i}^{n}+a_{j}^{n} \leq 1 \quad \text { for all }(i, j) \in \mathcal{E}_{B} \\
+& a_{i}^{n} \in\{0,1\} \quad \text { for all } i \in \mathcal{N} \\
+& \mathcal{X}=\left\{\mathcal{X}_{s}, \mathcal{X}_{s}, \ldots\right\} \\
+& \delta_{i}^{t}=\delta_{i} \in\{0,1\} \quad \text { for all } i \in \mathcal{X}_{s}, \text { for all } t \geq 0 \\
+& \left(a^{0}, a^{1}, \ldots\right)=\Phi(\vec{\epsilon}, \mathcal{X}, \Delta), \text { where } \vec{\epsilon}=\epsilon 1_{n}
+\end{aligned}
+$$
+
+The objective in (11) is to minimize the cardinality of the set $\mathcal{X}_{s}$, that is, the number of players controlled. The first and second constraints together make sure of maximum anticoagordination at time $n$ when all players must be decided, i.e., they are equivalent to the constraint $\sum_{(i, j) \in \mathcal{E}_{B}} a_{i} a_{j}=0$ with $a_{i}^{n} \in\{0,1\}$ for all $i \in \mathcal{N}$. The third and fourth constraints define the controlled players and their actions for all times. The third constraint selects forced actions in the control set. The last constraint states the controlled learning dynamics (9) that govern players' decision-making.
+
+The optimization problem (11) runs for $n$ time steps to allow for convergence of Algorithm 1 because if the algorithm dynamics are going to generate an anti-coordinating action pair, we would want to make use of it instead of incurring the cost for controlling a player. Selecting a player to the controlled set and changing its action via $\delta_{i}$ does not increase the convergence time of the algorithm, hence we stop the optimization after $n$ steps. Indeed, if we control a set of players $\mathcal{X}_{s}$ at $t=0$, by Theorem 1 the algorithm converges in $n-\left|\mathcal{X}_{s}\right|$ steps. Hence, the optimization horizon of $n$ steps is sufficient to make full use of learning dynamics.
+
+The following result uses the convergence in finite time of the iterated elimination process to show that any static policy that satisfies the maximum anti-coordination constraint at time $n$ will continue to satisfy it for $t>n$.
+
+Lemma 1 If $\Pi_{s}=\left(\mathcal{X}_{s}, \Delta_{s}\right)$ is a static control policy such that $a_{i}^{n}+a_{j}^{n} \leq 1$ for all $(i, j) \in \mathcal{E}_{B}$, then no player will change its decision, that is, $a_{i}^{t}+a_{j}^{t} \leq 1$ for all $(i, j) \in \mathcal{E}_{B}$, $t>n$.
+
+Proof: A control profile $\mathcal{X}_{s}$ with actions $\delta_{i}=\{0,1\}$ is feasible if all players decide by time $n$. Given a feasible static control policy $\left(\mathcal{X}_{s}, \Delta\right)$, define the game $\Gamma^{\prime}$ among players $\mathcal{N} \backslash \mathcal{X}_{s}$ where players connected to $\mathcal{X}_{s}$ have a set of decided neighbors according to forced action profile $\Delta$. The game $\Gamma^{\prime}$ must be dominance solvable so that Algorithm 1 converges by time $n$. Thus if we continue to apply the forced actions $\Delta$, no player would change its decision after time $n$.
+
+In static MPCAC, we decide on players to control at the beginning and set their actions for the entire horizon. The objective only accounts for the number of players controlled but not the number of times we control a player. In many situations it may be enough to control a player for a finite time to achieve maximum anti-coordination. For instance, in case (B) in Fig 2, if we set the actions of players 5-7 to 0 for one time step, the remaining players (1-4) will take action 1 by (2). If we stop controlling the players 5-7 in the next time step, they will continue to take action 0 by (3). Hence, the resultant action profile will achieve maximal anti-coordination. Next we formulate the dynamic MPCAC problem that allows for dynamic selection of players to control, and accounts for the number of times we control each player.
+
+## Definition 4 (Dynamic MPCAC)
+
+$$
+\begin{aligned}
+\min _{\mathcal{X}, \Delta} J_{d}(\mathcal{X}, \Delta):= & \frac{1}{n} \sum_{t=1}^{n}\left|\mathcal{X}^{t}\right|+\lim _{T^{\prime} \rightarrow \infty} \frac{1}{T^{\prime}} \sum_{t=n+1}^{T^{\prime}}\left|\mathcal{X}^{t}\right| \\
+& \text { s.t. } \\
+& a_{i}^{t}+a_{j}^{t} \leq 1 \quad \text { for all }(i, j) \in \mathcal{E}_{B}, t \geq n \\
+& a_{i}^{t} \in\{0,1\} \quad \text { for all } i \in \mathcal{N}, t \geq n \\
+& \left(a^{0}, a^{1}, \ldots\right)=\Phi(\vec{\epsilon}, \mathcal{X}, \Delta)
+\end{aligned}
+$$
+
+The two terms in the penalty function in (12) equally weight the control effort per player before convergence and after convergence to maximum anti-coordination. In dynamic MPCAC, we allow for the set of controlled players and their actions to change at each step. Lemma 1 does not necessarily apply in the dynamic setting. Hence, we explicitly require that the maximum anti-coordination is maintained for all times after $n$ in the first two constraints. The last constraint specifies the controlled learning dynamics (9).
+
+The following result shows that an optimal policy for dynamic MPCAC should at least be as good as an optimal policy for static MPCAC.Lemma 2 Let Π<sup>s</sup> = (X<sup>*</sup><sub>s</sub>, δ<sup>*</sup>) and Π<sup>d</sup> = (X<sup>*</sup><sub>s</sub>, Δ<sup>*</sup>) be optimal policies for static and dynamic MPCAC, respectively. Then J<sup>d</sup>(Π<sup>d</sup>) ≤ 2J<sup>s</sup>(Π<sup>s</sup>) = 2|X<sup>*</sup><sub>s</sub>|.
+
+**Proof:** Suppose there exists an optimal dynamic policy Π<sup>d</sup> such that J<sup>d</sup>(Π<sup>d</sup>) > 2|X<sup>*</sup><sub>s</sub>|. Then we can implement (Π<sup>s</sup>)<sup>t≥0</sup> to achieve a cost of 2|X<sup>*</sup><sub>s</sub>| in dynamic MPCAC, where the first and second terms in the objective 12 will be |X<sup>*</sup><sub>s</sub>|. By Lemma 1, Π<sup>s</sup> will satisfy the constraints in dynamic MPCAC which means it is also a feasible solution for the dynamic MPCAC. Hence, Π<sup>d</sup> cannot be optimal.
+
+This result is expected when we observe that any static policy that is feasible for the static MPCAC is also feasible for the dynamic MPCAC by Lemma 1. Hence, we can always use the optimal solution for static MPCAC to upper bound the penalty in the dynamic MPCAC. In fact, if the static MPCAC solution reaches an action profile that is an equilibrium of the game by time n, then the optimal solution is upper bounded by |X<sup>*</sup><sub>s</sub>|. That is, we do not need to make any control efforts to remain at the maximum anti-coordination action profile because the action profile is also an equilibrium of the game.
+
+The first constraint of dynamic MPCAC requires maximum anti-coordination after time n, whether or not control actions are used to keep it in equilibrium. This together with the penalization of control efforts for all times after n gives preference to control policy solutions, when feasible, that leverage the controlled dynamics Φ in (9) in order to achieve maximum anti-coordination. The following result supports this intuition for dominance solvable games.
+
+Lemma 3 If the game is dominance solvable, the optimal policy for dynamic MPCAC (Π<sup>d</sup> = (X<sup>*</sup><sub>s</sub>, Δ<sup>*</sup>) is either X<sup>*</sup><sub>s</sub> = ∅ for all t = 1, 2, ... or X<sup>*</sup><sub>s</sub> ≠ ∅ for t ≥ n.
+
+The above result proves in the Appendix shows that if Algorithm 1 converges to a single action profile, then either no control effort is required or the control effort after convergence (t > n) is non-zero. This result relies on whether the unique Nash equilibrium achieves maximum anti-coordination or not, which then corresponds to an empty control profile or a non-empty control profile for t > n, respectively. In general, if the game {N, A, G<sub>B</sub>, {u<sub>i</sub>}<sub>i∈N</sub>}, not necessarily dominance solvable, has Nash equilibria that achieve maximum anti-coordination, we would expect control policies that induce convergence to such Nash equilibria over policies that control players after time n in order to avoid the second term in the objective of dynamic MPCAC. We formalize this intuition in the following lemma (see appendix for the proof).
+
+Lemma 4 If there exists a set of Nash equilibria that achieves maximal anti-coordination, then the optimal solution to dynamic MPCAC will reach an action profile in this set.
+
+Next we relate the dynamic MPCAC problem to a vertex covering problem on a bipartite network. We define the graph with potential dangerous links after Algorithm 1 converges at time n as follows. Let G<sup>n</sup> = (N<sup>n</sup>, E<sup>n</sup>) be the graph with vertices composed of players that remain undecided or take
+
+
+
+Fig. 3. Assume c<sub>0</sub> = 0.4 and c<sub>1</sub> = 0.4. The game is dominance solvable and Algorithm 1 converges to the above action profile with only active link between 3 and 6. That is, N<sup>n</sup> = {1, 2, 3, 6, 7, 8} and E<sup>n</sup> = {(3, 6)}. The solution to (13) if we disregard the last constraint is either x<sup>*</sup><sub>3</sub> = 1 or x<sup>*</sup><sub>6</sub> = 1. These solutions violate the last constraint for players 5 or 4. If we fix ρ<sup>i</sup> = 0 for i ∈ {5, 4}, then (13) is infeasible.
+
+action 1 after Algorithm 1 converges at step n, i.e., N<sup>n</sup> := {j ∈ N : a<sup>n</sup><sub>j</sub> = {ε, 1}}, and with edges that connect players in N<sup>n</sup> in E<sup>B</sup>, that is, E<sup>n</sup> = {(i, j) ∈ E<sub>B</sub> : i ∈ N<sup>n</sup>, j ∈ N<sup>n</sup>}. For example, in Fig. 2 case (A), the network G<sup>n</sup> has the vertex set N<sup>n</sup> = {1, 3, 4, 5, 6, 7}.
+
+A cardinality vertex cover for the graph G<sup>n</sup> = (N<sup>n</sup>, E<sup>n</sup>) looks for a minimum cardinality subset of vertices X<sup>n</sup> ⊆ N<sup>n</sup> such that each edge has at least one endpoint incident at X<sup>n</sup> [27]. Given the action profile at time n, a<sup>n</sup>, we consider the following modified cardinality vertex cover problem with tuning parameter λ ≥ 0,
+
+$$\min\_{\mathbf{x}, \boldsymbol{\rho}\geq 0} \sum\_{i \in N^n} x\_i + \lambda \sum\_{i \in N \backslash N^n} |\rho\_i| \tag{13}$$
+
+s.t. x<sub>i</sub> + x<sub>j</sub> ≥ 1 for all (i, j) ∈ E<sup>n</sup>
+
+x<sub>i</sub> ∈ {0, 1} for all i ∈ N<sup>n</sup>
+
+c<sub>i</sub> ∑\_{j∈N<sup>k</sup></sub> (⌈a<sup>n</sup><sub>j</sub>| − x<sub>j</sub>) ≥ 1 − ρ<sub>i</sub> for all k ∉ N<sup>n</sup>
+
+where c<sub>i</sub> := c<sub>0</sub>(1 − s<sub>i</sub>) + c<sub>1</sub> s<sub>i</sub> is player i's payoff constant. If the second term in the objective and the last constraint are excluded, the problem formulation would be the minimum vertex covering problem in the bipartite network G<sup>n</sup>. If we set ρ<sub>i</sub> = 0 for players i ∈ N \ N<sup>n</sup>, the last constraint makes sure that we select the players in the vertex covering such that the players in N \ N<sup>n</sup> who are decided on action 0 do not change their actions as a result of the control efforts. In general, the last constraint with ρ<sub>i</sub> = 0 can make the vertex covering problem infeasible—see Figure 3 for an example.
+
+Let x<sup>*</sup> = (x<sup>*</sup><sub>1</sub>, ... , x<sup>*</sup><sub>n</sub>), and ρ = (ρ<sub>1</sub><sup>*</sup>, ... , ρ<sup>*</sup><sub>n</sub>) be an optimal solution to (13). We construct a feasible control policy Π<sup>c</sup> = {X, Δ} as follows. Let X<sup>t</sup> = ∅ if t < n. Define the controlled player set X<sup>n</sup> and their actions Δ<sup>n</sup> at time n based on the optimal solution of the above problem as follows,
+
+$$X^n = \{ i \in N^n : x_i^* = 1 \} \bigcup \{ i \in N^n : x_i^* = 0, a_i^n = \epsilon \}, \tag{14}$$
+
+and
+
+$$\delta_i^n = \begin{cases} 0 & \text{for all } i \in \{ i \in N^n : x_i^* = 1 \} \ 1 & \text{for all } i \in \{ i \in N^n : x_i^* = 0, a_i^n = \epsilon \}. \end{cases} \tag{15}$$
+
+For t = n + 1, we define the controlled player set X<sup>n+1</sup> and their actions Δ<sup>n+1</sup> as follows,
+
+$$X^{n+1} = \{ i \in N^n : x_i^* = 1 \} \bigcup \{ i \notin N^n : \rho_i^* > 0 \}, \tag{16}$$and
+
+$$
+\delta_{i}^{n+1}=0 \quad \text { for all } i \in \mathcal{X}^{n+1}
+$$
+
+For $t \geq n+1$, we let $\mathcal{X}^{t}=\mathcal{X}^{n+1}$ if the action profile $\left\{a_{i}^{n+1}, \delta_{i}^{n+1}\right\}_{i \in \mathcal{N}}$ is not a Nash equilibrium of the game. Otherwise, $\mathcal{X}^{t}=\emptyset$ for $t>n$.
+
+Theorem 2 The dynamic control policy $\Pi_{v}=\{\mathcal{X}, \Delta\}$ with control and action sets at time $n$ given by (14)-(15) and for time $t \geq n+1$ given by (16)-(17) is a feasible dynamic policy for the dynamic MPCAC problem in (12).
+
+Proof: Given (14)-(15), the controlled action profile at time $n$ is given by (10),
+
+$$
+a_{i}^{n}= \begin{cases}1-x_{i}^{*} & \text { if } i \in \mathcal{N}^{n} \\ 0 & \text { o.w. }\end{cases}
+$$
+
+Given the definition of $\mathcal{G}^{n}$ and $\Delta^{n}$, we have the controlled actions $a^{n}$ satisfy $a_{i}^{n}+a_{j}^{n} \leq 1$ for any $(i, j) \in \mathcal{E}^{n}$, since we force at least one player in every link of $\mathcal{G}^{n}$ to play action 0 . This means that at time $n$ anti-coordination is achieved by $a^{n}$. Further, all players are decided satisfying the second constraint in (12).
+
+Next, we show $\mathcal{X}^{n+1}, \Delta^{n+1}$ maintains anti-coordination with the controlled action profile $a^{n+1}$.
+
+Consider the following set partition of $\mathcal{N}^{n}$,
+
+$$
+\begin{aligned}
+\mathcal{N}^{n} & =\left\{i \in \mathcal{N}: y_{i}^{n}=1\right\} \\
+& \cup\left\{i \in \mathcal{N}: y_{i}^{n}=\epsilon, x_{i}^{*}=1\right\} \\
+& \cup\left\{i \in \mathcal{N}: y_{i}^{n}=\epsilon, x_{i}^{*}=0\right\}
+\end{aligned}
+$$
+
+where $y^{n}$ is the uncontrolled action profile at time $n$. For the first two set of players in (19), we have $a_{i}^{n+1}=1-x_{i}^{*}$ by (16). The last set of players were controlled to play action 1. At time $n$, they have no neighbors that take action 1 in (15). So they continue to take action 1 using the update (2) even when they are not controlled any longer. Hence, $y_{i}^{n+1}=1-x_{i}^{*}$ for $\left\{i \in \mathcal{N}: a_{i}^{n}=\epsilon, x_{i}^{*}=0\right\}$. This implies that $a_{i}^{n+1}=1-x_{i}^{*}$ for all $i \in \mathcal{N}^{n}$.
+
+Next, consider the following partition of the set of players not belonging to $\mathcal{N}^{n}$,
+
+$$
+\begin{aligned}
+& \mathcal{N} \backslash \mathcal{N}^{n}=\left\{i \in \mathcal{N} \backslash \mathcal{N}^{n}: a_{i}^{n}=0, c_{i} \sum_{j \in \mathcal{N}_{i}}\left(\left\lceil a_{j}^{n}\right\rceil-x_{j}^{*}\right)<1\right\} \\
+& \cup\left\{i \in \mathcal{N} \backslash \mathcal{N}^{n}: a_{i}^{n}=0, c_{i} \sum_{j \in \mathcal{N}_{i}}\left(\left\lceil a_{j}^{n}\right\rceil-x_{j}^{*}\right)>1\right\}
+\end{aligned}
+$$
+
+Note that all the players in the first set in (20) are controlled to play action 0 in (16), that is, $a_{i}^{n+1}=0$ because $\left\{i \in \mathcal{N} \backslash \mathcal{N}^{n}\right.$ : $a_{i}^{n}=0, c_{i} \sum_{j \in \mathcal{N}_{i}}\left(\left\lceil a_{j}^{n}\right\rceil-x_{j}^{*}\right)<1\}=\left\{i \notin \mathcal{N}^{n}: \rho_{i}^{*}>0\right\}$ by the last constraint in (13). For the second set in (20), all players continue to select action 0 by (3). This implies that $a_{i}^{n+1}=0$ for $i \notin \mathcal{N}^{n}$.
+
+Combining the two arguments, we have $a_{i}^{n+1}=a_{i}^{n}$ where $a_{i}^{n}$ is given in (18). Hence, the controlled action profile at time $n+1$ achieves anti-coordination. Suppose, $a^{n+1}$ is a Nash equilibrium action profile, then $a^{n+1}=\Phi_{1}\left(a^{n+1}\right)$ and no further control effort is necessary. Otherwise, we have $y^{n+2}=\Phi_{1}\left(a^{n+1}\right)=\Phi_{1}\left(a^{n}\right)=y^{n+1}$ where $y^{n+1}$ and $y^{n+2}$
+are the uncontrolled action profiles at time $n+1$ and $n+2$, respectively. Since, $\mathcal{X}^{t}=\mathcal{X}^{n+1}, \Delta^{t}=\Delta^{n+1}$ for $t \geq n+1$, we have that $a^{n+2}=a^{n+1}$. By induction, the control policy $\Pi_{v}$ satisfies anti-coordination.
+
+The proof relies on showing that a minimum vertex cover will eliminate all possible risky interactions after Algorithm 1 possibly eliminates a subset of them. The optimization formulation in (13) makes sure that there are no changes to the players decided on action 0 by time $n$. The minimum vertex cover solution $\mathcal{X}^{n}$ and forced actions $\delta_{i}^{n}=0$ for all $i \in \mathcal{X}^{n}$ makes sure that the first two constraints in dynamic MPCAC are satisfied. The policy after time $n$ makes sure that all players continue to take the same actions for time $t>n$ hence satisfying the first two constraints for all $t>n$.
+
+Theorem 2 shows that the MPCAC problems can be upper bounded by solving the minimum vertex cover on the reduced bipartite graph $\mathcal{G}^{n}$. Further, if we set the tuning parameter $\lambda=0$, then the integer program in (13) has an exact linear programming relaxation due to total unimodularity of bipartite networks [28, Ch. 3]. Hence, we can obtain a feasible policy efficiently by solving (13) with penalty term $\lambda=0$. Then, including all players that have positive $\rho_{i}$ in the control set $\left(\left\{i \notin \mathcal{N}^{n}: \rho_{i}^{*}>0\right\}\right)$. The following corollary presents a scenario in which $\Pi_{v}$ optimal.
+
+Corollary 1 The policy $\Pi_{v}$ defined in Theorem 2 is an optimal policy if all players eliminate their actions in one time step in Algorithm 1.
+
+The proof given in the appendix relies on showing that when all players eliminate their actions, the optimization problem in (13) reduces to solving the minimum cardinality vertex cover for the entire network $\mathcal{G}$. This case happens only when $c_{i}$ is smaller than inverse of the maximum degree of the network $\left(c_{i}\left|\mathcal{N}_{i}\right|<1\right.$ for all $\left.i \in \mathcal{N}\right)$. The control policy $\Pi_{v}$ is an upper bound in general because it does not make use of cascades, i.e., use the learning dynamics to make multiple hop links inactive, by controlling a subset of players. Instead, it waits for the algorithm to eliminate as many active links as possible, and then makes a two time-step control of players. As we show in numerical examples in Section VIII, the policy $\Pi_{v}$ tends to perform well when $c_{0}$ is small and $c_{1}$ is large, or when $c_{0}$ is large and $c_{1}$ is small. In the following section, we present optimal policies for benchmark networks that exemplify the optimal use of cascades to eliminate active links.
+
+## VI. OPTIMAL SOLUTIONS FOR BENCHMARK NETWORKS
+
+We consider star, line and ring networks, and provide optimal solutions for both static and dynamic MPCAC problems.
+
+## A. Star network
+
+Consider a star network of $n$ players with player 1 in the center. Without loss of generality we assume center node is type 1 , i.e., $s_{1}=1$ and the rest are type 0 , i.e., $j \in \mathcal{S}_{0}$ for $j \in \mathcal{N} \backslash\{1\}$-see Figure 4.
+
+
+
+Fig. 4. Star, line, and ring benchmark networks for 4 player networks.
+
+**Proposition 1** *Depending on the utility constants $c_0$ and $c_1$, the optimal solutions to static MPCAC follows.*
+
+- *a) If $1 > c_0$ and $1 > c_1(n-1)$, then $\mathcal{X} = \{1\}$ with $\delta_1 = 0$.*
+- *b) If $1 < c_0$ and $1 > c_1(n-1)$, or $1 > c_0$ and $1 < c_1(n-1)$, then $\mathcal{X} = \emptyset$.*
+- *c) If $1 < c_0$ and $1 < c_1(n-1)$, then $\mathcal{X} = \{1\}$ with either $\delta_1 = 0$ or 1.*
+
+**Proof:** In a star network, if $1 > c_1(n-1)$ or $1 > c_0$, then the center or the fringe players have all actions strictly dominated by action 1 via (2). If $1 < c_0$, then a fringe player eliminates all actions except 0 via (3) when the center node takes action 1. If $1 < c_1(n-1)$, then the center player eliminates all actions except 0 via (3) when the fringe nodes take action 1. Based on this, in case (a), the algorithm converges to an action profile where all players take action 1. In order to achieve maximum anti-coordination, we select center player to play action 0. In case (b) the algorithm converges in 2 steps to a maximum anti-coordination action profile, i.e., $\{a_1 = 1, a_{-1} = 0\}$ or $\{a_1 = 0, a_{-1} = 1\}$. In case (c), there is no action that is strictly dominated if we do not control a player. Hence, we control center player to take action 0, i.e., $\mathcal{X} = \{1\}$. Then, all fringe players eliminate all actions except action 1.
+
+Above result addresses the three cases that can arise in a star network: (a) all players make decisions using the algorithm but the resultant action profile does not achieve maximum anti-coordination; (b) all players make decisions using the algorithm and the resultant action profile achieves maximum anti-coordination; (c) all players remain undecided using the algorithm. In case (a), we have to cause anti-coordination by controlling the center player. In case (b), we do not have to control any player. In case (c), we control the center player to trigger a decision for the fringe players.
+
+For the dynamic MPCAC, we need to specify the set of nodes controlled at each time step denoted by $\mathcal{X}^t$. We provide optimal policies for dynamic MPCAC problem on a star network.
+
+**Proposition 2** *Depending on the utility constants $c_0$ and $c_1$, the optimal solutions to dynamic MPCAC follows.*
+
+- *a) If $1 > c_0$ and $1 > c_1(n-1)$, then*
+
+$$
+\begin{cases}
+\mathcal{X}^t = \varnothing, & \text{if } t < n \\
+\mathcal{X}^t = \{1\}, \delta_1^t = 0 & \text{if } t \ge n
+\end{cases}
+$$
+
+*The resulting optimal cost is $C^* = 1$.*
+
+- *b) If $1 < c_0$ and $1 > c_1(n-1)$, or $1 > c_0$ and $1 < c_1(n-1)$, then $\mathcal{X}^t = \varnothing$ for all $t$. The resulting optimal cost is $C^* = 0$.*
+
+- *c) If $1 < c_0$ and $1 < c_1(n-1)$, then $\mathcal{X}^1 = \{1\}$.*
+
+$$
+\begin{cases}
+\mathcal{X}^t = \{1\}, \delta_1^t = 0 & \text{if } t = 0, 1 \\
+\mathcal{X}^t = \varnothing & \text{if } t > 1
+\end{cases}
+$$
+
+*The resulting optimal cost is $C^* = 2/n$.*
+
+**Proof:** In cases (a) and (b), the game is dominance solvable. Further, the algorithm converges in $t \le 2$ steps. Lemma 3 together with Lemma 2 gives the optimal policies for the first two cases.
+
+In case (c), the game is not dominance solvable and there exists two Nash equilibria that achieve maximum anti-coordination: $(a_1 = 0, \{a_i = 1\}_{i \neq 1})$ and $(a_1 = 1, \{a_i = 0\}_{i \neq 1})$. By Lemma 4, the optimal policy will induce the dynamics to converge to one of these configurations. Either of these equilibria can be achieved through a dynamic policy that targets only the center node for a single time step, which gives the optimal cost $1/n$. For instance, we set the center player's action to 0 at time $t = 0$ so that fringe players select $a_i = 1$ at $t = 1$. We hold this control at $t = 1$ as well, so that the center node will consolidate its unforced action to 0 by (3). We lift the control at $t = 2$ and for all times thereafter, in which the players are in equilibrium and maximum anti-coordination is achieved. This policy is optimal because there cannot be a policy that achieves a smaller objective value than $2/n$ and achieve maximum anti-coordination.
+
+The optimal action profile and its proof are similar to the static case. There are two significant differences between the dynamic and static problem. If the algorithm converges to an action profile in which some neighboring pairs of players end up taking action 1, e.g., case (a), then we have to anti-coordinate the corresponding links by controlling one of the players at the end of the time horizon $n$. If the algorithm is going to converge to an action profile where we will have undecided neighboring players (case (c)), we can make these players anti-coordinate by initially controlling one of the neighbors temporarily for two time steps. In case (a), we incur a cost of 1 because if we lift our control of the center player, it will always revert back to $a_1 = 1$. In contrast, in case (c), we only need to control the player 1 for two steps, because it will not revert to $a_1 = 1$ by the time its neighbors are taking action 1.
+
+### *B. Line network*
+
+We consider a line network in which the neighborhood of player $i \in \mathcal{N} \setminus \{1, n\}$ is given by $\mathcal{N}_i = \{i - 1, i + 1\}$. The players at the endpoints have neighbor sets $\mathcal{N}_1 = \{2\}$, $\mathcal{N}_n = \{n-1\}$. The type configuration alternates between types 0 and$1: i \in \mathcal{S}_{0}$ for $i$ odd, and $i \in \mathcal{S}_{1}$ for $i$ even. We will also refer to the subsets $\mathcal{S}_{m}^{\text {odd }}, \mathcal{S}_{m}^{\text {even }}$ for $m \in\{0,1\}$ to denote every odd (even) player from the set $\mathcal{S}_{m}$ along the line. In the following analysis, we consider six payoff constant cases that ensure an exhaustive analysis for the line, and in the next section, the ring network. First, we consider an odd number of players on the line network.
+
+Proposition 3 Depending on the utility constants $c_{0}$ and $c_{1}$, the optimal control set for the static MPCAC problem for a line network with $n$ odd is
+a) If $1>2 c_{0}$ and $1>2 c_{1}$, then $\mathcal{X}=\mathcal{S}_{1},|\mathcal{X}|=\lfloor n / 2\rfloor$, and $\delta_{\mathcal{S}_{1}}=0$.
+b) If $1>2 c_{0}$ and $2 c_{1}>1>c_{1}$, then $\mathcal{X}=\varnothing$.
+c) If $1>2 c_{0}$ and $c_{1}>1$, then $\mathcal{X}=\varnothing$.
+d) If $2 c_{0}>1>c_{0}$ and $2 c_{1}>1>c_{1}$, then $\mathcal{X}=$ $\mathcal{S}_{1}^{\text {even }},\left\{\delta_{i}\right\}_{i \in \mathcal{X}}=0$, and $|\mathcal{X}|=\lfloor n / 4\rfloor$.
+e) If $c_{0}>1$ and $2 c_{1}>1>c_{1}$, then $|\mathcal{X}|=1$ where $\mathcal{X}$ is any one player $i$, with $\delta_{i}=0$ (1) if $i \in \mathcal{S}_{0}\left(\mathcal{S}_{1}\right)$.
+f) If $c_{0}>1$ and $c_{1}>1$, then $|\mathcal{X}|=\lceil(n-1) / 4\rceil$, where $\mathcal{X}=\mathcal{S}_{0}^{\text {even }}$, with $\delta_{\mathcal{X}}=1$.
+
+## Proof:
+
+a) The game is dominance solvable with the unique Nash equilibrium $a_{i}=1$ for all $i \in \mathcal{N}$. The minimum vertex cover is $\mathcal{X}=\mathcal{S}_{1}$, and forcing action 0 induces the solution.
+b) The game is dominance solvable with the unique Nash equilibrium $a_{\mathcal{S}_{0}}=1, a_{\mathcal{S}_{1}}=0$.
+c) Same proof as (b).
+d) Consider controlling $\mathcal{S}_{1}$ players spaced three nodes apart along the line with action 0 . These consist of the evenindexed $\mathcal{S}_{1}$ players. In two time steps, the nodes in between will converge to the equilibrium action inducing maximum anti-coordination. The smallest number of nodes to control in this manner is $\lfloor n / 4\rfloor$. Sparser placement of control results in undecided players.
+e) If $\mathcal{X}$ selects a single $i \in \mathcal{S}_{1}$ to play $a_{i}=1$, its $\mathcal{S}_{0}$ neighbors decide on action $0\left(1<c_{0}\right)$. At the next iteration, the next $\mathcal{S}_{1}$ players will decide on action 1 $\left(1>c_{1}\right)$. This cascades down the entire line, resulting in maximum anti-coordination. The same holds if $\mathcal{X}$ selected a single $i \in \mathcal{S}_{0}$ to play $a_{i}=0$.
+f) In a similar manner as case (d), $\mathcal{X}$ can be chosen to be every other $\mathcal{S}_{0}$ player along the line network, forcing with action 1 to cause two-hop cascades along the network in two time steps.
+
+Proposition 4 Depending on the utility constants $c_{0}$ and $c_{1}$, the optimal control policy $\left(\left\{\mathcal{X}^{t}\right\}, \Delta\right)$ for the dynamic MPCAC problem on a line network with $n$ odd is
+a) If $1>2 c_{0}$ and $1>2 c_{1}$, then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\varnothing & \text { if } t<n \\ \mathcal{X}^{t}=\mathcal{S}_{1},\left\{\delta_{i}^{t}\right\}_{i \in \mathcal{S}}=0 & \text { if } t \geq n\end{cases}
+$$
+
+which gives the optimal cost $C^{*}=\lfloor n / 2\rfloor$.
+b) If $1>2 c_{0}$ and $2 c_{1}>1>c_{1}$, then $\mathcal{X}^{t}=\varnothing$ for all $t \geq 0$.
+c) If $1>2 c_{0}$ and $c_{1}>1$, then $\mathcal{X}^{t}=\varnothing$ for all $t \geq 0$.
+d) If $2 c_{0}>1>c_{0}$ and $2 c_{1}>1>c_{1}$, then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\mathcal{S}_{1}^{\text {even }}, \delta_{\mathcal{X}^{t}}^{t}=0 & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+which gives the optimal cost $C^{*}=2\lfloor n / 4\rfloor / n$.
+e) If $c_{0}>1$ and $2 c_{1}>1>c_{1}$, then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\{i\}, \delta_{i}^{t}=s_{i} & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+for any $i \in \mathcal{N}$. This gives the optimal cost $C^{*}=2 / n$.
+f) Suppose $c_{0}>1$ and $c_{1}>1$. Then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\mathcal{S}_{0}^{\text {even }}, \delta_{\mathcal{X}^{t}}^{t}=1 & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+gives the optimal cost $C^{*}=2\lceil(n-1) / 4\rceil / n$.
+
+## Proof:
+
+a) The game is dominance solvable, and converges at $t=1$ to $a=(1, \ldots, 1)$. By Lemma 2, the optimal policy selects the minimum vertex cover of the line graph after the $n$ time-step horizon.
+b) The game is dominance solvable, and converges at $t=2$ to the unique Nash equilibrium $a$ s.t. $a_{i}=1$ for all $i \in \mathcal{S}_{0}$ and $a_{i}=0$ for all $i \in \mathcal{S}_{1}$, achieving maximum anticoagordination. Lemma 3 asserts the optimal policy is the empty set.
+c) Same proof as (b).
+d) The action profile $a_{\mathcal{S}_{0}}=1, a_{\mathcal{S}_{1}}=0$ is the only Nash equilibrium achieving maximum anti-coordination. By Lemma 4, the optimal policy induces convergence to this equilibrium by $t=n$. Only the endpoint players $\{1, n\} \in \mathcal{S}_{0}$ have action 1 as a dominant strategy $\left(1>c_{0}\right)$, and all other players will remain undecided in the absence of control. Hence, the policy that gives convergence to $a$ with minimal cost selects every even $\mathcal{S}_{1}$ players to play 0 for two time steps, given in the Proposition statement d).
+e) The game is not dominance solvable, but there are two Nash equilibria $a^{*}, \hat{a}$ giving maximum anti-coordination, where $\left(a_{\mathcal{S}_{0}}^{*}=0, a_{\mathcal{S}_{1}}^{*}=1\right)$ and $\left(\hat{a}_{\mathcal{S}_{0}}=1, \hat{a}_{\mathcal{S}_{1}}=0\right)$. By Lemma 4, the optimal policy induces convergence to one of these equilibria by $t=n$. One can check that a dynamic policy incurring total cost $2 / n$ (controlling a single node for two time-steps) induces convergence to $a^{*}$, and any dynamic policy inducing convergence to $\hat{a}$ has cost strictly greater than $2 / n$ because a player in $i \in \mathcal{S}_{1}$ needs $a_{i-1}^{t-1}=a_{i+1}^{t-1}=1$ in order to play the equilibrium action $a_{i}^{t}=0$ (due to $1<2 c_{1}$ ). Such a convergence would require controlling more than a single node for two time steps.
+f) The two Nash equilibria $a^{*}, \hat{a}$ give maximum anticoagordination, so by Lemma 4, one of these are selected in optimality. Selecting $\hat{a}$ gives the minimal cost when every odd $\mathcal{S}_{0}$ player is controlled with action 1 for two time-steps, which causes the players in between theseselections to decide on the equilibrium actions. Similarly, selecting $a^{*}$ also gives the minimal cost when every odd $\mathcal{S}_{1}$ player, including the last one, is controlled with action 1 for two time-steps.
+
+When considering even number of players $n$ in the line network, we obtain similar results. For brevity, we present the results but omit the proofs because they follow similar arguments as Proposition 4. Here, the type configuration in the network also alternates s.t. $i \in \mathcal{S}_{0}$ if $i$ is odd, and $s_{i} \in \mathcal{S}_{1}$ if $i$ is even.
+
+Proposition 5 Depending on the utility constants $c_{0}$ and $c_{1}$, the optimal solutions to static MPCAC for a line network with $n$ even is
+a) If $1>2 c_{0}$ and $1>2 c_{1}$, then $\mathcal{X}=\mathcal{S}_{0}$ or $\mathcal{S}_{1}$ with $\delta_{\mathcal{X}}=0$. Then, $|\mathcal{X}|=n / 2$.
+b) If $1>2 c_{0}$ and $2 c_{1}>1>c_{1}$, then $\mathcal{X}=\{n\}$ with $\delta_{n}=0$.
+c) If $1>2 c_{0}$ and $c_{1}>1$, then $\mathcal{X}=\varnothing$.
+d) If $2 c_{0}>1>c_{0}$ and $2 c_{1}>1>c_{1}$, then $\mathcal{X}=\mathcal{S}_{1}^{\text {odd }}$ with $\delta_{\mathcal{X}}=0$. Then $|\mathcal{X}|=\lceil n / 4\rceil$.
+e) If $c_{0}>1$ and $2 c_{1}>1>c_{1}$, then $\mathcal{X}=\varnothing$.
+f) If $c_{0}>1$ and $c_{1}>1$, then $\mathcal{X}=\mathcal{S}_{1}^{\text {odd }}$ with $\delta_{\mathcal{X}}=1$. Then $|\mathcal{X}|=\lceil n / 4\rceil$.
+
+Proposition 6 Depending on the utility constants $c_{0}$ and $c_{1}$, the optimal solutions to the dynamic MPCAC problem for a line network with $n$ even is
+a) If $1>2 c_{0}$ and $1>2 c_{1}$, then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\varnothing & \text { if } t<n \\ \mathcal{X}^{t}=\mathcal{S}_{0} \text { or } \mathcal{S}_{1},\left\{\delta_{i}^{t}\right\}_{i \in \mathcal{S}}=0 & \text { if } t \geq n\end{cases}
+$$
+
+which gives the optimal cost $C^{*}=n / 2$.
+b) If $1>2 c_{0}$ and $2 c_{1}>1>c_{1}$, then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\varnothing & \text { if } t<n \\ \mathcal{X}^{t}=\{n\}, \delta_{n}^{t}=0 & \text { if } t \geq n\end{cases}
+$$
+
+which gives the optimal cost $C^{*}=1$.
+c) If $1>2 c_{0}$ and $c_{1}>1$, then $\mathcal{X}^{t}=\varnothing$ for all $t \geq 0$.
+d) If $2 c_{0}>1>c_{0}$ and $2 c_{1}>1>c_{1}$, then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\mathcal{S}_{1}^{\text {odd }} \cup\{n\}, \delta_{\mathcal{X}^{t}}^{t}=0 & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+which gives the optimal cost $C^{*}=2\lceil n / 4\rceil / n$.
+e) If $c_{0}>1$ and $2 c_{1}>1>c_{1}$, then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\{i\}, \delta_{i}^{t}=s_{i} & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+for any $i \in \mathcal{N}$. This gives the optimal cost $C^{*}=2 / n$.
+f) Suppose $c_{0}>1$ and $c_{1}>1$. Then
+
+$$
+\begin{cases}\mathcal{X}^{t}=\mathcal{S}_{1}^{\text {odd }}, \delta_{\mathcal{X}^{t}}^{t}=1 & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+gives the optimal cost $C^{*}=2\lceil n / 4\rceil / n$.
+
+## C. Ring network
+
+Here, we consider a ring network with alternating type configuration and where $n$ is even. For convention, we index the players in the same fashion as the line network above, and alternate types between $\mathcal{S}_{0}, \mathcal{S}_{1}$ - i.e., odd (even) indices are $\mathcal{S}_{0}\left(\mathcal{S}_{1}\right)$ players.
+
+Proposition 7 Depending on the utility constants $c_{0}$ and $c_{1}$, the optimal solutions to static MPCAC for a ring network with $n$ even is
+a) If $1>2 c_{0}$ and $1>2 c_{1}, \mathcal{X}=\mathcal{S}_{0}$ or $\mathcal{S}_{1}$, and $|\mathcal{X}|=n / 2$.
+b) If $1>2 c_{0}$ and $2 c_{1}>1>c_{1}, \mathcal{X}=\varnothing$.
+c) If $1>2 c_{0}$ and $c_{1}>1, \mathcal{X}=\varnothing$.
+d) If $2 c_{0}>1>c_{0}$ and $2 c_{1}>1>c_{1}, \mathcal{X}=\mathcal{S}_{0}^{\text {odd }}$ or $\mathcal{S}_{1}^{\text {odd }}$ with $\delta_{\mathcal{X}}=1$. Then, $|\mathcal{X}|=\lceil n / 4\rceil$.
+e) If $c_{0}>1$ and $2 c_{1}>1>c_{1}, \mathcal{X}=\{i\}$ with $\delta_{i}=s_{i}$ for any $i \in \mathcal{N}$. Then $|\mathcal{X}|=1$.
+f) If $c_{0}>1$ and $c_{1}>1$, either $\mathcal{X}=\mathcal{S}_{0}^{\text {odd }}$ or $\mathcal{X}=\mathcal{S}_{1}^{\text {odd }}$ with $\delta_{\mathcal{X}}=1$. Then $|\mathcal{X}|=\lceil n / 4\rceil$.
+
+## Proof:
+
+a) The game is dominance solvable with all nodes playing action 1. Hence, influence of either all type-0 or type-1 nodes gives the solution.
+b) The game is dominance solvable, which converges to maximum anti-coordination (type-0 playing 1, type-1 playing 0 ) without influencing any nodes.
+c) Same argument as (b).
+d) The learning algorithm produces no decided nodes. Controlling a single node to play 0 results in the algorithm converging in the next iteration, with its two neighbors playing 1. Hence, by controlling every other node of one type (every 4 along the ring) to play 0 , the algorithm will converge to maximum anti-coordination in two iterations.
+e) The algorithm produces no decided nodes. If a single type- 0 node is forced to play 0 , decisions will be cascaded along the ring resulting in maximum anti-coordination. Similarly, one could influence a single type-1 node to play 1.
+f) Same argument as (d).
+
+Proposition 8 Depending on the utility constants $c_{0}$ and $c_{1}$, the optimal solutions to dynamic MPCAC for a ring network with $n$ even is
+a) If $1>2 c_{0}$ and $1>2 c_{1}$
+
+$$
+\begin{cases}\mathcal{X}^{t}=\varnothing & \text { if } t<n \\ \mathcal{X}^{t}=\mathcal{S}_{0} \text { or } \mathcal{S}_{1},\left\{\delta_{i}^{t}\right\}_{i \in \mathcal{S}}=0 & \text { if } t \geq n\end{cases}
+$$
+
+The resulting optimal cost is $C^{*}=n / 2$.
+b) If $1>2 c_{0}$ and $2 c_{1}>1>c_{1}, \mathcal{X}^{t}=\varnothing$ for all $t \geq 0$.
+c) If $1>2 c_{0}$ and $c_{1}>1, \mathcal{X}^{t}=\varnothing$ for all $t \geq 0$.
+d) If $2 c_{0}>1>c_{0}$ and $2 c_{1}>1>c_{1}$,
+
+$$
+\begin{cases}\mathcal{X}^{t}=\mathcal{S}_{1}^{\text {odd }}, \delta_{\mathcal{X}^{t}}^{t}=1 & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$The resulting optimal cost is $C^{*}=2\lceil n / 4\rceil / n$.
+e) If $c_{0}>1$ and $2 c_{1}>1>c_{1}$,
+
+$$
+\begin{cases}\mathcal{X}^{t}=\{i\}, \delta_{i}^{t}=s_{i} & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+The resulting optimal cost is $C^{*}=2 / n$.
+f) If $c_{0}>1$ and $c_{1}>1$, then either
+
+$$
+\begin{cases}\mathcal{X}^{t}=\mathcal{S}_{0}^{\text {odd }}, \delta_{\mathcal{X}^{t}}^{t}=1 & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+or
+
+$$
+\begin{cases}\mathcal{X}^{t}=\mathcal{S}_{1}^{\text {odd }}, \delta_{\mathcal{X}^{t}}^{t}=1 & \text { if } t=0,1 \\ \mathcal{X}^{t}=\varnothing & \text { if } t>1\end{cases}
+$$
+
+gives the optimal cost $C^{*}=2\lceil n / 4\rceil / n$.
+Proof: We omit the details of the proof for brevity. The proof utilizes similar arguments from Proposition 4 by invoking Lemmas 3, 4, and 2, as well as the structural arguments from the proof of Proposition 7.
+
+## D. Discussion
+
+The optimal control policies vary depending on the payoff constants. If all players decide to play action 1 as a result of the learning process, then we solve a minimum vertex covering problem along the lines of Lemma 2, and the players selected have to be controlled for all times $t \geq n$-case (a) in all of the propositions in this section. If the game is dominance solvable and there are no active anti-coordination links in the equilibrium action profile, the optimal policy is the empty set-see Propositions 1(b), 2(b), 3(b,c), 4(b,c), 5(b,c) 6(b,c), 7(b,c), and 8. If a subset of players remain undecided as a result of the learning algorithm and there are no failed anti-coordination links between the decided players, an optimal policy can be found by leveraging Lemma 4. In the benchmark examples, these policies required controlling a subset of the players, causing the undecided players in the other type to decide. In dynamic MPCAC cases, this subset needed to be controlled for two time steps. The neighboring players will decide on actions after the first time step, and the controlled players use their neighbors' decisions to consolidate their (unforced) actions in the second time step. Thus, the control can be lifted and no player will revert from their decided actions. The resultant action profile is a Nash equilibrium action profile that satisfies maximum anti-coordination. Hence, there is no need to make control efforts after time $n$. Consequently, we can control a smaller subset of players and leverage the learning dynamics to create cascades of decision-making-see cases (d-f) in Propositions 3 - 8. In the latter scenarios, the policy suggested by Lemma 2 is an upper bound of the optimal policy.
+
+## VII. SUbOPTIMAL ALGORITHMS FOR GENERAL NETWORKS
+
+For general bipartite network topologies and for arbitrary network size, it becomes challenging to solve precisely for the MPCAC solutions (both static and dynamic). We devise
+an algorithm that selects at each iteration one player to control according to a greedy approach. The algorithm results in a subset of control agents $\hat{\mathcal{X}}$ that ensures maximum anticoordination, but may not be the optimal MPCAC solution.
+
+Given a network game $\left\{\mathcal{N}, \mathcal{A}, \mathcal{G}_{B},\left\{u_{i}\right\}_{i \in \mathcal{N}}\right\}$, we define player $i$ 's active neighbor set given action profile $a \in \mathcal{A}$ as
+
+$$
+\mathcal{N}_{i}^{*}(a)=\left\{j \in \mathcal{N}_{i}: a_{j} \in\{\epsilon, 1\}\right\}
+$$
+
+The active edge set of the network in action profile $a$ is
+
+$$
+\mathcal{E}^{*}(a):=\left\{(i, j) \in \mathcal{E}_{B}: a_{i}, a_{j} \in\{\epsilon, 1\}\right\}
+$$
+
+At each iteration $k$, the greedy algorithm selects the player $i_{k}^{*}$ that, upon holding its action fixed at $a_{i_{k}^{*}}=\delta_{i} \in\{0,1\}$, results in the most number of active edges eliminated by the time the system dynamics converge. We call the number of such links eliminated from choosing any player $i$ in the action profile $a$ the cascade potential of player $i$,
+
+$$
+\left.\mathrm{CP}_{i}\left(a, \delta_{i}\right)=\left|\mathcal{E}^{*}(a)\right|-\left|\mathcal{E}^{*}\left(\Phi_{n}\left(a,\{i\}_{t \geq 0},\left\{\delta_{i}\right\}_{t \geq 0}\right)\right)\right|
+$$
+
+The process repeats, incrementally building up the player control set $\hat{\mathcal{X}}$, until all active edges are eliminated from the network. The algorithm is detailed below.
+
+## Algorithm 2 (Greedy algorithm)
+
+Initialize: $a_{i}^{0}=\epsilon$ for all $i \in \mathcal{N}$
+
+$$
+\begin{aligned}
+& \hat{\mathcal{X}}(0)=\varnothing \\
+& \hat{\delta}=0_{n} \\
+& k \leftarrow 0
+\end{aligned}
+$$
+
+while $\sum_{(i, j) \in \mathcal{E}_{B}} a_{i}^{k} a_{j}^{k} \neq 0$
+
+1) Allow dynamics to run until convergence
+
+$$
+a^{k+1} \leftarrow \Phi_{n}\left(a^{k}, \hat{\mathcal{X}}(k), 0_{n}\right)
+$$
+
+2) Store convergence time
+
+$$
+t_{k} \leftarrow \min \left\{t \leq n: \Phi_{t}\left(a^{k}, \hat{\mathcal{X}}(k), 0_{n}\right)=\Phi_{t-1}\left(a^{k}, \hat{\mathcal{X}}(k), 0_{n}\right)\right\}
+$$
+
+3) Selection criterion
+
+$$
+\left(i_{k}^{*}, \delta_{i_{k}^{*}}\right) \leftarrow \operatorname{rand}\left(i \in \underset{\substack{i: a_{i}^{k+1} \in\{\epsilon, 1\}}}{ \operatorname{argmax}} C P_{i}\left(a^{k+1}, \delta_{i}\right)\right)
+$$
+
+4) Update control set
+
+$$
+\begin{aligned}
+& \hat{\mathcal{X}}(k+1) \leftarrow \hat{\mathcal{X}}(k) \cup i_{k}^{*} \\
+& \hat{\delta}_{i_{k}^{*}} \leftarrow \delta_{i_{k}^{*}}
+\end{aligned}
+$$
+
+5) $k \leftarrow k+1$
+end
+$\hat{\mathcal{X}} \leftarrow \hat{\mathcal{X}}(k)$
+end
+If multiple players satisfy the maximum cascade potential criterion in step 3, ties are broken by random selection. The looping condition $\sum_{(i, j) \in \mathcal{E}_{B}} a_{i}^{k} a_{j}^{k} \neq 0$ makes sure that we select players to control until no links remain active, that is, $a_{i}^{k} a_{j}^{k}=0$ for all $(i, j) \in \mathcal{E}_{B}$.
+
+We also consider a few variants of the above algorithm by replacing the selection criterion in step 3) bya) $i_{k}^{*} \leftarrow \operatorname{rand}\left(i \in \operatorname{argmax}_{i: a_{i}^{k} \in\{e, 1\}}\left|\mathcal{N}_{i}^{*}\left(a^{k}\right)\right|\right)$ $\hat{\delta}_{i_{k}^{*}} \leftarrow 0$ (max degree)
+b) $i_{k}^{*} \leftarrow \operatorname{rand}\left(\left\{i:(i, j) \in \mathcal{E}^{*}\left(a^{k+1}\right)\right.\right.$ for some $\left.\left.j\right\}\right)$ $\hat{\delta}_{i_{k}^{*}} \leftarrow 0$ (rand)
+c) $i_{k}^{*} \leftarrow \operatorname{rand}\left(i \in \operatorname{argmax}_{i, \delta_{i}} \mathrm{CP}_{i}\left(a^{k+1}, \delta_{i}\right)+\right.$ $\sum_{j=1}^{n} 1\left(a_{j}^{k+1} \neq a_{j}^{k}\right)(\mathrm{CP} 2)$
+d) Here, replace Algorithm 2 after Initialize with
+
+$$
+\begin{gathered}
+\bar{a} \leftarrow \Phi_{n}\left(a^{0}\right) \\
+\hat{\mathcal{X}}=\mathrm{VC}\left(\mathcal{E}^{*}(\bar{a})\right)
+\end{gathered}
+$$
+
+where VC is the minimum vertex cover scheme detailed in (16) of the resulting active network after the first convergence of the dynamics.
+In a), a player with the maximum number of active neighboring links is selected to play action 0 . We denote this the "max degree" variant. In b), one player connected to the active network is selected uniformly at random with forced action 0 . This algorithm called "rand". A variant of cascade potential, which we call "CP2" , is described in c), which selects the node that has the highest cascade potential in addition to inducing the most amount of players to change their action (see Remark 1 for motivation). In d), we select the control set as the minimum vertex cover as specified in (16) of Theorem 2. Note that in variants "max degree", "rand", and "VC", the forced actions are always $\hat{\delta}_{i}=0$, since it guarantees active edges to be eliminated (immediate neighbors). In the CP-based algorithms, $\hat{\delta}_{i}$ can either be 0 or 1 , depending on which results in the most "cascaded" active links broken.
+
+Proposition 9 For all variants of Algorithm 2, a resulting control set $(\hat{\mathcal{X}}, \hat{\delta})$ is a feasible static control policy of MPCAC. A feasible dynamic policy $(\mathcal{X}, \Delta)$ is also produced by implementing control on the players $i_{k}$ in the order they were selected, and holding $a_{i_{k}}=0$ for all times:
+
+$$
+\begin{aligned}
+& \mathcal{X}^{t}= \begin{cases}\hat{\mathcal{X}}(k), & \text { for } \sum_{m=0}^{k-1} t_{m} \leq t<\sum_{m=0}^{k} t_{m} \\
+\hat{\mathcal{X}}, & \text { for } t \geq \sum_{m=0}^{k} t_{m}\end{cases} \\
+& \Delta^{t}=\hat{\delta}, \text { for all } t \geq 0
+\end{aligned}
+$$
+
+with $\sum_{m=0}^{-1} t_{m} \equiv 0$.
+Proof: Consider the static policy $\left(\hat{\mathcal{X}}, 0_{n}\right)$. By the definition of Algorithm 2, step 1 at the last iteration $k$ ensures maximum anti-coordination, where the control set used is $\hat{\mathcal{X}}(k)=\hat{\mathcal{X}}$. That is, $\Phi_{n}\left(a^{k}, \hat{\mathcal{X}}(k), 0_{n}\right)$ gives an action profile with maximum anti-coordination. It is also true that $\Phi_{n}(\vec{e}, \hat{\mathcal{X}}(k), 0_{n})$ gives the same action profile because the players in $\hat{\mathcal{X}}$ were iteratively selected to eliminate all active links. If active links appeared as a result of a selection, these links are ensured to be eliminated in a subsequent iteration of the algorithm. Hence, $\left(\hat{\mathcal{X}}, 0_{n}\right)$ is a feasible static MPCAC solution.
+
+The policy $\left(\mathcal{X}^{t}, \Delta\right)$ is a feasible dynamic MPCAC solution because it simply mimics the iterations of Algorithm 2.
+
+Remark 1 In practice, Algorithm 2 (CP variant, as written) will find the optimal solution to the star network of Proposition
+
+1. For the line network Proposition 3, it finds the optimal solution in cases (b-e) always, and in cases (a,f) with some probability. In case (a), this is due to the possibility that the algorithm can select two players with different types along the line, which causes redundancies in control because the vertex cover $\mathcal{S}_{1}$ is the optimal control choice by Corollary 1. In case (f), the algorithm could select a player one node from an endpoint (since it cascades the same number of links as any other player), when it could have selected the player two nodes from the endpoint, which covers more of the network and still causes the endpoint player to decide. This is the motivation behind introducing the CP2 variant - with this algorithm, it chooses the player two nodes from an endpoint with certainty because it causes the same number of cascaded links, but causes more players to change their decision.
+
+## VIII. NUMERICAL EXPERIMENTS
+
+We demonstrate the effectiveness of Algorithm 2 and its variants in numerical simulations over randomly generated bipartite networks. We generate a random bipartite network of size $n$ by assigning half of the players to $\mathcal{S}_{0}$, and the other half $\mathcal{S}_{1}$ (assuming $n$ is even). A link $(i, j)$ between $i \in \mathcal{S}_{0}$ and $j \in \mathcal{S}_{1}$ is present with independent probability $p_{B} \in(0,1)$.
+
+In Figure 5, the control effort for three variants of Algorithm 2 is mapped over varying values of $c_{0}, c_{1}$. The quantity $\left\lfloor 1 / c_{0}\right\rfloor$ is the largest number of neighbors not playing action 0 a player in $S_{0}$ can have to still play action 1 as a dominant action. Similarly, $\left\lfloor 1 / c_{1}\right\rfloor$ is the largest number of neighbors not playing action 0 for an $S_{1}$ node. As both $c_{0}^{-1}$ and $c_{1}^{-1}$ increase, more control is necessary because more nodes will be playing dominant action 1. For $c_{0}^{-1}$ low and $c_{1}^{-1}$ high, no control effort is necessary to achieve maximum anti-coordination because $S_{1}$ nodes will play dominant action 1 , and $S_{0}$ nodes in turn will choose dominant action 0 . With both $c_{0}^{-1}, c_{1}^{-1}$ low, no nodes can initially decide. Hence, a large control effort is needed to cause the remaining nodes to play action 1.
+
+In Figure 6, we plot the performance of Algorithm 2 and its variants by measuring the control effort $|\hat{\mathcal{X}}| / n$, the fraction of players selected. In the left panel, $\left\lfloor 1 / c_{0}\right\rfloor=\left\lfloor 1 / c_{1}\right\rfloor=0$ - no players will decide without external control. Here, the CP-based algorithms perform significantly better than either variant because forcing $\delta_{i}=1$ will cause all neighbors to play action 0 . Max degree and VC have comparable performance here. In the center panel, $\left\lfloor 1 / c_{0}\right\rfloor=\left\lfloor 1 / c_{1}\right\rfloor=2$ - a player has strictly dominant action 1 if two or less neighbors do not play action 0 . The performance of the CP-based algorithms slightly worsen, while the variants slightly improve. In the right panel, $\left\lfloor 1 / c_{0}\right\rfloor=\left\lfloor 1 / c_{1}\right\rfloor=1$. Here, the VC variant performs worse than "rand", suggesting that the vertex covering scheme can in some cases be inefficient as a control policy. Overall, the CP-based algorithms outperform all other variants due to their exploitation of "cascades" by using the inherent dynamics $\Phi$ to eliminate active links.
+
+## IX. CONCLUSION
+
+We considered the control of players' learning processes in a population to influence the emergent outcome in the
+
+Fig. 5. The control effort $$|\bar{A}|/n$$ used by Algorithm 2 on 20-node random bipartite networks, with $$p_B = 0.3$$ (expected degree of 3). Each payoff constant $$c_0, c_1$$ takes ten different values selected such that $$mc_i > 1 > (m - 1)c_i$$ for $$m = 1, \ldots, 10$$ and for $$i = 0, 1$$. Each value in the grid results from averaging the resulting control effort from 1000 independent realizations of the network.
+
+
+
+Fig. 6. The fraction of nodes $$|\bar{A}|/n$$ (control effort) to achieve maximum anti-coordination vs size of the network among the five variants of Algorithm 2. The network is a bipartite network of size $$N$$, ranging from $$N = 10$$ to $$70$$ with +5 increments. Each node is independently randomly chosen type 0 or 1 with equal probability, and the link $$(i, j), i \in S_0 \text{ } j \in S_1,$$ is drawn with probability $$6/N$$, to achieve an expected degree of 3. The CP-based algorithms outperform the other variants.
+
+Context of anti-coordination network games. With the goal to promote maximum anti-coordination with minimum effort, we developed computationally tractable methods that determine when to control which players, and how to control them. An algorithm that sequentially selected players according to their influence in promoting anti-coordination in the future performed well in random networks with arbitrary population sizes.
+
+## APPENDIX
+
+### A. Proof of Theorem 1
+
+We show that Algorithm 1 is equivalent to the iterated elimination of strictly dominated strategies in Definition 2. This equivalence yields convergence to Nash equilibrium if the game is dominance solvable. Otherwise, it yields elimination of all the strictly dominated actions.
+
+We prove by induction. Given $$a_i^0 = \epsilon$$, at time $$k = 1$$ each player that selects action $$1 (a_i^1)$$ by (2) eliminates all the other actions in $$[0, 1)$$. To see this consider the best response of player $$i$$ given in (6) where $$BR_i(a_{\mathcal{N}_i}) \geq BR_i(\lceil a_{\mathcal{N}_i}^0 \rceil)$$ for all $$a_{\mathcal{N}_i} \in [0, 1]^{|\mathcal{N}_i|}$$. Further note that $$\lceil a_{\mathcal{N}_i}^0 \rceil = 1_{|\mathcal{N}_i|}$$. If $$BR_i(1_{|\mathcal{N}_i|}) = 1$$ then it is best to play action 1 against all possible actions of neighboring players by the previous inequality. Hence, by (8), all actions in $$[0, 1)$$ are strictly dominated by $$a_i^1 = 1$$.
+
+Consider now time $$k$$ given action profile $$a^{k-1}$$ where players that decided $$a_i^{k-1} \in \{0, 1\}$$ have eliminated rest of their actions. Define the not strictly dominated action space of each player $$i \in \mathcal{N}$$ as $$A_i^{k-1} = \{1\}$$ if $$a_i^{k-1} = 1, A_i^{k-1} = \{0\}$$ if $$a_i^{k-1} = 0$$, and $$A_i^{k-1} = [0, 1]$$ if $$a_i^{k-1} = \epsilon$$ (recall the notation in Definiton (2)). For any player $$i$$, we have $$BR_i(a_{\mathcal{N}_i}) \geq BR_i(\lceil a_{\mathcal{N}_i}^k-1 \rceil)$$ and $$BR_i(a_{\mathcal{N}_i}) \leq BR_i(\lfloor a_{\mathcal{N}_i}^k-1 \rfloor)$$ for any $$a_{\mathcal{N}_i} \in A_{\mathcal{N}_i}^k-1$$. Using the first inequality, if $$BR_i(\lceil a_{\mathcal{N}_i}^k-1 \rceil) = 1$$ then it is best to play action 1 against all possible non-dominated actions of neighboring players. That is, action 1 dominates all possible actions of player $$i$$. Using the second inequality, if $$BR_i(\lfloor a_{\mathcal{N}_i}^k-1 \rfloor) = 0$$ then it is best to play action 0 against all possible non-dominated actions of neighboring players. That is, action 0 dominates all possible actions of player $$i$$.
+
+Given the definition of the best response in (6), eliminating all the actions except 1 if $$BR_i(\lceil a_{\mathcal{N}_i}^k-1 \rceil) = 1$$ is equivalent to the condition given in (2). Similarly, eliminating all the actions except 0 if $$BR_i(\lfloor a_{\mathcal{N}_i}^k-1 \rfloor)$$ is equivalent to the condition given in (3). Combined with the above argument, given the action profile at time $$k - 1$$ ($$a^{k-1}$$), one step of Algorithm 1 yields an action profile $$a^k$$ where decided players eliminate all strictly dominated actions given the not strictly dominated action space $$A^{k-1}$$. Since at time $$k = 1$$ the update eliminated strictly dominated strategies, Algorithm 1 is equivalent to the iterated elimination process given in Definition 2 by induction.
+
+Given this equivalence, if the game is dominance solvable, the algorithm converges to the unique Nash equilibrium. Otherwise, all decided players eliminate all of the actions except the action they selected, and undecided players cannot eliminate any actions from the their initial action space $$[0, 1]$$.
+
+Next, we prove convergence in $$n$$ time steps. Suppose at timestep $k$ given $a^{k-1}$, there does not exist a player that switches from being undecided, i.e., $a_{i}^{k-1}=\epsilon$, to being decided, i.e., $a_{i}^{k}=\{0,1\}$. That is, if $a_{i}^{k}=a_{i}^{k-1}$ then $a_{i}^{k+1}=a_{i}^{k}$. Further, if a player is decided, it cannot change its action because all the other possible actions are dominated, that is, if $a_{i}^{k}=\{0,1\}$, then $a_{i}^{k+1}=a_{i}^{k}$. Given these two observations, at least one player has to switch to being decided at time $k-1$, in order for at least one player to become decided at time $k$ given that it was undecided at time $k-1$. There can at most be $n$ instances of switching from being undecided to being decided which is the case when the game is dominance solvable. Further there needs to be at least one switching happening at each time step for the updates to continue. Hence, the algorithm converges in at most $n$ steps.
+
+## B. Proof of Lemma 3
+
+Dominance solvability implies Algorithm 1 converges to a unique Nash equilibrium $a^{\mathrm{NE}}$ defined in (5). This means the second constraint of dynamic MPCAC is satisfied by time $n$. There are two possible Nash equilibrium action profiles: $a^{N E}$ satisfies maximum anti-coordination constraint (first constraint) in (12), or $a^{\mathrm{NE}}$ does not satisfy it. If $a^{\mathrm{NE}}$ satisfies the maximum anti-coordination constraint, then the optimal control profile that minimizes the objective is the empty set $\left(\mathcal{X}_{*}^{t}=\emptyset\right)$. If $a^{\mathrm{NE}}$ does not satisfy maximum anti-coordination constraint, we need to control a non-empty set of players to achieve maximum anti-coordination by time $n$. Assume now the optimal control profile after time $n$ is empty, i.e., $\mathcal{X}_{*}^{t}=\emptyset$ for $t>n$. Then because the game is dominance solvable, we have $a^{2 n}=\Phi_{n}\left(a^{n}\right)=a^{\mathrm{NE}}$ where $\Phi_{k}(\cdot)$ is defined in (4). That is, by time $t=2 n$, players will revert to $a^{\mathrm{NE}}$ which violates the first constraint in (12). Hence, a control profile $\mathcal{X}_{*}^{t}=\emptyset$ for $t>n$ cannot be optimal because it is not feasible when $a^{\mathrm{NE}}$ is not feasible.
+
+## C. Proof of Lemma 4
+
+Suppose the optimal policy $\Pi^{*}$ to dynamic MPCAC in (12) is such that it does not converge to an equilibrium of the game $a^{*}$ that achieves maximum anti-coordination, i.e., $a_{i}^{*}+a_{j}^{*} \leq 1$ for all $(i, j) \in \mathcal{E}_{B}$. It means there must at least be one player controlled after $t \geq n$ to achieve maximum anti-coordination for all times $t \geq n$. That is, in the best case scenario we have to control a single player after $t \geq n$. Further, there must at least be one player that is controlled for one time step before time $n$ to achieve anti-coordination at time $n$. Combining the cost for control before and after time $n$, the optimal value attained by $\Pi^{*}$ will at least be $1 / n+1$.
+
+If there exists an equilibrium $a^{*}$ that achieves maximum anti-coordination, then Algorithm 1 cannot converge to an action profile $a^{n}$ with an active link, i.e., a link $(i, j) \in \mathcal{E}_{B}$ where $a_{i}^{n}+a_{j}^{n}>1$, because it would imply the equilibrium action profile $a^{*}$ is strictly dominated by an action profile, $a^{n}$. This means that Algorithm 1 can only eliminate possibly active links. Hence, the worst case scenario in terms of cost of control is when all players remain undecided as a result of Algorithm 1, i.e., $a^{n}=\vec{\epsilon}$. In this case, a feasible solution is one where we control the players in a given type $\left(\mathcal{X}^{t}=\left\{i: s_{i}=0\right\}\right.$ or
+$\mathcal{X}^{t}=\left\{i: s_{i}=1\right\}$ ) for two time steps, e.g., for $t=0,1$. This causes the players in the other type $\mathcal{N} \backslash \mathcal{X}^{0}$ to play action 1 by (10) at $t=1$. That is, $a_{i}^{0}=0$ if $i \in \mathcal{X}^{0}$, and $a_{i}^{0}=1$ if $i \in \mathcal{N} \backslash \mathcal{X}^{0}$. In step $t=1$, we continue to implement the control by $\mathcal{X}^{1}$, then the players in $\mathcal{X}^{1}$ take action 0 by (10), i.e., $a_{i}^{1}=x_{i}^{1} \delta_{i}^{1}=0$ for $i \in \mathcal{X}^{1}$, and $a_{i}^{1}=y_{i}^{1}=\Phi\left(a^{0}\right)=1$ if $i \in \mathcal{N} \backslash \mathcal{X}^{1}$. When we remove the control of players in $\mathcal{X}^{t}$ for $t>2$, players do not change their actions because the resultant action profile is an equilibrium. If we select the type with the lowest number of players, then our cost for this control policy is at most $\lfloor n / 2\rfloor$ for one step. Hence, the objective value in (12) is at most $\left(\left|\mathcal{X}^{0}\right|+\left|\mathcal{X}^{1}\right|\right) / n=1$. This policy is an upper bound on the optimal policy. Consequently, $\Pi^{*}$ that achieves a cost of $1 / n+1$ cannot be optimal.
+
+## D. Proof of Corollary 1
+
+When all players are decided in a single time step, all players decide on taking action 1 using (2), that is, $a=\mathbf{1}_{n \times 1}$ where $=\mathbf{1}_{n \times 1}$ is an $n \times 1$ vector with all elements equal to one.
+
+Claim 1 $\mathcal{X}_{*}^{t}=\emptyset$ for $t<n$.
+Proof: Suppose there exists an optimal policy $\Pi$ such that $\mathcal{X}_{*}^{t} \neq \emptyset$ for $\tilde{t}<n$. Given the controlled action profile at time $\tilde{t}, a^{\tilde{t}}$, we have the uncontrolled action profile at time $t+1$ as $y^{\tilde{t}+1}=\mathbf{1}$. Hence, the uncontrolled action profile at time $n$ is given by 1 . As a result, a policy where $\mathcal{X}^{t}=\emptyset$ for $t<n$ and $\mathcal{X}^{t}=\mathcal{X}_{*}^{t}$ for $t \geq n$ would be feasible and would incur a smaller cost than the policy $\Pi$ by an amount $\frac{1}{n} \sum_{t=1}^{n-1}\left|\mathcal{X}_{*}^{t}\right|$.
+
+We continue with the proof of Corollary 1. By Claim 1, no control action is taken until time $n$. At time $n$, we have $y^{n}=\mathbf{1}_{n \times 1}$. Given $y^{n}$, the optimal control policy at time $n$ is given by the following single time-step optimization,
+
+$$
+\begin{aligned}
+& \min _{\mathcal{X}}|\mathcal{X}| \\
+& \text { s.t. } a_{i}+a_{j} \leq 1 \quad \text { for all }(i, j) \in \mathcal{E}_{B} \\
+& a_{i}=1-x_{i} \quad \text { for all } i \in \mathcal{N} \\
+& a_{i} \in\{0,1\} .
+\end{aligned}
+$$
+
+We note that if a player is controlled, $x_{i}=1$, then it must be that $\delta_{i}=0$ because $a_{i}^{n}=1$ for all $i$. Hence, we have the second constraint from the controlled dynamics, $\left(1-x_{i}\right) a_{i}^{n}+$ $\delta_{i} x_{i}=1-x_{i}$. Define the dynamic control policy $\bar{\mathcal{X}}$ where $\bar{X}^{t}=\emptyset$ for $t<n$, and we implement $\bar{X}^{n}$, which is the solution to the above optimization problem, for $t \geq n$.
+
+Suppose there exists $\bar{\mathcal{X}}$ that achieves a lower cost than $\bar{\mathcal{X}}$ in the dynamic MPCAC problem. Given the first constraint above it is guaranteed that the controlled dynamics $\Phi_{n}(\vec{\epsilon}, \bar{\mathcal{X}}, \Delta)$ yield an action profile at time $n$ that achieves anti-coordination.
+
+By Claim 1, it must be that $\bar{\mathcal{X}}^{t}=\emptyset$ for $t<n$. Note that there cannot exist policy at time $n$ such that $\left|\bar{X}^{n}\right|<\left|\bar{X}^{n}\right|$ because $\bar{\mathcal{X}}^{n}$ is an optimal solution of (21). If $\left|\bar{X}^{n}\right|>\left|\bar{X}^{n}\right|$ then we can use $\bar{\mathcal{X}}$ to obtain a smaller cost $\left(\sum_{t=1}^{n}\left|\bar{X}^{t}\right|>\right.$ $\left.\sum_{t=1}^{n}\left|\bar{X}^{t}\right|=\left|\bar{X}^{n}\right|\right)$ for the first $n$ time steps. Further, the uncontrolled action profile at time $n+1$ is given by $y^{n+1}=$ $\Phi_{1}\left(a^{n}\right)=\mathbf{1}_{n \times 1}$ where controlled action of player $i$ is givenby $a_{i}^{n}=1-x_{i}^{*}$ for $x_{i}^{*} \in \tilde{\mathcal{X}}^{n}$. Hence, there cannot exist a control policy $\tilde{\mathcal{X}}^{t}$ such that $\left|\tilde{\mathcal{X}}^{t}\right|<\left|\tilde{\mathcal{X}}^{t}\right|$ for $t>n$ by the same reasoning as above. Combining the above findings, we have the dynamic MPCAC objective for the control policy $\tilde{\mathcal{X}}$ as $\frac{1}{n}\left|\tilde{\mathcal{X}}^{n}\right|+\lim _{T^{\prime} \rightarrow \infty} \frac{1}{T^{\prime}} \sum_{t=n+1}^{T^{\prime}}\left|\tilde{\mathcal{X}}^{t}\right|>(1 / n+1)\left|\tilde{\mathcal{X}}^{n}\right|$. This is a contradiction.
+
+Substituting $a_{i}=1-x_{i}$ in the constraint $a_{i}+a_{j} \leq 1$, we get $x_{i}+x_{j} \geq 1$ when $x_{i} \in\{0,1\}$ and $x_{j} \in\{0,1\}$. Note that $\mathcal{E}_{B}=\mathcal{E}^{n}$ and $\mathcal{N}^{n}=\mathcal{N}$ given $a_{i}^{n}=1$. Hence, the last constraint in (13) does not exist when $a^{n}=1$. This shows that the optimization in (21) is equivalent to the optimization problem (13) when $a^{n}=1$.
+
+## REFERENCES
+
+[1] C. Nowzari, V. M. Preciado, and G. J. Pappas, "Analysis and control of epidemics: A survey of spreading processes on complex networks," IEEE Control Systems, vol. 36, no. 1, pp. 26-46, 2016.
+[2] K. Zhang, W. Shi, H. Zhu, E. Dall'Anese, and T. Basar, "Dynamic power distribution system management with a locally connected communication network," IEEE Journal of Selected Topics in Signal Processing, 2018.
+[3] M. Ye and G. Hu, "Game design and analysis for price-based demand response: An aggregate game approach," IEEE transactions on cybernetics, vol. 47, no. 3, pp. 720-730, 2017.
+[4] A. R. Hota and S. Sundaram, "Interdependent security games on networks under behavioral probability weighting," IEEE Transactions on Control of Network Systems, vol. 5, no. 1, pp. 262-273, 2018.
+[5] G. Bacci, S. Lasaulce, W. Saad, and L. Sanguinetti, "Game theory for networks: A tutorial on game-theoretic tools for emerging signal processing applications," IEEE Signal Processing Magazine, vol. 33, no. 1, pp. 94-119, 2016.
+[6] J. Marden, G. Arslan, and J. Shamma, "Cooperative control and potential games," IEEE Trans. Syst., Man, and Cybern. B, Cybern., vol. 39, no. 6, pp. 1393-1407, 2009.
+[7] B. Swenson, S. Kar, and J. Xavier, "Empirical centroid fictitious play: An approach for distributed learning in multi-agent games," IEEE Trans. Signal Process., vol. 63, no. 15, pp. 3888 - 3901, 2015.
+[8] P. Yi and L. Pavel, "A distributed primal-dual algorithm for computation of generalized nash equilibria via operator splitting methods," in Decision and Control (CDC), 2017 IEEE 56th Annual Conference on. IEEE, 2017, pp. 3841-3846.
+[9] F. Parise, B. Gentile, S. Grammatico, and J. Lygeros, "Network aggregative games: Distributed convergence to nash equilibria," in Decision and Control (CDC), 2015 IEEE 54th Annual Conference on. IEEE, 2015, pp. 2295-2300.
+[10] J. Koshal, A. Nedić, and U. V. Shanbhag, "Distributed algorithms for aggregative games on graphs," Operations Research, vol. 64, no. 3, pp. $680-704,2016$.
+[11] B. Swenson, C. Eksin, S. Kar, and A. Ribeiro, "Distributed inertial bestresponse dynamics," IEEE Transactions on Automatic Control, 2018.
+[12] G. Scutari, D. P. Palomar, F. Facchinei, and J.-s. Pang, "Convex optimization, game theory, and variational inequality theory," IEEE Signal Processing Magazine, vol. 27, no. 3, pp. 35-49, 2010.
+[13] G. Hardin, "The tragedy of the commons," science, vol. 162, no. 3859, pp. 1243-1248, 1968.
+[14] J. R. Marden and T. Roughgarden, "Generalized efficiency bounds in distributed resource allocation," IEEE Transactions on Automatic Control, vol. 59, no. 3, pp. 571-584, 2014.
+[15] N. Li and J. Marden, "Designing games for distributed optimization," IEEE Journal of Selected Topics in Signal Processing, vol. 7, no. 2, pp. 230-242, 2013.
+[16] M.-F. Balcan, A. Blum, and Y. Mansour, "Improved equilibria via public service advertising," in Proceedings of the twentieth annual ACM-SIAM symposium on Discrete algorithms. Society for Industrial and Applied Mathematics, 2009, pp. 728-737.
+[17] ——, "Circumventing the price of anarchy: Leading dynamics to good behavior," SIAM Journal on Computing, vol. 42, no. 1, pp. 230-264, 2013.
+[18] S. Grammatico, "Dynamic control of agents playing aggregative games with coupling constraints," IEEE Transactions on Automatic Control, vol. 62, no. 9, pp. 4537-4548, 2017.
+[19] J. R. Riehl, P. Ramazi, and M. Cao, "Incentive-based control of asynchronous best-response dynamics on binary decision networks," IEEE Transactions on Control of Network Systems, 2018.
+[20] F. Fele, E. Debada, J. M. Maestre, and E. F. Camacho, "Coalitional control for self-organizing agents," IEEE Transactions on Automatic Control, 2018.
+[21] S. Aral and P. S. Dhillon, "Social influence maximization under empirical influence models," Nature Human Behaviour, p. 1, 2018.
+[22] P. N. Brown, H. Borowski, and J. R. Marden, "Security against impersonation attacks in distributed systems," IEEE Transactions on Control of Network Systems, pp. 1-1, 2018.
+[23] C. Eksin, J. S. Shamma, and J. S. Weitz, "Disease dynamics in a stochastic network game: a little empathy goes a long way in averting outbreaks," Scientific reports, vol. 7, p. 44122, 2017.
+[24] C. McConnell, Y. Margalit, N. Malhotra, and M. Levendusky, "The economic consequences of partisanship in a polarized era," American Journal of Political Science, vol. 62, no. 1, pp. 5-18, 2018.
+[25] C. Hauert and M. Doebeli, "Spatial structure often inhibits the evolution of cooperation in the snowdrift game," Nature, vol. 428, no. 6983, p. 643, 2004.
+[26] D. Fudenberg and D. Levine, The Theory of Learning in Games, 1st ed. Cambridge, MA: MIT Press, 1998.
+[27] V. V. Vazirani, Approximation algorithms. Springer Science \& Business Media, 2013.
+[28] G. L. Nemhauser and L. A. Wolsey, "Integer programming and combinatorial optimization," Wiley, Chichester. GL Nemhauser, MWP SaveIsbergh, GS Sigismondi (1992). Constraint Classification for Mixed Integer Programming Formulations. COAL Bulletin, vol. 20, pp. 8-12, 1988.

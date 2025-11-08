@@ -1,0 +1,1229 @@
+# Regularized Unconstrained Weakly Submodular Maximization 
+
+Yanhui Zhu<br>yanhui@iastate.edu<br>Department of Computer Science<br>Iowa State University<br>Samik Basu<br>sbasu@iastate.edu<br>Department of Computer Science<br>Iowa State University
+
+A. Pavan
+pavan@cs.iastate.edu
+Department of Computer Science
+Iowa State University
+
+## Abstract
+
+Submodular optimization finds applications in machine learning and data mining. In this paper, we study the problem of maximizing functions of the form $h=f-c$, where $f$ is a monotone, non-negative, weakly submodular set function and $c$ is a modular function. We design a deterministic approximation algorithm that runs with $\mathcal{O}\left(\frac{n}{\epsilon} \log \frac{n}{\epsilon \epsilon}\right)$ oracle calls to function $h$, and outputs a set $\hat{S}$ such that $h(\hat{S}) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{c(\mathrm{OPT})}{\gamma(1-\epsilon)} \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}$, where $\gamma$ is the submodularity ratio of $f$. Existing algorithms for this problem either admit a worse approximation ratio or have quadratic runtime. We also present an approximation ratio of our algorithm for this problem with an approximate oracle of $f$. We validate our theoretical results through extensive empirical evaluations on real-world applications, including vertex cover and influence diffusion problems for submodular utility function $f$, and Bayesian A-Optimal design for weakly submodular $f$. Our experimental results demonstrate that our algorithms efficiently achieve high-quality solutions.
+
+## 1 Introduction
+
+Submodular function optimization is a fundamental combinatorial optimization problem with broad applications such as feature compression, document summarization, movie recommendation, information diffusion, ad allocation, among others Bateni et al. (2019); Sipos et al. (2012); Halabi et al. (2022); Li et al. (2023); Kempe et al. (2003); Tang \& Yuan (2016). Due to their broad applicability, the last decade has seen a surge of work on variants of submodular optimization problems. Even though many submodular optimization problems are NP-hard, several variants have been shown to admit efficient approximation algorithms and are amenable to rigorous theoretical analysis.
+
+Driving Problem. In the study of submodular maximization under knapsack/cost constraints (SMK), there is an additional cost function $c$ over the ground set. The cost function is modular, i.e., $c(S)=$ $\sum_{x \in S} c(x)$. Given a monotone submodular function $f$, a cost function $c$, and a budget $B$, the goal is to find a set $S$ that maximizes $f(S)$ under the constraint that $c(S) \leq B$. When the cost function is uniform, SMK reduces to the classical submodular maximization with a cardinality constraint problem (SMC). SMK has numerous real-world applications; for instance, in viral marketing Kempe et al. (2003), the revenue function (also called influence function) is often modeled as a monotone submodular function $f$, and every user is associated with a cost. The goal is to find a seed set that maximizes the revenue under the constraint that the total cost of the seeds does not exceed $B$. However, maximizing the revenue may not guarantee maximal profit, which is the difference between achieved revenue and the cost. Thus, an alternate way to formulateTable 1: Comparisons of related works for unconstrained $f-c$ problem. $\gamma$ is the submodularity ratio of a weakly submodular $f$. "WS" checks if the algorithm applies to weakly submodular $f$, and Det means "deterministic".
+
+| Algorithm | Approximation Bound | Query Complex. | WS $f$ ? | Det? |
+| :--: | :--: | :--: | :--: | :--: |
+| UDG Harshaw et al. (2019) | $\left(1-e^{-\gamma}\right) f(\mathrm{OPT})-c(\mathrm{OPT})$ | $\mathcal{O}(n)$ | Yes | No |
+| ROI Jin et al. (2021) | $f(\mathrm{OPT})-c(\mathrm{OPT})-c(\mathrm{OPT}) \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}$ | $\mathcal{O}\left(n^{2}\right)$ | No | Yes |
+| UP (THIS PAPER) | $\gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{c(\mathrm{OPT})}{\gamma(1-\epsilon)} \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}$ | $\mathcal{O}\left(\frac{n}{\epsilon} \log \frac{n}{\gamma \epsilon}\right)$ | Yes | Yes |
+
+the profit maximization problem is to maximize the function $h=f-c$. This maximization problem is known as regularized unconstrained submodular maximization Bodek \& Feldman (2022).
+
+In certain application scenarios, such as the Bayesian A-Optimal design problem, the underlying function $f$ is non-submodular, but only weakly submodular Harshaw et al. (2019). This motivated the researchers to study the maximization of $h=f-c$ problem where $f$ is non-submodular. Specifically, given $f$ be a monotone weakly submodular function and $c$ be a modular cost function. The Regularized Unconstrained Weakly-Submodular Maximization (RUWSM) problem is defined:
+
+$$
+\text { RUWSM : } \underset{S \subseteq V}{\arg \max } f(S)-c(S)
+$$
+
+In certain scenarios, evaluating the submodular function $f$ might be intractable, and one may only have the ability to query a surrogate function $\tilde{f}$ that is approximate to $f$ Cohen et al. (2014). In this case, we refer to the maximization of $f-c$ problem as Regularized Unconstrained Approximate-Submodular Maximization (RUASM).
+
+Hardness. We make a few remarks about the general difficulty of the above problems. When $f$ is monotone (weakly) submodular and $c$ is modular, the function $h=f-c$ is (weakly) submodular. However, the function $h$ can be non-monotone and is potentially negative. Much of the prior work on submodular maximization focuses on the case when the underlying function is positive. The fact that $h$ could be negative places significant obstacles in designing approximation algorithms. Indeed, it is known that the problem of maximizing non-positive submodular functions does not admit constant multiplicative factor approximation algorithms Papadimitriou \& Yannakakis (1988); Feige (1998); Bodek \& Feldman (2022).
+
+Randomized vs. Deterministic Algorithms. While randomization has proven valuable in developing approximation algorithms for submodular maximization Mirzasoleiman et al. (2015); Harshaw et al. (2019), its practical use presents challenges. Unlike deterministic algorithms, which offer consistent results, randomized algorithms provide approximation ratios only in expectation. This means that there is a chance of obtaining a poor solution with a constant probability. To achieve the desired approximation ratio with high probability, typically, $\mathcal{O}(\log n)$ independent repetitions of the algorithm are necessary, which might not be feasible or practical Chen \& Kuhnle (2023). Furthermore, although some algorithms for submodular optimization can be derandomized, this often comes at the cost of a polynomial increase in time complexity Buchbinder \& Feldman (2018).
+
+State of the Art Algorithms. Harshaw et al. (2019) presented a randomized algorithm referred to as unconstrained distorted greedy (UDG) to address the RUWSM problem. Their algorithm produces a set $S$ such that expected value of $f(S) \geq\left(1-e^{-\gamma}\right) f(\mathrm{OPT})-c(\mathrm{OPT})$, and the algorithm makes $\mathcal{O}(n)$ oracle calls to function $f .{ }^{1}$ Note that the approximation guarantee holds only in expectation; to make this a high-probability event, one should run the algorithm multiple $(O(\log n))$ times and output the median. Subsequently, Jin et al. (2021) developed a deterministic algorithm, referred to as ROI greedy, for addressing the RUSM problem (when $f$ is submodular). The algorithm produces a set $S$ such that $h(S) \geq f(\mathrm{OPT})-$
+
+[^0]
+[^0]:    ${ }^{1} \gamma$ is the submodularity ratio for a weakly submodular function $f$; when $\gamma=1$, the function is submodular, see Section 2 for a formal definition of submodularity ratio.$c(\mathrm{OPT})-c(\mathrm{OPT}) \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}$ within $\mathcal{O}\left(n^{2}\right)$ oracle calls to $f$. The authors also proved the tightness of this approximation bound.
+
+In the context of these works, a natural question arises for the RUWSM problem: Can one design a deterministic algorithm that matches the approximation guarantee of the ROI algorithm while achieving a runtime closer to that of the UDG algorithm?
+
+In this work, we affirmatively answer this question.
+
+Our Contributions. We design a fast approximation algorithm for the regularized unconstraint submodular maximization problems. To the best of our knowledge, this is the first near linear time deterministic algorithm that applies to submodular, weakly submodular and even approximately weakly submodular functions $f$.
+
+We establish almost tight approximation bounds of the proposed algorithm in the context of submodular, weakly submodular and approximately submodular functions $f$. Specifically, when $f$ is submodular, our approximation ratio almost matches the tight approximation ratio achieved by ROI Jin et al. (2021) with an improved runtime. Compared to the linear-time randomized algorithm Harshaw et al. (2019), our approximation is better when $\epsilon \in(0,0.15]$. Additionally, we show that our algorithm and can be applied to more generalized scenarios when the algorithm only has access to an approximate oracle for a (weakly) submodular function $f$. Table 1 summarizes the results.
+
+We have conducted extensive experiments with various types of (weakly) submodular functions in the applications of vertex cover, influence maximization and Bayesian A-optimal design. For fair comparisons to the baselines, we have designed a modified ROI algorithm and derived its approximation guarantees when $f$ is weakly submodular. Experimental results present the high quality of our results, and the execution time indicates the viability of our algorithm in addressing problems with real data sets.
+
+# 1.1 Related Works 
+
+The classical work of Nemhauser et al. (1978) presented a greedy algorithm with a $(1-1 / e)$ for maximizing a monotone submodular function $f$ with cardinality constraint. This algorithm makes $O(k n)$ calls to the submodular function. Currently, the best-known deterministic algorithms for this problem achieve an approximation ratio of $(1-1 / e-\epsilon)$ while making $O\left(\frac{n}{e}\right)$ calls Li et al. (2022); Kuhnle (2021). For knapsack constraint, the greedy algorithm due to Sviridenko (2004) achieves $\left(1-1 / e\right)$ approximation ratio at the cost of a high time complexity $O\left(n^{5}\right)$. Subsequent research has focused on improving the algorithm's runtime while accepting a slight reduction in approximation quality Badanidiyuru \& Vondrák (2014); Ene \& Nguyen (2019); Feldman et al. (2023); Yaroslavtsev et al. (2020); Li et al. (2022); Zhu et al. (2024). For the matroid constraint, the natural greedy algorithm archives an approximation ratio of $1 / 2$ Nemhauser et al. (1978). The seminal work of Călinescu et al. (2011) developed a randomized algorithm that achieves the optimal approximation ratio of $1-1 / e$. Furthermore, Buchbinder et al. (2019) proposed the first deterministic algorithm with an approximation ratio of 0.5008 . Additionally, more submodular maximization algorithms are developed and analyzed in the context of submodular constraints, dynamic constraints Roostapour et al. (2019); Bian et al. (2021), dynamic stream settings Lattanzi et al. (2020); Duetting et al. (2022) and distributed fashion Bateni et al. (2018); Fahrbach et al. (2019); Zhang et al. (2023).
+
+Regularized Submodular Maximization. Buchbinder et al. (2015) proposed a greedy algorithm admitting an approximation ratio of $1 / 2$, provided $f(S)>c(S)$ holds for every $S \subseteq V$. Harshaw et al. (2019) studied the RUWSM problem and its variant where a cardinality constraint is imposed. Nikolakaki et al. (2021) developed a framework that produces a set $S$ such that $h(S) \geq 1 / 2 f(\mathrm{OPT})-c(\mathrm{OPT})$ for cardinality and online unconstrained problems when $f$ is submodular. Jin et al. (2021) proposed ROI-Greedy for the RUSM problem that guarantees a tight positive bound as long as $f(\mathrm{OPT})>c(\mathrm{OPT})$. The works of Bodek \& Feldman (2022); Qi (2024) studied this problem (and generalizations) when the submodular function $f$ is not necessarily monotone. Other constrained $f-c$ maximization problems are also studied in Sviridenko et al. (2017); Cui et al. (2023). There has been a large body of work that focused on various submodular optimization problems when the algorithm has only access to an approximate/noisy oracle Hassidim \& Singer(2017); Qian et al. (2017); Crawford et al. (2019); Nie et al. (2023); Halabi \& Jegelka (2020). The works of Gong et al. (2023); Geng et al. (2022); Wang et al. (2021) studied constrained regularized submodular maximization in the presence of approximate oracles. There also exist fast approximation algorithms for the variant when the function $c$ is also submodular Padmanabhan et al. (2023); Perrault et al. (2021).
+
+# 2 Preliminaries 
+
+Notations. Given a ground set $V$ of size $n$ and a utility function $f: 2^{V} \rightarrow \mathbb{R}^{\geq 0}, f$ is monotone if for any subsets $S \subseteq T \subseteq V, f(T) \geq f(S)$. The marginal gain of adding an element $x \in V \backslash S$ into $S \subseteq V$ is $f(\{x\} \mid S) \triangleq f(S \cup\{x\})-f(S)$. We write $f(\{x\} \mid S)=f(x \mid S)$ for brevity. In this paper, we consider normalized $f$, i.e., $f(\emptyset)=0$. A function $f$ is (weakly) submodular if, for any set $S \subseteq T \subseteq V$ and any element $x \in V \backslash T$, the marginal gain of the function value of adding $x$ to $S$ is at least the marginal gain in the function value of adding $x$ to a larger set $T$. Formally,
+Definition 1 (Submodularity). For any set $S \subseteq T \subseteq V$ and $x \in V \backslash T$, a set function $f: 2^{V} \rightarrow \mathbb{R}^{\geq 0}$ is submodular if
+
+$$
+f(S \cup\{x\})-f(S) \geq f(T \cup\{x\})-f(T)
+$$
+
+This property is referred to as diminishing return. A weakly submodular set function $f$ Das \& Kempe (2011) is an extension of the submodular function and is defined as follows.
+Definition 2 ( $\gamma$-submodularity). A set function $f: 2^{V} \rightarrow \mathbb{R}^{\geq 0}$ is $\gamma$-weakly submodular if for every set $S \subseteq T \subseteq V$ :
+
+$$
+\sum_{u \in T \backslash S} f(u \mid S) \geq \gamma(f(T)-f(S))
+$$
+
+$\gamma \in(0,1]$ is referred to as the submodularity ratio and $f$ is submodular iff $\gamma=1$.
+We define the $\delta$-approximate function $\tilde{f}$ that is within $\delta$-error of the actual oracle $f$.
+Definition 3 ( $\delta$-approximate). A set function $\tilde{f}$ is $\delta$-approximate to the utility function $f$ if for every $S \subseteq V$,
+
+$$
+|f(S)-\tilde{f}(S)| \leq \delta
+$$
+
+A cost function $c: 2^{V} \rightarrow \mathbb{R}^{+}$is modular or linear if the equality of Eq. (1) holds. The density of an element $e$ adding to set $S$ is defined to be $\frac{f(e \mid S)}{c(e)}$. Define $c_{\max }=\max _{e \in V} c(e)$ and $c_{\min }=\min _{e \in V} c(e)$.
+Oracles. In this paper, our algorithms are designed under the standard value oracle model, which assumes that an oracle is capable of returning the value $f(S)$ when provided with a set $S \subseteq V$. The specific value of $f(S)$ may depend on the problem at hand, such as the expected influence spread in influence diffusion Kempe et al. (2003), the covered vertices in directed vertex coverage, or the reduction in variance in Bayesian AOptimal design Harshaw et al. (2019). As is customary, the computational complexity analyses of our algorithms are based on the number of oracle calls. For RUASM, we assume the algorithm can only access a $\delta$-approximate oracle for $f$. For experiments, we also report and compare the function/oracle evaluations regarding running time.
+
+## 3 The Algorithm and Approximation Results
+
+In this section, we present a deterministic fast Unconstrained Profit (UP) algorithm (Algorithm 1) and the approximation results for the RUWSM and RUASM problems.
+
+### 3.1 Overview and Techniques
+
+Our goal is to attain the approximation guarantee similar to ROI-Greedy Jin et al. (2021) using an efficient (close to linear time) deterministic algorithm for weakly submodular $f$. Lazy evaluations Minoux (2005) are commonly used for accelerations in submodular maximization problems. However, applying lazy evaluations to weakly submodular $f$ is challenging due to unpredictable marginal gains Harshaw et al. (2019). Moreover, lazy evaluations though do not improve asymptotic time bounds. Another possible approach is to investigate the applicability of threshold technique Badanidiyuru \& Vondrák (2014) to accelerate the Greedy algorithm.```
+Algorithm \(1 \operatorname{UP}(f, c, \gamma, \epsilon)\)
+    Input: utility function \(f\), cost function \(c\), submodularity ratio \(\gamma\), error threshold \(\epsilon\).
+    Output: \(\bar{S}=\arg \max _{S_{i}, i \in[n]} f\left(S_{i}\right)-c\left(S_{i}\right)\).
+    \(S_{0} \leftarrow \emptyset ; i \leftarrow 1\)
+    \(u(e) \leftarrow 0\) for all \(e \in V\)
+    \(P Q \leftarrow\) priority_queue \(\left(\left\{\left(\frac{f(e)}{c(e)}, e\right) \mid e \in V\right\}\right)\)
+    while True do
+        Remove entries from \(P Q\) where the density(key) \(\leq \gamma\)
+        if PQ is empty then
+            Terminate the Algorithm
+        end if
+        \(\left(\tau_{i}, v_{i}\right) \leftarrow P Q . g e t T o p A n d R e m o v e()\)
+        \(u\left(v_{i}\right)++\)
+        if \(\frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \geq \max \left\{\gamma,(1-\epsilon) \tau_{i}\right\}\) then
+            \(S_{i} \leftarrow S_{i-1} \cup\left\{v_{i}\right\}\)
+            \(i++\)
+            Continue to the Next Iteration
+        end if
+        if \(u\left(v_{i}\right) \leq \frac{\log \frac{n}{\gamma \epsilon}}{\epsilon}\) then
+            \(P Q \cdot \operatorname{push}\left(\left(\frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)}, v_{i}\right)\right)\)
+        end if
+    end while
+```
+
+Traditional Threshold Algorithms. For constrained monotone submodular maximization with a cardinality constraint (solution set size $\leq k$ ), the natural greedy algorithm iterates $k$ times, adding one element with the maximum marginal gain in each iteration. In contrast, the thresholding technique-based algorithm maintains a global threshold and adds potentially multiple elements whose marginal gain exceeds the threshold in each iteration. The threshold decreases geometrically, limiting the total iterations to $O\left(\frac{1}{\epsilon} \log \frac{n}{\epsilon}\right)$. As there are at most $n$ oracle calls for marginal gain computation in each iteration, the overall runtime is $O\left(\frac{n}{\epsilon} \log \frac{n}{\epsilon}\right)$, which is faster than the natural greedy algorithm with $O(n k)$ runtime. Badanidiyuru \& Vondrák (2014) proved that the thresholding technique maintains the quality of results, achieving an approximation ratio of $(1-1 / e-\epsilon)$ (as opposed to $(1-1 / e)$ by the natural greedy algorithm). Variants of threshold algorithms Ene \& Nguyen (2019); Amanatidis et al. (2020) have found effective applications in other submodular maximization problems.
+
+A natural idea is to adapt this threshold idea to address the RUWSM problem. There are, however, obstacles to a direct adaption: (1) The threshold algorithm usually requires that the maximized function is monotone and submodular. In contrast, the RUWSM problem is about maximizing $h=f-c$, where $h$ can be non-monotone or non-submodular; (2) The running time is unbounded since it will use the maximal density (unbounded for a general $f$ ) to initialize the global threshold. The justifications are deferred to the Appendix (Section A.2).
+
+Our Algorithm. We now discuss our strategy for addressing the RUWSM problem. Instead of using a single global threshold, we maintain a threshold for each element - whenever the value exceeds the corresponding threshold within a specific error range, we add the element to the partial solution set.
+
+Algorithm 1 initializes an empty set $S_{0}$, sets up counters $u(\cdot)$ for each element $e \in V$ (keep track of how many times an element has been evaluated), and creates a priority queue $P Q$ sorted in non-decreasing order based on the densities $(f(e) / c(e))$.
+
+The algorithm proceeds as follows. First, line 7 removes entries from the priority queue $P Q$ where the density falls below the submodularity ratio $\gamma$. This procedure will reduce unnecessary evaluations because the removed elements negatively impact the objective value $f-c$. Within the main loop, the algorithm
+
+Figure 1: Roadmap of the proof of Theorem 1.
+retrieves the element $v_{i}$ with the highest density $\tau_{i}$ from the priority queue. Then it evaluates the new density of $v_{i}$ w.r.t. current set $S_{i-1}$ and increments the counter for $v_{i}$ (lines 12-13). If the new density is within $\epsilon$ error threshold of $\tau_{i}$, the algorithm adds $v_{i}$ to the current subset $S_{i-1}$. To avoid excessive evaluation of densities corresponding to an element, the algorithm (line 19) checks if the evaluations for $v_{i}$ have been performed for $\left(\log \frac{n}{\gamma_{i}}\right) / \epsilon$ times. If it is, then $v_{i}$ will be discarded since it will not make significant contributions to the objective value; otherwise, the element is pushed back into the priority queue for potential evaluations in future iterations. The algorithm continues this process until no elements are left in the priority queue. The returned solution set $\tilde{S}$ is the one that realizes the best objective value among all intermediate solution sets.
+
+The proceeding theorem states the approximation guarantees of Algorithm 1 for addressing the RUWSM problem (weakly submodular utility function $f$ ). The approximation extends to the scenario of submodular $f$ when setting $\gamma=1$.
+Theorem 1. Given a monotone $\gamma$-submodular function $f: 2^{V} \rightarrow \mathbb{R}^{\geq 0}$ and a modular cost function $c$, an error threshold $\epsilon \in(0,1)$, after $\mathcal{O}\left(\frac{n}{\epsilon} \log \frac{n}{\gamma \epsilon}\right)$ oracle calls to $f$, Algorithm 1 outputs $\tilde{S}$ such that
+
+$$
+f(\tilde{S})-c(\tilde{S}) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A
+$$
+
+where $A=c(\mathrm{OPT}) \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}$.
+
+# 3.2 Theoretical Analysis of Theorem 1 
+
+We now proceed by presenting a roadmap of the proof for Theorem 1 by illustrating the definitions, lemmas, and claims used to discharge the proof of the theorem. As depicted in Figure 1, each node corresponds to a theorem, lemma, claim, etc., and the incoming directed edge captures the necessity of the source node in the proof of the destination node. Some edges are annotated with conditions under which the source node leads to the destination. For instance, if the condition in Case 2.2 holds, Lemma 8 is valid and implies the validity of Theorem 1.
+
+In our proof, we will proceed with the leaf-level lemmas and claims and work our way toward the root of the tree.
+
+### 3.2.1 Useful Lemmas
+
+We start with Lemmas 2 and 3. Let $\ell$ be the value of $i$ at the termination of Algorithm 1. Lemma 2 lower bounds the marginal gain when adding an element to the solution set. With Lemma 2, Lemma 3 gives the lower bound of the $f$ value of a solution set at some iteration.
+Lemma 2. For all $i \in[1, \ell]$ and if $v_{i}$ is the element added to $S_{i-1}$, then
+
+$$
+f\left(v_{i} \mid S_{i-1}\right) \geq \gamma(1-\epsilon) \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{i-1}\right)\right)
+$$Proof. Since $v_{i}$ is the element added to $S_{i-1}$ at line 14 of the algorithm, $\frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \geq(1-\epsilon) \tau_{i}$ is satisfied. Furthermore, for every $\forall u \in \mathrm{OPT} \backslash S_{i-1}, u$ is either equal to $v_{i}$ or does not satisfy the condition in line 13. Hence,
+
+$$
+\frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \geq(1-\epsilon) \tau_{i} \geq(1-\epsilon) \frac{f\left(u \mid S_{i-1}\right)}{c(u)}
+$$
+
+We then derive the following inequality.
+
+$$
+\begin{aligned}
+& f(\mathrm{OPT})-f\left(S_{i-1}\right) \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} f\left(u \mid S_{i-1}\right) \quad \text { by Def. } \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} \frac{c(u)}{1-\epsilon} \cdot \frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \quad \text { due to Eq. (3) } \\
+& \leq \frac{1}{\gamma(1-\epsilon)} \frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} c(\mathrm{OPT})
+\end{aligned}
+$$
+
+Rearranging the last inequality concludes the proof.
+
+Lemma 3. For all $i \in[1, \ell]$, if $v_{i}$ is the element added to $S_{i-1}$ and $f\left(S_{i}\right)=f\left(S_{i-1} \cup\left\{v_{i}\right\}\right)$, then
+
+$$
+f\left(S_{i}\right) \geq\left(1-\prod_{s=1}^{i}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})
+$$
+
+Proof Sketch. We prove this lemma by induction. We verify the base case $(i=1)$ using Lemma 2; note that $f(\emptyset)=0$. Next, for every $i>1$, as an induction hypothesis, assume $\forall j \in[1, i-1]$, Eq. (4) holds. We can express $f\left(S_{j+1}\right)$ in the form of $f\left(S_{j+1}\right)=f\left(S_{j}\right)+f\left(v_{j+1} \mid S_{j}\right)$, and apply Lemma 2 to $f\left(v_{j+1} \mid S_{j}\right)$ and the induction hypothesis to $f\left(S_{j}\right)$ to wrap up the proof.
+
+# 3.2.2 Proof of Theorem 1 
+
+Let $S_{\ell}$ with size $\ell$ be the set at the termination of Algorithm 1. We divide the proof of Theorem 1 into two cases based on the relationship between $A$ and $c\left(S_{\ell}\right)$.
+Case 1: $\gamma(1-\epsilon) c\left(S_{\ell}\right)<A$. Consider each element $u \in \mathrm{OPT} \backslash S_{\ell}$ that was not included in $S_{\ell}$; such an element can be categorized into two sets $O_{1}$ and $O_{2}$ with corresponding reasons.
+
+- $O_{1}$ is the set of elements removed at line 7.
+
+The density of these elements is $\leq \gamma$ at some point before the algorithm ends. Therefore, for $u \in O_{1}$, if $\frac{f\left(u \mid S_{u}\right)}{c(u)}$ is the density (key) of $u$ the last time it appears in the priority queue, then we have $S_{u} \subseteq S_{\ell}$. By the property of diminishing return, we have
+
+$$
+\frac{f\left(u \mid S_{\ell}\right)}{c(u)} \leq \frac{f\left(u \mid S_{u}\right)}{c(u)} \leq \gamma
+$$
+
+- $O_{2}$ is the set of elements for which the line 18 condition was not satisfied.
+
+In other words, these elements have been evaluated at line 13 for $\left(\log \frac{u}{\gamma_{1}}\right) / \epsilon$ times. Note that for any $u \in O_{2}$, the initial density of $u$ in the priority queue is $\frac{f(u)}{c(u)}$. Thus, we have:
+
+$$
+\frac{f\left(u \mid S_{\ell}\right)}{c(u)} \leq \frac{f\left(u \mid S_{u}\right)}{c(u)} \leq(1-\epsilon)^{\frac{\log \frac{u}{\gamma_{1}}}{\epsilon}} \frac{f(u)}{c(u)}
+$$From Eq. (6), we can further derive $\forall u \in O_{2}$,
+
+$$
+\begin{aligned}
+f\left(u \mid S_{u}\right) & \leq(1-\epsilon)^{\frac{\log \frac{u}{\epsilon}}{\epsilon}} f(u) \\
+& \leq(1+\epsilon)^{-\frac{\log \frac{u}{\epsilon}}{\epsilon}} f(u) \quad \text { due to } 1-\epsilon \leq \frac{1}{1+\epsilon} \\
+& \leq(1+\epsilon)^{-\frac{\log \frac{u}{\epsilon}}{\log 1+\epsilon}} f(u) \quad \text { due to } \epsilon \leq \log 1+\epsilon \\
+& =(1+\epsilon)^{-\log _{1+\epsilon} \frac{u}{\epsilon \epsilon}} f(u)=\frac{\gamma \epsilon}{n} f(u)
+\end{aligned}
+$$
+
+Therefore, for Case 1, we have
+
+$$
+\begin{aligned}
+f(\mathrm{OPT})-f\left(S_{\ell}\right)-c(\mathrm{OPT}) & \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{\ell}} f\left(u \mid S_{\ell}\right)-c(\mathrm{OPT}) \\
+& \leq \frac{1}{\gamma}\left(\sum_{u \in O_{1}} f\left(u \mid S_{\ell}\right)+\sum_{u \in O_{2}} f\left(u \mid S_{\ell}\right)\right)-c(\mathrm{OPT}) \\
+& \leq \frac{1}{\gamma}\left(\sum_{u \in O_{1}} f\left(u \mid S_{\ell}\right)+\sum_{u \in O_{2}} f\left(u \mid S_{\ell}\right)\right)-\sum_{u \in O_{1}} c(u) \\
+& =\left(\sum_{u \in O_{1}} \frac{1}{\gamma} f\left(u \mid S_{\ell}\right)-c(u)\right)+\frac{1}{\gamma} \sum_{u \in O_{2}} f\left(u \mid S_{\ell}\right) \\
+& \leq 0+\frac{1}{\gamma} \sum_{u \in O_{2}} \frac{\gamma \epsilon}{n} f(u) \quad \text { from Eq. (5) and (7) } \\
+& \leq \epsilon f(\mathrm{OPT})
+\end{aligned}
+$$
+
+The first inequality is due to monotonicity and weak-submodularity (Def. 2) of $f$. The last inequality holds because $O_{2} \subseteq \mathrm{OPT},|\mathrm{OPT}| \leq n$ and $f(u) \leq f(\mathrm{OPT})$ for $u \in \mathrm{OPT} \backslash S_{\ell}$. Thus, we have $f(\mathrm{OPT})-f\left(S_{\ell}\right)-$ $c(\mathrm{OPT}) \leq \frac{1}{\gamma} \sum_{u \in O_{2}} \frac{\gamma \epsilon}{n} f(u) \leq \epsilon f(\mathrm{OPT})$.
+Combining the above inequality with the Case 1 condition $\left(\gamma(1-\epsilon) c\left(S_{\ell}\right)<A\right)$, we have
+
+$$
+f(\tilde{S})-c(\tilde{S}) \geq f\left(S_{\ell}\right)-c\left(S_{\ell}\right) \geq(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A
+$$
+
+This concludes the proof of the theorem for Case 1.
+Case 2: $\gamma(1-\epsilon) c\left(S_{\ell}\right) \geq A$.
+In this case, there exist $t \in[1, \ell]$ such that:
+
+$$
+c\left(S_{t-1}\right)<\frac{1}{\gamma(1-\epsilon)} A \leq c\left(S_{t}\right)
+$$
+
+We further divide Case 2 into two sub-cases: (2.1) and (2.2).
+Case 2.1: For some $j \in[1, t-1], f\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})$.
+Note that Algorithm 1 outputs $\tilde{S}=\arg \max _{S_{i}, i \in[n]} f\left(S_{i}\right)-c\left(S_{i}\right)$. Therefore, for some $j \in[1, t-1]$
+
+$$
+\begin{aligned}
+h(\tilde{S}) & \geq f\left(S_{j}\right)-c\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-\frac{A}{\gamma(1-\epsilon)} \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{A}{\gamma(1-\epsilon)}
+\end{aligned}
+$$
+
+This concludes the proof of the theorem for sub-case 2.1 .Case 2.2: For all $j \in[1, t-1], f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})$.
+As illustrated in the proof path, we have already proved the Lemmas 2 and 3. We will now prove the necessary properties conditioned on the sub-case 2.2. The following two claims give the properties of the cost of every single element in set $S_{t}$.
+Claim 4. Under the Case 2.2, the following holds: $\forall j \in[1, t-1]: c\left(v_{j}\right) \leq c(\mathrm{OPT})$.
+Proof Sketch: We prove this claim by contradiction. Assume there exist some $j \in[1, t-1]$ that $c\left(v_{j}\right)>$ $c(\mathrm{OPT})$. Under Case 2.2 condition, $f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})$ is true. Then if we apply Lemma 2 to $f\left(v_{j} \mid S_{j-1}\right)$ of $f\left(S_{j}\right)=f\left(S_{j-1}\right)+f\left(v_{j} \mid S_{j-1}\right)$, we can derive $f\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})$, which is a contradiction.
+Claim 5. Under the Case 2.2, if we denote $B_{j}=A-\gamma(1-\epsilon) c\left(S_{j}\right)$, then we have $c\left(v_{t}\right)>B_{t-1}$.
+
+Proof.
+
+$$
+\begin{aligned}
+c\left(v_{t}\right) & =c\left(S_{t}\right)-c\left(S_{t-1}\right) \geq \frac{1}{\gamma(1-\epsilon)} A-c\left(S_{t-1}\right) \\
+& =\frac{1}{\gamma(1-\epsilon)}\left(A-\gamma(1-\epsilon) c\left(S_{t-1}\right)\right) \\
+& \geq A-\gamma(1-\epsilon) c\left(S_{t-1}\right)=B_{t-1}
+\end{aligned}
+$$
+
+The first inequality follows from the case 2 condition Eq. (8).
+Next, we present Lemma 6 that upper bounds the optimal objective value $f(\mathrm{OPT})-c(\mathrm{OPT})$. Furthermore, under the condition of Case 2.2, a corollary that upper bounds $f\left(S_{j}\right)$ can be derived from the lemma. As illustrated in the proof roadmap in Figure 1, the lemma and corollary are necessary for the proof of Lemma 8 , which wraps up the proof of Case 2.2 of the theorem.
+Lemma 6. Under the Case 2.2, the following holds: for all $j \in[1, t-1]$, if $B_{j}=A-\gamma(1-\epsilon) c\left(S_{j}\right)$, then
+
+$$
+f(\mathrm{OPT})-c(\mathrm{OPT}) \leq \frac{B_{j}(f(\mathrm{OPT})-f\left(S_{j}\right))}{c(\mathrm{OPT})}+f\left(S_{j}\right)
+$$
+
+Proof. We divide this proof into two cases based on the valuations of $B_{j}$ and $c(\mathrm{OPT})$.
+
+- If $B_{j}>c(\mathrm{OPT})$ : The lemma holds immediately.
+- If $B_{j} \leq c(\mathrm{OPT})$ : We first solve the right hands side of the inequality by splitting it into a part with $f\left(S_{j}\right)$ and without $f\left(S_{j}\right)$. Then we can further apply Lemma 3 to the former.
+
+$$
+\begin{aligned}
+& \frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right)=\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) f\left(S_{j}\right)+\frac{B_{j}}{c(\mathrm{OPT})} f(\mathrm{OPT}) \\
+& \geq\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) \underbrace{\left(1-\prod_{k=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{k}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})}_{\text {follows from Lemma } 3}+\frac{B_{j}}{c(\mathrm{OPT})} f(\mathrm{OPT}) \\
+& =f(\mathrm{OPT})-\left(\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) \prod_{k=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{k}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT}) \\
+& =\left(1-\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) \prod_{k=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{k}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT}) \\
+& \geq\left(1-\left(1-\frac{B_{j}+\gamma(1-\epsilon) \cdot \sum_{k=1}^{j} c\left(v_{k}\right)}{(j+1) \cdot c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT})
+\end{aligned}
+$$The last inequality holds due to the following known inequality:
+
+$$
+1-\prod_{i=1}^{n}\left(1-\frac{x_{i}}{y}\right) \geq 1-\left(1-\frac{\sum_{i=1}^{n} x_{i}}{n y}\right)^{n}
+$$
+
+where $x_{i}, y \in \mathbb{R}^{+}$and $x_{i} \leq y$ for $i \in[n]$.
+Consider $\forall k \in[1, j], x_{k}=\gamma(1-\epsilon) c\left(v_{k}\right), x_{k+1}=B_{j}$ and $y=c(\mathrm{OPT})$. Note that, $\forall k \in[1, j], \gamma(1-\epsilon) c\left(v_{k}\right) \leq$ $c(\mathrm{OPT})$, which follows from Claim 4 and $\gamma(1-\epsilon) \leq 1$. Also, $B_{j} \leq c(\mathrm{OPT})$ follows from the condition for this case. Therefore, the last inequality can be obtained by applying Eq. (9).
+
+Proceeding further by using the definitions of $B_{j}$ and modular function $c$, the following derivations wrap up the proof.
+
+$$
+\begin{aligned}
+& \frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right) \\
+& \geq\left(1-\left(1-\frac{A-\gamma(1-\epsilon) c\left(S_{j}\right)+\gamma(1-\epsilon) \sum_{k=1}^{j} c\left(v_{k}\right)}{(j+1) \cdot c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT}) \\
+& =\left(1-\left(1-\frac{A}{(j+1) \cdot c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT}) \\
+& =\left(1-\left(1-\frac{1}{j+1} \cdot \ln \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT}) \\
+& \geq\left(1-e^{-\ln \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}}\right) f(\mathrm{OPT}) \quad \text { as }\left(1-\frac{c}{t}\right)^{t} \leq e^{-c} \\
+& =\left(1-\frac{c(\mathrm{OPT})}{f(\mathrm{OPT})}\right) f(\mathrm{OPT}) \\
+& =f(\mathrm{OPT})-c(\mathrm{OPT})
+\end{aligned}
+$$
+
+Corollary 7. Under the Case 2.2, the following holds: for all $j \in[1, t-1]$, if $B_{j}=A-\gamma(1-\epsilon) c\left(S_{j}\right)$ then
+
+$$
+f(\mathrm{OPT})-f\left(S_{j}\right) \geq \frac{1}{\gamma(1-\epsilon)} c(\mathrm{OPT})
+$$
+
+Proof. Note that, for the case $f\left(S_{j}\right)-c\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A$, Theorem 1 holds immediately. Hence, we consider the opposite case:
+
+$$
+\begin{aligned}
+f\left(S_{j}\right)-c\left(S_{j}\right) & \leq f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A \\
+& =f(\mathrm{OPT})-c(\mathrm{OPT})-c\left(S_{j}\right)-\frac{1}{\gamma(1-\epsilon)} B_{j} \\
+& \leq \frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right)-c\left(S_{j}\right)-\frac{1}{\gamma(1-\epsilon)} B_{j}
+\end{aligned}
+$$
+
+The last inequality is due to Lemma 6. Rearranging the above inequality concludes the proof of the corollary.
+
+The following lemma discharges the proof for Theorem 1 for the sub-case 2.2 .Lemma 8. Under the case 2.2, the following holds:
+
+$$
+f\left(S_{t}\right)-c\left(S_{t}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A
+$$
+
+Proof. Consider $v_{t}$ the element added to $S_{t-1}$.
+
+$$
+\begin{aligned}
+& f\left(S_{t}\right)-c\left(S_{t}\right)=f\left(v_{t} \mid S_{t-1}\right)+f\left(S_{t-1}\right)-c\left(S_{t}\right) \\
+& \geq \gamma(1-\epsilon) \frac{c\left(v_{t}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)+f\left(S_{t-1}\right)-c\left(S_{t}\right) \\
+& =\gamma(1-\epsilon) \frac{B_{t-1}+c\left(v_{t}\right)-B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)+f\left(S_{t-1}\right)-\left(\frac{1}{\gamma(1-\epsilon)}\left(A-B_{t-1}\right)+c\left(v_{t}\right)\right)
+\end{aligned}
+$$
+
+The first inequality holds from Lemma 2. The equality follows from the definition of $B_{t-1}=A-\gamma(1-$ $\epsilon) c\left(S_{t-1}\right)$.
+Proceeding further from the above inequality,
+
+$$
+\begin{aligned}
+& f\left(S_{t}\right)-c\left(S_{t}\right) \\
+& \geq \gamma(1-\epsilon) \frac{B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)+f\left(S_{t-1}\right) \\
+& +\gamma(1-\epsilon) \frac{c\left(v_{t}\right)-B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right) \\
+& -\frac{1}{\gamma(1-\epsilon)} A-\left(c\left(v_{t}\right)-\frac{1}{\gamma(1-\epsilon)} B_{t-1}\right) \\
+& \geq \gamma(1-\epsilon) \underbrace{\left[\frac{B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)+f\left(S_{t-1}\right)\right]}_{\text {apply Lemma } 6} \\
+& +\gamma(1-\epsilon) \frac{c\left(v_{t}\right)-B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right) \\
+& -\frac{1}{\gamma(1-\epsilon)} A-\left(c\left(v_{t}\right)-B_{t-1}\right) \\
+& \geq \gamma(1-\epsilon)(f(\mathrm{OPT})-c(\mathrm{OPT}))-\frac{1}{\gamma(1-\epsilon)} A \\
+& +\underbrace{\left[c\left(v_{t}\right)-B_{t-1}\right]\left(\gamma(1-\epsilon) \frac{f(\mathrm{OPT})-f\left(S_{t-1}\right)}{c(\mathrm{OPT})}-1\right)}_{\text {residual value }}
+\end{aligned}
+$$
+
+Note that, in Claim 5, we have established $c\left(v_{t}\right) \geq B_{t-1}$. Furthermore, from Corollary 7, we know $f(\mathrm{OPT})-$ $f\left(S_{j}\right) \geq \frac{1}{\gamma(1-\epsilon)} c(\mathrm{OPT})$. Therefore, the residual value is non-negative. Hence,
+
+$$
+f(\tilde{S})-c(\tilde{S}) \geq f\left(S_{t}\right)-c\left(S_{t}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A
+$$
+
+This concludes the proof of Theorem 1 for case 2.2. We have proved the approximation guarantee of Theorem 1 for every case. The following lemma finishes the proof of Theorem 1 by bounding the worst-case running time of Algorithm 1.
+Lemma 9. The time complexity of Algorithm 1 is $\mathcal{O}\left(\frac{n}{\epsilon} \log \frac{n}{\epsilon \gamma}\right)$.
+Proof. As per line 18 of Algorithm 1, each element $e \in V$ can be evaluated for at most $\left(\log \frac{n}{\epsilon e}\right) / \epsilon$ times. Each such consideration involves one oracle call to the function $f$. Therefore, the maximal total number of oracle calls for $n$ elements is $n \cdot\left(\log \frac{n}{\gamma \epsilon}\right) / \epsilon \in \mathcal{O}\left(\frac{n}{\epsilon} \log \frac{n}{\epsilon \gamma}\right)$.# 3.2.3 Approximation Guarantee with Approximate Oracles 
+
+To complement our proposed efficient algorithm, we provide an approximation guarantee of Algorithm 1 for the RUASM problem ( $f$ is $\delta$-approximate to a weakly submodular function).
+Theorem 10. Suppose the input utility function is $\delta$-approximate to a monotone $\gamma$-submodular set function $f, c$ is a modular cost function, $\epsilon \in(0,1)$ is an error threshold. Let $\mathrm{OPT}=\arg \max _{T \subseteq V}\{f(T)-c(T)\}$, after $\mathcal{O}\left(\frac{n}{\epsilon} \log \frac{n}{\gamma \epsilon}\right)$ oracle calls to the $\delta$-approximate utility function, Algorithm 1 outputs $\tilde{S}$ such that
+
+$$
+\begin{gathered}
+f(\tilde{S})-c(\tilde{S}) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A \\
+-2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)
+\end{gathered}
+$$
+
+where $A=c(\mathrm{OPT}) \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}, \beta=\frac{c(\mathrm{OPT})}{c_{\min }}$ and $\beta^{\prime}=\frac{c_{\max }}{c(\mathrm{OPT})}$.
+Theorem 10 generalizes both Theorem 1 (with $\delta=0$ ) and ROI Jin et al. (2021) (with $\delta=0$ and $\epsilon=0$ ). The proof of Theorem 10 follows the roadmap as shown in Figure 1 with moderate modifications to some lemmas. The detailed derivations are presented in the Appendix (Section B).
+
+## 4 Experiments
+
+Our experiments are conducted on a MacBook Pro with an M1 Pro chip and 16GB RAM, and all algorithms are implemented in $\mathrm{C}++{ }^{2}$. We have implemented lazy evaluations Minoux (2005) for algorithms with submodular function $f$, for example, ROI and our UP. We discuss the applications of profit maximization, vertex cover with costs, and Bayesian A-Optimal design. The latter is specifically for weakly submodular $f$ functions.
+
+### 4.1 Baseline Algorithms
+
+We compare our algorithm UP with the modified ROI and UDG Harshaw et al. (2019).
+
+Modified ROI Note that ROI greedy as presented in Jin et al. (2021) does not provide approximation guarantees when the function $f$ is weakly submodular. We have developed a modified version of the ROI greedy algorithm to accommodate for weakly submodular $f$. The algorithm runs at most $n$ iterations and during each iteration, it adds an element with the maximal density w.r.t. the current partial solution as long as the density is greater than $\gamma$. The output is the maximal objective value of every partial solution (same as Algorithm 1). Additionally, We have established an approximation bound of the modified algorithm in Theorem 11.
+Theorem 11. Given a monotone $\gamma$-submodular function $f: 2^{V} \rightarrow \mathbb{R}^{\geq 0}$ and a modular cost function $c$, with $\mathcal{O}\left(n^{2}\right)$ oracle calls to $f$, the modified ROI algorithm outputs $\tilde{S}$ such that
+
+$$
+f(\tilde{S})-c(\tilde{S}) \geq \gamma f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{c(\mathrm{OPT})}{\gamma} \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}
+$$
+
+We notice that when the function $f$ is submodular $(\gamma=1)$, the approximation reduces to the approximation result of ROI Jin et al. (2021). The pseudo-code of the modified algorithm and theoretical analysis of Theorem 11 are presented in the Appendix (Section A.1). We note that the modified algorithm still works in quadratic time. The rationale behind developing the modified ROI is to appropriately compare our results with the ROI algorithm when the function $f$ is weakly submodular.
+
+[^0]
+[^0]:    ${ }^{2}$ The code can be found: https://github.com/yz24/UWSM.UDG The UDG algorithm is randomized and the claimed approximation bound holds in expectation. Thus, we run the UDG algorithm ten times and report the median results returned. As for runtime, we also report the median running time of the ten runs.
+
+For a fair comparison among different methods, we evaluate the running time based on the number of oracle evaluations as discussed in Section 2.
+
+# 4.2 Applications and Experimental Settings 
+
+In this subsection, we formulate three applications that apply to the proposed RUSM and RUWSM problems. We also provide the descriptions of the datasets we use for the experiments and critical parameter setups. The statistics of the datasets are presented in Tables 2 and 3.
+
+Table 2: Network Data Statistics
+
+| Application | Network | $n$ | $m$ | Type |
+| :--: | :--: | :--: | :--: | :--: |
+|  | Gnutella-08 | 6,301 | 20,777 | Directed |
+| Profit Max. | NetHEPT | 15,233 | 62,774 | Undirected |
+|  | Protein | 1,706 | 6,207 | Directed |
+| Vertex Cover | Eu-Email | 1,005 | 25,571 | Directed |
+
+Table 3: Bayesian A-Optimal Design Data Statistics ( $d$ : number of attributes; $n$ : number of measurements)
+
+| Dataset | $n$ | $d$ |
+| :-- | :--: | :--: |
+| Boston Housing | 506 | 14 |
+| Segment | 2,310 | 19 |
+
+Profit Maximization. The diffusion model Kempe et al. (2003) is defined using a graph $G=(V, E)$ and a probability function $p(u, v), \forall(u, v) \in E$. A monotone submodular function $f(S)=\mathbb{E}[\mathrm{I}(S)]$ measures the expected number of nodes that are influenced by the set of nodes in $S$ based on a diffusion model, such as the independent cascade (IC) model Kempe et al. (2003). Furthermore, it is often the case that some cost $c(v)$ is associated with each node $v \in V$. - this is the cost incurred for including an entity in the seed set. For instance, a highly influential entity is likely to incur higher costs than others. Following Jin et al. (2021); Tang et al. (2018), we use a linear cost function $c: 2^{V} \rightarrow \mathbb{R}^{>0}$ which is proportional to the out-degree $d(v)$ of a node $v \in V$. Formally, for every $v \in V: c(v)=\lambda_{1} \cdot d(v)^{\lambda_{2}}$, where $\lambda_{1}$ and $\lambda_{2}$ are positive cost penalty parameters. Thus, the modular cost of a set $S \subseteq V$ is $c(S)=\sum_{v \in S} c(v)$. Note that we define $c(v)=1$ if $d(v)=0$ to avoid undefined density of node $v$.
+
+Therefore, the profit maximization problem finds a subset $S$ of $V$ such that
+
+$$
+\underset{S \subseteq V}{\arg \max } \mathbb{E}[\mathrm{I}(S)]-c(S)
+$$
+
+For fair comparisons, we adapt the profit maximization framework Jin et al. (2021), which is based on the Random Reachable (RR) approach to speed up the computation of the expected influence value Borgs et al. (2014); Tang et al. (2014; 2015); Nguyen et al. (2016); Huang et al. (2017). We use the standard benchmarks p2p-Gnutella-08 network Leskovec et al. (2007) and NetHEPT network Chen et al. (2009). We compare our algorithm with baselines by their objective values $(f-c)$ and running time with various cost penalty choices $\lambda_{1}$ and $\lambda_{2}$.
+
+Directed Vertex Cover with Costs. Let $G=(V, E)$ be a directed graph and $w: 2^{V} \rightarrow \mathbb{R}^{\geq 0}$ be a modular weight function on a subset of vertices. For a vertex set $S \subseteq V$, let $N(S)$ denote the set of vertices which are pointed to by $S$, formally, $N(S) \triangleq\{v \in V \mid(u, v) \in E \wedge u \in S\}$. The weighted directed vertex cover function is $f(S)=\sum_{u \in N(S) \cup S} w(u)$, which is monotone submodular. We also assume that each vertex
+
+Figure 2: Comparisons on p2p-Gnutella31 and NetHept networks with the application of Profit Maximization.
+
+
+
+Figure 3: Comparisons of average oracle evaluations over various cost penalties: p2p-Gnutella31 and NetHept networks (fixed $\lambda_{1}$ or $\lambda_{2}$ ) with Profit Maximization; various datasets with Vertex Cover and Bayesian AOptimal Design applications. The results of UDG are one-run snap of ten runs.
+
+$v \in V$ has an associated non-negative cost defined by $c(v)=1+\max \{d(v)-q, 0\}$, where $d(v)$ is the out-degree of vertex $v$ and the non-negative integer $q$ is the cost penalty Harshaw et al. (2019). The minimum cost of a single vertex is 1 . The larger $q$ is, the smaller the vertex costs are.
+The objective of the vertex cover with costs maximization problem is to find a subset $S$ such that
+
+$$
+\underset{S \subseteq V}{\arg \max } \sum_{u \in N(S) \cup S} w(u)-\sum_{v \in S} c(v)
+$$
+
+Here, function $f$ is monotone submodular, so we set $\gamma=1$.
+We use two networks in this application: Protein network Stelzl et al. (2005) and Eu-Email Core network Leskovec et al. (2007); Yin et al. (2017). Since there is no node weight information in the datasets, for both networks, we assign each node a weight of 1 and a cost as defined above. For the experiments, we vary cost penalty choices $q \in[1,12]$ and compare the objective values $(f-c)$ and running time (function calls) of our algorithm UP with ROI, UDG.
+
+Bayesian A-Optimal Design. Given a measurement matrix $\mathbf{X}=\left[x_{1}, x_{2}, \ldots, x_{n}\right] \in \mathbb{R}^{d}$, a linear model $\boldsymbol{y}_{S}=\mathbf{X}_{S}^{\mathrm{T}} \boldsymbol{\theta}+\zeta_{S}$, a modular cost function $c: 2^{n} \rightarrow \mathbb{R}_{>0}$, where $\boldsymbol{\theta}$ has a Gaussian prior distribution $\boldsymbol{\theta} \sim$ $\mathcal{N}(0, \Sigma)$, the normal i.i.d. noise $\zeta_{1}, \zeta_{2}, \cdots, \zeta_{n} \sim \mathcal{N}\left(0, \sigma^{2}\right)$, the objective is to find a submatrix $\mathbf{X}_{S}$ such that
+
+$$
+\underset{S \subseteq\{1,2, \ldots, n\}}{\arg \max } f(S)-c(S)
+$$
+
+Here, $f(S)=\operatorname{Tr}(\Sigma)-\operatorname{Tr}\left(\Sigma^{-1}+\frac{1}{\sigma^{2}} \mathbf{X}_{S} \mathbf{X}_{S}^{\mathrm{T}}\right)^{-1}$ is the Bayesian A-Optimality function, which is a non-negative, monotone and $\gamma$-weakly submodular function Bian et al. (2017); Harshaw et al. (2019). $\operatorname{Tr}(\cdot)$ denotes the trace of a matrix. Moreover, the marginal gain of adding a measurement $e$ to $S$ can be efficiently calculated by $f(e \mid S)=\frac{\left\|z_{e}\right\|^{2}}{\sigma^{2}+\left\langle x_{e}, z_{e}\right\rangle}$, where $z_{e}=\mathbf{M}_{S}^{-1} x_{e}$ and $\mathbf{M}_{S}=\Sigma^{-1}+\mathbf{X}_{S} \mathbf{X}_{S}^{T}$. The modular cost of a measurement
+
+Figure 4: Experiments with Directed Vertex Cover (Eu-Email and Protein networks) and Bayesian AOptimal Design (Segment and Housing data).
+$e \in[n]$ is defined to be proportional to its $f$ value, formally, $c(S)=\sum_{e \in S} c(e)=p \sum_{e \in S} f(e) ; p \in(0,1)$ is the cost penalty.
+
+We use the Boston Housing Harrison \& Rubinfeld (1978) and Segment Data Qian (2021) for this application. To prepare the datasets for analysis, we performed pre-processing tasks that involved normalizing the features to achieve a zero mean and a standard deviation of 1. In the Bayesian A-Optimality function $f(S)$, we set $\sigma=1 / \sqrt{d}$. As the submodularity ratio is not known apriori, we implemented the $\gamma$-Guess algorithm Harshaw et al. (2019) to estimate an approximate $\gamma$. The algorithm executes Algorithm UP or UDG for a total of $T=\left\lceil\frac{1}{2} \ln \frac{1}{2}\right\rceil$ iterations. At each iteration $r$, there is a distinct submodularity ratio $\gamma_{r}$. The algorithm takes this $\gamma_{r}$ for the solution set selection in Line 4. The outputs of the $\gamma$-Guess algorithm is the set with the maximum objective value and the total number of function call. We fix the decay threshold $\delta=0.2$ in $\gamma$-Guess and validate our algorithm with various cost penalty choices $p \in[0.1,1.0]$.
+
+# 4.3 Results 
+
+Profit Maximization : The results varying cost penalties $\lambda_{1}$ and $\lambda_{2}$ on the benchmark networks are presented in Figures 2(a), 2(b), 2(c) and 2(d). The plots demonstrate that our results (Alg. UP with $\epsilon=0.1,0.2)$ are close to the best-approximation algorithm ROI greedy algorithm (black-circle line) and exhibit a $15 \%$ improvement over UDG. Regarding computational efficiency comparison in Figures 3(a) and 3(b), our algorithm with $\epsilon=0.5$ matches the efficiency of the linear-time UDG algorithm and is 6.8 times faster than ROI.
+
+Directed Vertex Cover : Figures 4(a) and 4(a) show that when the cost penalty thresholds increase, the objective values $(f-c)$ also increase for every algorithm. Our algorithm demonstrates near-equivalent performance to the best-approximation algorithm ROI. Even with a larger $\epsilon=0.5$, our algorithm outperforms UDG by $25 \%$ for the Protein network, particularly when dealing with high-cost penalties. The running time comparisons are depicted in Figure 3(c). For our algorithms with larger $\epsilon$ values, the running time aligns closely with the linear-time UDG algorithm.
+
+Bayesian A-Optimal Design : Figures 4(c), 4(d), and 3(d) demonstrate that the quality of the result obtained from the modified ROI is validated against other algorithms, which is also supported by the approximation guarantee in Theorem 11. Still, it needs the highest number of function calls. As for the objective values, the density maximization-based algorithms (modified ROI and UP) produce higher-quality solutions than UDG. Compared to the linear-time baseline UDG, our algorithm UP with a higher error $(\epsilon=0.5)$ runs comparably fast.
+
+## 5 Conclusion
+
+In this paper, we proposed a fast deterministic algorithm for balancing utility and modularity with a strong provable approximation guarantee. We have experimentally validated our algorithms on various applica-tions, demonstrating that our algorithms run as fast as the existing linear-time algorithms while producing comparative results as the state-of-the-art. A possible extension for future work is to investigate the approximation bound and performance when the cost function $c$ is (weakly) submodular. This would provide a more general framework and improve the applicability of the algorithms to a wider range of real-world applications.
+
+# A Modified ROI-Greedy and Threshold Greedy Algorithms 
+
+In this section, we provide the modified algorithms and the approximation proofs that we mentioned in Section 3 and Section 4.
+
+## A. 1 Modified ROI-Greedy for Weakly submdular $f$
+
+As we have mentioned in Section 3 and Section 4, we have modified the ROI-Greedy Jin et al. (2021) to make it handle the weakly submodular $f$ in the RUWSM problem. The pseudocode is presented in Algorithm 2.
+
+```
+Algorithm \(2 \gamma-\operatorname{ROI}(f, c, \gamma)\)
+    Input: utility function \(f\), cost function \(c\), submodularity ratio \(\gamma\).
+    Output: \(\tilde{S}=\arg \max _ { S _ { i } , i \in [ n ] } f\left(S_{i}\right)-c\left(S_{i}\right)\).
+    \(S_{0} \leftarrow \emptyset\)
+    for \(i \leftarrow 1\) to \(n\) do
+        \(v_{i} \leftarrow \arg \max _{u \in V \backslash S_{i-1}} \frac{f\left(u \mid S_{i-1}\right)}{c(u)}\)
+        if \(f\left(u \mid S_{i-1}\right)>\gamma \cdot c(u)\) then
+            \(S_{i} \leftarrow S_{i-1} \cup\left\{v_{i}\right\}\)
+        else
+            BREAK
+        end if
+    end for
+```
+
+
+## A.1.1 The Algorithm
+
+The algorithm greedily selects an element $v_{i}$ with the maximal density w.r.t. the current seed set $S_{i-1}$ as a candidate element (line 5). It adds $v_{i}$ to $S_{i-1}$ only if the density is larger than the submodularity ratio $\gamma$ (line 6). Finally, instead of outputting the solution set constructed at the termination of the algorithm, the algorithm outputs a solution set with the best objective value among all the intermediate solution sets.
+
+The algorithm will iterate at most $n$ times, and every time it takes $\mathcal{O}(n)$ oracle calls to $f$ to find the maximal density. Therefore, the worst-case runtime is bounded by $\mathcal{O}\left(n^{2}\right)$.
+
+The proceeding theorem is the theoretical bound guaranteed by this algorithm.
+Theorem 12. Given a monotone $\gamma$-submodular function $f: 2^{V} \rightarrow \mathbb{R}^{\geq 0}$ and a modular cost function $c$, after $\mathcal{O}\left(n^{2}\right)$ oracle calls, Algorithm 2 outputs $\tilde{S}$ such that
+
+$$
+f(\tilde{S})-c(\tilde{S}) \geq \gamma f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma} A
+$$
+
+where $A=c(\mathrm{OPT}) \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}$ and $\mathrm{OPT}=\arg \max _{T \subseteq V}\{f(T)-c(T)\}$.
+
+## A.1.2 Analysis of Theorem 12
+
+The proof of Theorem 12 can be adapted from the proof of Theorem 1. Next, we show how to modify some lemmas and results to derive Theorem 12.Lemma 13. For all $1 \leq i \leq \ell$ and if $v_{i}$ be the element added to $S_{i-1}$, then
+
+$$
+f\left(v_{i} \mid S_{i-1}\right) \geq \gamma \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{i-1}\right)\right)
+$$
+
+Proof. Given that $v_{i}$ is the element added to $S_{i-1}$ at line 5 of the Algorithm 2. Therefore, $\forall u \in \mathrm{OPT} \backslash S_{i-1}$, $u$ was not the element selected with the maximal density w.r.t. $f\left(S_{i-1}\right)$. Hence,
+
+$$
+\frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \geq \frac{f\left(u \mid S_{i-1}\right)}{c(u)}
+$$
+
+Since $v_{i}$ is added to $S_{i-1}$, we have:
+
+$$
+\begin{aligned}
+f(\mathrm{OPT})-f\left(S_{i-1}\right) & \leq f\left(\mathrm{OPT} \cup S_{i-1}\right)-f\left(S_{i-1}\right) \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} f\left(u \mid S_{i-1}\right) \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} c(u) \cdot \frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \quad \text { due to Eq. (10) } \\
+& \leq \frac{1}{\gamma} \frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} c(\mathrm{OPT})
+\end{aligned}
+$$
+
+The first two inequalities hold from monotonicity and weak submodularity (Def. 2) of $f$. Rearranging the last inequality concludes the proof.
+
+Lemma 14. For all $i \in[1, \ell]$ and if $v_{i}$ is the element added to $S_{i-1}$ in the $i$-th iteration then
+
+$$
+f\left(S_{i}\right) \geq\left(1-\prod_{s=1}^{i}\left(1-\gamma \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})
+$$
+
+Let $S_{\ell}$ with size $\ell$ be the set at the termination of Algorithm 2. We divide the proof of Theorem 12 into two cases based on the relationship between $A$ and $c\left(S_{\ell}\right)$.
+Case 1: $\gamma c\left(S_{\ell}\right)<A$.
+Consider each element $u \in \mathrm{OPT} \backslash S_{\ell}$ that was not included into $S_{\ell}$, we have
+
+$$
+\frac{f\left(u \mid S_{\ell}\right)}{c(u)} \leq \frac{f\left(u \mid S_{u}\right)}{c(u)} \leq \gamma
+$$
+
+Therefore, for Case 1, we have
+
+$$
+\begin{aligned}
+f(\mathrm{OPT})-f\left(S_{\ell}\right)-c(\mathrm{OPT}) & \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{\ell}} f\left(u \mid S_{\ell}\right)-c(\mathrm{OPT}) \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{\ell}} f\left(u \mid S_{\ell}\right)-\sum_{u \in \mathrm{OPT} \backslash S_{\ell}} c(u) \\
+& \leq 0 \quad \text { follows from Eq. (12) } \\
+& \leq \frac{A}{\gamma}-c\left(S_{\ell}\right)
+\end{aligned}
+$$
+
+Combining the above inequality with the Case 1 condition $\left(\gamma(1-\epsilon) c\left(S_{\ell}\right)<A\right)$, we have
+
+$$
+\begin{aligned}
+f(\tilde{S})-c(\tilde{S}) & \geq f\left(S_{\ell}\right)-c\left(S_{\ell}\right) \\
+& \geq \gamma f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma} A
+\end{aligned}
+$$```
+Algorithm 3 THRESHOLD-ROI \((f, c, \gamma)\)
+    Input: utility function \(f\), cost function \(c\), submodularity ratio \(\gamma\).
+    Output: \(\tilde{S}=\arg \max _S_{i}, i \in[n] f\left(S_{i}\right)-c\left(S_{i}\right)\).
+    \(\tau \leftarrow \max _{u \in V} \frac{f(u)}{c(u)}, S_{0} \leftarrow \emptyset, i \leftarrow 1\)
+    while \(\tau>\gamma\) do
+        for \(e \in V \backslash S_{i-1}\) do
+            if \(\frac{f\left(e \mid S_{i-1}\right)}{c(e)} \geq \tau\) then
+                \(S_{i} \leftarrow S_{i-1} \cup\{e\}\)
+                \(i++\)
+            end if
+        end for
+        \(\tau \leftarrow(1-\epsilon) \tau\)
+    end while
+```
+
+This concludes the proof of the theorem for Case 1.
+Case 2: $\gamma c\left(S_{\ell}\right) \geq A$.
+The proof of this case follows from the proofs of Theorem 1 with $\epsilon=0$.
+
+# A. 2 Threshold Greedy for Weakly submodular $f$ 
+
+We provide more justifications for the statement ("traditional threshold adaption to the ROI-greedy admits unbounded runtime") in Section 3.
+
+Threshold technique Badanidiyuru \& Vondrák (2014) is usually used to design faster deterministic algorithms based on a greedy algorithm for submodular optimization problems. We show that the threshold technique can be applied to the unconstrained $f-c$ problem with a provable theoretical guarantee. However, the running time is unbounded. The pseudocode is presented in Algorithm 3.
+
+## A.2.1 The Algorithm
+
+The algorithm initializes $S$ to an empty set. The threshold $\tau$ is initialized to be the largest density of a singleton (line 3), and it is dynamically updated (geometrically decay). The intuition behind the algorithm is that it starts by considering only the items with the high-density value. Then, the algorithm gradually relaxes the threshold value to consider more and more items. The parameter $\epsilon$ controls the rate at which the threshold value is relaxed.
+
+The proceeding theorem is the theoretical bound guaranteed by this algorithm.
+Theorem 15. Given a monotone $\gamma$-submodular function $f: 2^{V} \rightarrow \mathbb{R}^{\geq 0}$, a modular cost function $c$, an error threshold $\epsilon \in(0,1)$, after $\mathcal{O}\left(\frac{n}{\epsilon} \log \tau_{0}\right)$ oracle calls, Algorithm 2 outputs $\tilde{S}$ such that
+
+$$
+f(\tilde{S})-c(\tilde{S}) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A
+$$
+
+where $A=c(\mathrm{OPT}) \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}, \mathrm{OPT}=\arg \max _{T \subseteq V}\{f(T)-c(T)\}$ and $\tau_{0}=\max _{u \in V} \frac{f(u)}{c(u)}$.
+Note that $\tau_{0}$ is unbounded since the density of an element can be exponentially large, so the running time of this Algorithm 3 can be as bad as $\mathcal{O}\left(n^{2}\right)$ or even worse.
+
+## A.2.2 Analysis of Theorem 15
+
+The proof method of the theoretical bound of Theorem 15 is similar to the previous theorems. We first prove the lower bound of the marginal gain when adding an element to the seed set. Then, we prove the theorem by cases.Lemma 16. For all $i$ such that $1 \leq i \leq \ell$ and if $v_{i}$ be the element added to $S_{i-1}$ then
+
+$$
+f\left(v_{i} \mid S_{i-1}\right) \geq \gamma(1-\epsilon) \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{i-1}\right)\right)
+$$
+
+Proof. Let $\tau_{i}$ be the value of $\tau$ at some iteration. By the algorithm, we know that $v_{i}$ was not selected for the previous $\tau_{i-1}$ where $\tau_{i-1}=\frac{\tau_{i}}{1-\epsilon}$. In other words,
+
+$$
+\forall u \in \mathrm{OPT} \backslash S_{i-1}: \frac{f\left(u \mid S_{i-1}\right)}{c(u)} \leq \frac{\tau_{i}}{1-\epsilon}
+$$
+
+Since $v_{i}$ is added to $S_{i-1}$, we have:
+
+$$
+\begin{aligned}
+& f(\mathrm{OPT})-f\left(S_{i-1}\right) \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} f\left(u \mid S_{i-1}\right) \quad \text { by Def. } \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} \frac{c(u)}{1-\epsilon} \cdot \frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \quad \text { due to Eq. (3) } \\
+& \leq \frac{1}{\gamma(1-\epsilon)} \frac{f\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} c(\mathrm{OPT})
+\end{aligned}
+$$
+
+Notice that the above lemma gives the same property as in the proof of Theorem 1. The remaining proofs of Theorem 15 are the same as the corresponding proofs of Theorem 1. Therefore, readers can find the rest of the proofs in the main paper. We jump right to the running time analysis.
+Lemma 17. The time complexity of Algorithm 3 is $\mathcal{O}\left(\frac{n}{\epsilon} \log \frac{\tau}{\epsilon}\right)$.
+The for-loop runs at most $n$ times for each choice of threshold $\tau$. Let $\tau_{0}=\max _{e \in V}\left\{\frac{f(e)}{c(e)}\right\}$ be the initial threshold. We know that $\gamma$ is the threshold at termination of the algorithm. If $T$ is the number of runs of the while-loop, then
+
+$$
+T=2+\log _{(1-\epsilon)^{-1}} \frac{\tau_{0}}{\gamma}=2-\frac{\ln \tau_{0}-\ln \gamma}{\ln 1-\epsilon} \leq 2+\epsilon^{-1}\left(\ln \tau_{0}-\ln \gamma\right) \in O\left(\epsilon^{-1} \log \tau_{0}\right)
+$$
+
+So, the overall run time is $\mathcal{O}\left(\frac{n}{\epsilon} \log \tau_{0}\right)$.
+
+# B Complete Proofs for Theorem 10 
+
+In Algorithm 1, we note that the input utility function is $\bar{f}$, which is $\delta$-approximate to a monotone $\gamma$ submodular set function $f$. Before presenting the theorem, we remark about the marginal gain of a $\delta$ approximate function $\tilde{f}$.
+Remark 18. By Definition 3, we have, for every $S \subseteq V$ and $v \in V \backslash S$
+
+$$
+\begin{gathered}
+f(S)-\delta \leq \bar{f}(S) \leq f(S)+\delta \\
+f(v \mid S)-2 \delta \leq \tilde{f}(v \mid S) \leq \tilde{f}(v \mid S)-2 \delta
+\end{gathered}
+$$
+
+Theorem 3.10. Suppose the input utility function is $\delta$-approximate to a monotone $\gamma$-submodular set function $f . c$ is a modular cost function. Let $\mathrm{OPT}=\arg \max _{T \subseteq V}\{f(T)-c(T)\}$, after $\mathcal{O}\left(\frac{n}{\epsilon} \log \frac{n}{\gamma \epsilon}\right)$ oracle calls to the $\delta$-approximate utility function, Algorithm 1 outputs $\tilde{S}$ such that
+
+$$
+\begin{gathered}
+f(\tilde{S})-c(\tilde{S}) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A \\
+-2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)
+\end{gathered}
+$$
+
+Figure 5: Roadmap of the proof of Theorems 10 for Algorithm 1
+where $A=c(\mathrm{OPT}) \log \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}, \beta=\frac{c(\mathrm{OPT})}{c_{\min }}, \beta^{\prime}=\frac{c_{\max }}{c(\mathrm{OPT})}$ and $\epsilon \in(0,1)$ is an error threshold.
+
+# B. 1 Overview of the Proof 
+
+We now proceed by presenting a roadmap in Figure 5 of the proof for Theorem 10 by illustrating the definitions, lemmas, and claims that are used to discharge the proof of the theorem. Denote $\xi=$ $2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)$. As depicted in the following tree, each node corresponds to a theorem, lemma, claim, etc., and the incoming directed edge captures the necessity of the source node in the proof of the destination node. Some of the edges are annotated with conditions under which the source node leads to the destination. For instance, if the condition in Case 2.2 holds, Lemma 25 is valid and implies the validity of Theorem 10. In our proof, we will proceed with the leaf-level lemmas and claims and work our way towards the root of the tree. Wee will prove Lemmas 19 and 20 first.
+
+## B. 2 Useful Lemmas
+
+Before we present the proof for the above theorem, we discuss two specific properties of Algorithm 1 in the following lemmas. Let $\ell$ be the value of $i$ at the termination of Algorithm 1.
+Lemma 19. For all $1 \leq i \leq \ell$ and if $v_{i}$ be the element added to $S_{i-1}$, then
+
+$$
+f\left(v_{i} \mid S_{i-1}\right) \geq \gamma(1-\epsilon) \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{i-1}\right)\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right)
+$$
+
+Proof. Since that $v_{i}$ is the element added to $S_{i-1}$ at line 14 of the Algorithm 1, we have $\frac{\tilde{f}\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \geq(1-\epsilon) \tau_{i}$ due to line 13 condition. Furthermore, let $\frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)}$ be the density when element $u$ was at the priority queue at the current iteration. Since $v_{i}$ is on the top of the priority queue, $\forall u \in \mathrm{OPT} \backslash S_{i-1}, u$ is either equal to $v_{i}$ or has a density $\frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)}$ smaller than $\tau_{i}$ in Line 13. We know $S_{u} \subseteq S_{i}$. Hence,
+
+$$
+\frac{\tilde{f}\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \geq(1-\epsilon) \tau_{i} \geq(1-\epsilon) \frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)}
+$$By the definition of $\delta$ - approximate,
+
+$$
+\begin{aligned}
+& (1-\epsilon) \frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)} \leq \frac{\tilde{f}\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \\
+& \Rightarrow \quad(1-\epsilon) \frac{f\left(u \mid S_{i-1}\right)-2 \delta}{c(u)} \leq(1-\epsilon) \frac{f\left(u \mid S_{u}\right)-2 \delta}{c(u)} \leq(1-\epsilon) \frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)} \leq \frac{\tilde{f}\left(v_{i} \mid S_{i-1}\right)}{c\left(v_{i}\right)} \leq \frac{f\left(v_{i} \mid S_{i-1}\right)+2 \delta}{c\left(v_{i}\right)} \\
+& \Rightarrow \quad(1-\epsilon) \frac{f\left(u \mid S_{i-1}\right)-2 \delta}{c(u)} \leq \frac{f\left(v_{i} \mid S_{i-1}\right)+2 \delta}{c\left(v_{i}\right)} \\
+& \Rightarrow f\left(u \mid S_{i-1}\right) \leq \frac{c(u)}{1-\epsilon} \cdot \frac{f\left(v_{i} \mid S_{i-1}\right)+2 \delta}{c\left(v_{i}\right)}+2 \delta
+\end{aligned}
+$$
+
+Since $v_{i}$ is added to $S_{i-1}$, we have:
+
+$$
+\begin{aligned}
+f(\mathrm{OPT})-f\left(S_{i-1}\right) & \leq f\left(\mathrm{OPT} \cup S_{i-1}\right)-f\left(S_{i-1}\right) \quad \text { as } f \text { is monotone } \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} f\left(u \mid S_{i-1}\right) \quad \text { due to Def. } 2 \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}}\left[\frac{c(u)}{1-\epsilon} \cdot \frac{f\left(v_{i} \mid S_{i-1}\right)+2 \delta}{c\left(v_{i}\right)}+2 \delta\right] \quad \text { due to Eq. (15) } \\
+& =\frac{1}{\gamma(1-\epsilon)} \cdot \frac{f\left(v_{i} \mid S_{i-1}\right)+2 \delta}{c\left(v_{i}\right)} \sum_{u \in \mathrm{OPT} \backslash S_{i-1}} c(u)+\sum_{u \in \mathrm{OPT} \backslash S_{i-1}} \frac{2 \delta}{\gamma} \\
+& \leq \frac{1}{\gamma(1-\epsilon)} \cdot \frac{c(\mathrm{OPT})}{c\left(v_{i}\right)}\left[f\left(v_{i} \mid S_{i-1}\right)+2 \delta\right]+\frac{2 n \delta}{\gamma} \\
+& =\frac{1}{\gamma(1-\epsilon)} \cdot \frac{c(\mathrm{OPT})}{c\left(v_{i}\right)} f\left(v_{i} \mid S_{i-1}\right)+\frac{2 \delta}{\gamma}\left(\frac{c(\mathrm{OPT})}{(1-\epsilon) c\left(v_{i}\right)}+n\right)
+\end{aligned}
+$$
+
+Rearranging the last inequality concludes the proof.
+
+$$
+\begin{aligned}
+f\left(v_{i} \mid S_{i-1}\right) & \geq \gamma(1-\epsilon) \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\left[f(\mathrm{OPT})-f\left(S_{i-1}\right)-\frac{2 \delta}{\gamma}\left(\frac{c(\mathrm{OPT})}{(1-\epsilon) c\left(v_{i}\right)}+n\right)\right] \\
+& =\gamma(1-\epsilon) \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\left[f(\mathrm{OPT})-f\left(S_{i-1}\right)\right]-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right)
+\end{aligned}
+$$
+
+Lemma 20. For all $i$ such that $i$ such that $1 \leq i \leq \ell$ and if $v_{i}$ is the element added to $S_{i-1}$ in the $i$-th iteration and $c\left(v_{i}\right) \leq c(\mathrm{OPT})$ then
+
+$$
+f\left(S_{i}\right) \geq\left(1-\prod_{s=1}^{i}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)
+$$
+
+Proof. We prove this lemma by induction.
+Base Case: We verify the base case $i=1$ using Lemma 19; note that $f(\emptyset)=0$.
+
+$$
+\begin{aligned}
+& f\left(S_{1}\right)=f\left(\left\{v_{1}\right\}\right)=f(v \mid \emptyset) \\
+& \geq \gamma(1-\epsilon) \frac{c\left(v_{1}\right)}{c(\mathrm{OPT})}\left[f(\mathrm{OPT})-f\left(S_{0}\right)\right]-2 \delta\left(1+\frac{(1-\epsilon) c\left(v_{1}\right)}{c(\mathrm{OPT})}\right) \\
+& =\gamma(1-\epsilon) \frac{c\left(v_{1}\right)}{c(\mathrm{OPT})} f(\mathrm{OPT})-2 \delta\left(1+\frac{(1-\epsilon) c\left(v_{1}\right)}{c(\mathrm{OPT})}\right)
+\end{aligned}
+$$Since $c\left(v_{1}\right) \leq c(\mathrm{OPT})$ and by the definition of $\beta, \beta=\frac{c(\mathrm{OPT})}{c_{\text {min }}})$, we have:
+
+$$
+\begin{aligned}
+1+\frac{(1-\epsilon) c\left(v_{1}\right)}{c(\mathrm{OPT})} & \leq \frac{c(\mathrm{OPT})}{c\left(v_{1}\right)}\left[1+\frac{(1-\epsilon) c\left(v_{1}\right)}{c(\mathrm{OPT})}\right] \\
+& =\frac{c(\mathrm{OPT})}{c\left(v_{1}\right)}+n(1-\epsilon) \frac{c(\mathrm{OPT})}{c\left(v_{1}\right)} \cdot \frac{c\left(v_{1}\right)}{c(\mathrm{OPT})} \\
+& \leq \beta+n(1-\epsilon) \\
+& \leq \frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}
+\end{aligned}
+$$
+
+Therefore,
+
+$$
+f\left(S_{1}\right) \geq \gamma(1-\epsilon) \frac{c\left(v_{1}\right)}{c(\mathrm{OPT})}-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)
+$$
+
+The above inequality is consistent with the one that we plug in $i=1$ to Lemma 20. Thus, we proved this lemma for the base case.
+
+Inductive Steps: For $i>1$, as an inductive hypothesis (I.H.), we assume
+
+$$
+\forall j \in[1, i-1]: \quad f\left(S_{j}\right) \geq\left(1-\prod_{s=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{s}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)
+$$
+
+is true. We need to prove the inequality for $f\left(S_{j+1}\right)$,
+
+$$
+\begin{aligned}
+& f\left(S_{j+1}\right)=f\left(S_{j}\right)+f\left(v_{j+1} \mid S_{j}\right) \\
+& \geq f\left(S_{j}\right)+\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right) \quad \text { due to Lemma } 19 \\
+& =\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})} f(\mathrm{OPT})+\left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right) f\left(S_{j}\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right) \\
+& \geq \gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})} f(\mathrm{OPT})+\left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\left[\left(1-\prod_{s=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{s}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)\right] \\
+& \text { by induction hypothesis } \\
+& -2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right) \\
+& =\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})} f(\mathrm{OPT})+\left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\left(1-\prod_{s=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{s}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT}) \\
+& -\left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right) 2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right) \\
+& =f(\mathrm{OPT})-\left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\left[\prod_{s=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{s}\right)}{c(\mathrm{OPT})}\right)\right] f(\mathrm{OPT}) \\
+& -2 \delta\left[\left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)+\left(1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\right] \\
+& =\left(1-\prod_{s=1}^{j+1}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{s}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-2 \delta\left[\left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)+\left(1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\right]
+\end{aligned}
+$$Next, we derive the second term,
+
+$$
+\begin{aligned}
+& \left(1-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right)\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)+\left(1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})}\right) \\
+& =\frac{\beta}{\gamma(1-\epsilon)}-\gamma(1-\epsilon) \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})} \cdot \frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}-(1-\epsilon) n \frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})}+1+n \frac{(1-\epsilon) c\left(v_{j+1}\right)}{c(\mathrm{OPT})} \\
+& =\frac{\beta}{\gamma(1-\epsilon)}-\frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})} \beta+\frac{n}{\gamma}+1 \\
+& =\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}+1-\frac{c\left(v_{j+1}\right)}{c(\mathrm{OPT})} \cdot \frac{c(\mathrm{OPT})}{c_{\text {min }}} \\
+& =\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}+1-\frac{c\left(v_{j+1}\right)}{c_{\text {min }}} \\
+& \leq \frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}
+\end{aligned}
+$$
+
+Thus, we proved for the inductive step,
+
+$$
+f\left(S_{j+1}\right) \geq\left(1-\prod_{s=1}^{j+1}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{s}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)
+$$
+
+# B. 3 Theoretical Analysis of Theorem 10 
+
+Let $S_{\ell}$ be the set at the termination of Algorithm 1. We divide the proof of Theorem 10 into two cases based on the relationship between $A$ and $c\left(S_{\ell}\right)$.
+Case 1: $\gamma(1-\epsilon) c\left(S_{\ell}\right)<A$.
+Consider each element $u \in \mathrm{OPT} \backslash S_{\ell}$ that was not included into $S_{\ell}$; such an element can be categorized into two sets $O_{1}$ and $O_{2}$ with corresponding reasons:
+
+- $O_{1}$ is the set of elements for which the line 7 condition was not satisfied.
+
+The density of these elements is $\leq \gamma$ at some point before the algorithm ends. Therefore, for $u \in O_{1}$, if $\frac{f\left(u \mid S_{u}\right)}{c(u)}$ is the density (key) of $u$ the last time it appears in the priority queue, then
+
+$$
+\frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)} \leq \gamma
+$$
+
+By the definition of approximate oracles,
+
+$$
+\frac{f\left(u \mid S_{\ell}\right)-2 \delta}{c(u)} \leq \frac{f\left(u \mid S_{u}\right)-2 \delta}{c(u)} \leq \frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)} \leq \gamma
+$$
+
+Then we have for $u \in O_{1}$
+
+$$
+f\left(u \mid S_{\ell}\right) \leq \gamma c(u)+2 \delta
+$$
+
+- $O_{2}$ is the set of elements for which the line 18 condition was not satisfied.
+
+In other words, these elements have been considered for $\frac{\log \frac{u}{\gamma}}{\epsilon}$ times. Note that for any $u \in O_{2}$, the initial density of $u$ in the priority queue is $\frac{f(u)}{c(u)}$. Then, suppose $\frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)}$ is the key of $u$ the last time it existed in $P Q$. Therefore, as $S_{u} \subseteq S_{\ell}$ we have
+
+$$
+\frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)} \leq(1-\epsilon)^{\frac{\log \frac{u}{\gamma}}{\epsilon}} \frac{\tilde{f}(u)}{c(u)}
+$$By the definition of approximate oracles (Def. 3), we derive both terms in the above inequality
+
+$$
+\begin{gathered}
+\frac{f\left(u \mid S_{\ell}\right)-2 \delta}{c(u)} \leq \frac{f\left(u \mid S_{u}\right)-2 \delta}{c(u)} \leq \frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u))} \\
+\frac{\tilde{f}\left(u \mid S_{u}\right)}{c(u)} \leq(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}} \cdot \frac{\tilde{f}(u)}{c(u)} \leq(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}} \cdot \frac{f(u)+\delta}{c(u)}
+\end{gathered}
+$$
+
+Therefore, by combining the above two inequalities, we have
+
+$$
+\frac{f\left(u \mid S_{\ell}\right)-2 \delta}{c(u)} \leq(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}} \cdot \frac{f(u)+\delta}{c(u)}
+$$
+
+Then, for every $u \in O_{2}$,
+
+$$
+\begin{aligned}
+f\left(u \mid S_{\ell}\right) & \leq(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}}[f(u)+\delta]+2 \delta \\
+& =(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}} f(u)+2 \delta+(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}} \delta
+\end{aligned}
+$$
+
+Therefore, we derive
+
+$$
+\begin{aligned}
+& f(\mathrm{OPT})-f\left(S_{\ell}\right)-c(\mathrm{OPT}) \\
+& \leq f\left(\mathrm{OPT} \cup S_{\ell}\right)-f\left(S_{\ell}\right)-c(\mathrm{OPT}) \quad \text { due to monotonicity of } f \\
+& \leq \frac{1}{\gamma} \sum_{u \in \mathrm{OPT} \backslash S_{\ell}} f\left(u \mid S_{\ell}\right)-c(\mathrm{OPT}) \quad \text { due to Definition } 2 \\
+& \leq \frac{1}{\gamma}\left(\sum_{u \in O_{1}} f\left(u \mid S_{\ell}\right)+\sum_{u \in O_{2}} f\left(u \mid S_{\ell}\right)\right)-c(\mathrm{OPT}) \\
+& \leq \frac{1}{\gamma}\left(\sum_{u \in O_{1}} f\left(u \mid S_{\ell}\right)+\sum_{u \in O_{2}} f\left(u \mid S_{\ell}\right)\right)-\sum_{u \in O_{1}} c(u) \quad \text { as } c \text { is modular } \\
+& =\left(\sum_{u \in O_{1}} \frac{1}{\gamma} f\left(u \mid S_{\ell}\right)-c(u)\right)+\frac{1}{\gamma} \sum_{u \in O_{2}} f\left(u \mid S_{\ell}\right) \\
+& \leq \sum_{u \in O_{1}} \frac{2 \delta}{\gamma}+\frac{1}{\gamma} \sum_{u \in O_{2}} f\left(u \mid S_{\ell}\right) \quad \text { from Eq. (16) } \\
+& \leq \sum_{u \in O_{1}} \frac{2 \delta}{\gamma}+\frac{1}{\gamma} \sum_{u \in O_{2}}\left[(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}} f(u)+2 \delta+(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}} \delta\right] \quad \text { from Eq. (17) } \\
+& \leq \sum_{u \in O_{1} \cup O_{2}} \frac{2 \delta}{\gamma}+\frac{1}{\gamma} \sum_{u \in O_{2}}\left[(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}}(f(u)+\delta)\right] \\
+& \leq \frac{2 n \delta}{\gamma}+\frac{1}{\gamma} \sum_{u \in O_{2}}\left[(1-\epsilon)^{\frac{\log \frac{u}{S_{\ell}}}{\epsilon}}(f(u)+\delta)\right] \\
+& \leq \frac{2 n \delta}{\gamma}+\epsilon \delta+\epsilon f(\mathrm{OPT})
+\end{aligned}
+$$To get the last inequality, we need to show the following holds
+
+$$
+\begin{aligned}
+\frac{1}{\gamma} \sum_{u \in O_{2}}\left[(1-\epsilon)^{\frac{\log \frac{n}{\gamma}}{\epsilon}}(f(u)+\delta)\right] & \leq \frac{1}{\gamma} \sum_{u \in O_{2}}(1+\epsilon)^{-\frac{\log \frac{n}{\gamma}}{\epsilon}}(f(u)+\delta) \quad \text { due to } 1-\epsilon \leq \frac{1}{1+\epsilon} \\
+& \leq \frac{1}{\gamma} \sum_{u \in O_{2}}(1+\epsilon)^{-\frac{\log \frac{n}{\gamma}}{\log (1+\epsilon)}}(f(u)+\delta) \quad \text { due to } \epsilon \leq \log (1+\epsilon) \\
+& =\frac{1}{\gamma} \sum_{u \in O_{2}}(1+\epsilon)^{-\log _{1+\epsilon} \frac{n}{\gamma \epsilon}}(f(u)+\delta) \\
+& =\frac{1}{\gamma} \sum_{u \in O_{2}} \frac{\gamma \epsilon}{n}(f(u)+\delta) \\
+& \leq \epsilon \delta+\epsilon f(\mathrm{OPT})
+\end{aligned}
+$$
+
+The last inequality holds because $O_{2} \subseteq \mathrm{OPT},|\mathrm{OPT}| \leq n$ and $f(u) \leq f(\mathrm{OPT})$. Thus, rearranging the above inequality and combining it with the condition for Case $1\left(0<\frac{1}{\gamma(1-\epsilon)} A-c\left(S_{\ell}\right)\right)$, we obtain
+
+$$
+f(\mathrm{OPT})-f\left(S_{\ell}\right)-c(\mathrm{OPT})-\epsilon f(\mathrm{OPT})-\frac{2 n \delta}{\gamma}-\epsilon \delta \leq 0 \leq \frac{1}{\gamma(1-\epsilon)} A-c\left(S_{\ell}\right)
+$$
+
+So,
+
+$$
+\begin{aligned}
+& f(\tilde{S})-c(\tilde{S}) \geq f\left(S_{\ell}\right)-c\left(S_{\ell}\right) \\
+& \geq(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-\frac{2 n \delta}{\gamma}-\epsilon \delta \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)
+\end{aligned}
+$$
+
+This concludes the proof of the theorem for case 1 .
+Case 2: $\gamma(1-\epsilon) c\left(S_{\ell}\right) \geq A$.
+In this case, there exist $t \in[1, \ell]$ such that:
+
+$$
+c\left(S_{t-1}\right)<\frac{1}{\gamma(1-\epsilon)} A \leq c\left(S_{t}\right)
+$$
+
+Denote $\xi=2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)$. Consider $j \in[1, t-1]$, we further divide Case 2 into two sub-cases: (2.1) and (2.2), where for some $j \in[1, t-1]$, sub-case 2.1 corresponds to $f\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-\xi$ and sub-case 2.2 corresponds to $f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi$ for all $j \in[1, t-1]$.
+Case 2.1: For some $j \in[1, t-1], f\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-\xi$.
+Note that Algorithm 1 outputs $\tilde{S}=\arg \max _{S_{i}, i \in[n]} f\left(S_{i}\right)-c\left(S_{i}\right)$. Therefore,
+
+$$
+\begin{aligned}
+f(\tilde{S})-c(\tilde{S}) & >f\left(S_{j}\right)-c\left(S_{j}\right) \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-\xi-\frac{A}{\gamma(1-\epsilon)} \quad \text { follows from condition in Case 2.1 and Eq. (18) } \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{A}{\gamma(1-\epsilon)}-\xi
+\end{aligned}
+$$
+
+This concludes the proof of the theorem for sub-case 2.1 .
+Case 2.2: For all $j \in[1, t-1], f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi$.
+For the sub-case 2.2, as illustrated in the proof-path, we have already proved the Lemmas 19 and 20. We will now prove the necessary properties conditioned on the sub-case 2.2 .Claim 21. Under the Case 2.2 (i.e., there exist $t \in[1, \ell]$ such that $c\left(S_{t-1}\right)<\frac{1}{\gamma(1-\epsilon)} A \leq c\left(S_{t}\right)$ and for all $j \in[1, t-1], f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi)$, the following holds:
+
+$$
+\forall j \in[1, t-1]: c\left(v_{j}\right) \leq c(\mathrm{OPT})
+$$
+
+Proof. We prove this claim by contradiction. Assume there exist some $j \in[1, t-1]$ that $c\left(v_{j}\right)>c(\mathrm{OPT})$. Also, recall that as per the condition in sub-case 2.2 , we have
+
+$$
+\begin{aligned}
+& f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi \\
+\Leftrightarrow & f(\mathrm{OPT})>\frac{1}{\gamma(1-\epsilon)}\left(f\left(S_{j}\right)+\xi\right)>f\left(S_{j}\right)>f\left(S_{j-1}\right)
+\end{aligned}
+$$
+
+Therefore,
+
+$$
+\begin{aligned}
+f\left(S_{j}\right)= & f\left(S_{j-1}\right)+f\left(v_{j} \mid S_{j-1}\right) \\
+\geq & f\left(S_{j-1}\right)+\underbrace{\gamma(1-\epsilon) \frac{c\left(v_{j}\right)}{c(\mathrm{OPT})}(f(\mathrm{OPT})-f\left(S_{j-1}\right))-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right)}_{\text {follows from Lemma } 19} \\
+= & \gamma(1-\epsilon) \frac{c\left(v_{j}\right)}{c(\mathrm{OPT})} f(\mathrm{OPT})+\left[1-\gamma(1-\epsilon) \frac{c\left(v_{j}\right)}{c(\mathrm{OPT})}\right] f\left(S_{j-1}\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right) \\
+\geq & \gamma(1-\epsilon) \frac{c\left(v_{j}\right)}{c(\mathrm{OPT})} f(\mathrm{OPT})+\gamma(1-\epsilon)\left[1-\frac{c\left(v_{j}\right)}{c(\mathrm{OPT})}\right] f\left(S_{j-1}\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right) \\
+= & \gamma(1-\epsilon) f(\mathrm{OPT})+\gamma(1-\epsilon)\left[\frac{c\left(v_{j}\right)}{c(\mathrm{OPT})}-1\right] f(\mathrm{OPT}) \\
+& -\gamma(1-\epsilon)\left[\frac{c\left(v_{j}\right)}{c(\mathrm{OPT})}-1\right] f\left(S_{j-1}\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right) \\
+= & \gamma(1-\epsilon) f(\mathrm{OPT}) \\
+& +\gamma(1-\epsilon)\left[\frac{c\left(v_{j}\right)}{c(\mathrm{OPT})}-1\right]\left(f(\mathrm{OPT})-f\left(S_{j-1}\right)\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right) \\
+\geq & \gamma(1-\epsilon) f(\mathrm{OPT})-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{i}\right)}{c(\mathrm{OPT})}\right) \quad \text { follows from the assumption } c\left(v_{j}\right)>c(\mathrm{OPT}) \text { and Eq. (19) } \\
+\geq & \gamma(1-\epsilon) f(\mathrm{OPT})-2 \delta\left(1+n(1-\epsilon) \beta^{\prime}\right) \quad \text { follows from } \beta^{\prime}=\frac{c_{\text {sens }}}{c(\mathrm{OPT})} \text { and } \frac{c\left(v_{i}\right)}{c(\mathrm{OPT})} \leq \beta^{\prime} \\
+\geq & \gamma(1-\epsilon) f(\mathrm{OPT})-\xi
+\end{aligned}
+$$
+
+The last inequality hold from $\xi=2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)$ and $\beta>0$. Note that, using the assumption, we have concluded that $f\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-\xi$, which contradicts the premise of the claim (see Eq. (19)). Therefore, the assumption is incorrect, and the claim holds.
+Claim 22. Under the Case 2.2 (i.e., there exist $t \in[1, \ell]$ such that $c\left(S_{t-1}\right)<\frac{1}{\gamma(1-\epsilon)} A \leq c\left(S_{t}\right)$ and for all $j \in[1, t-1], f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi)$, define $B_{j}=A-\gamma(1-\epsilon) c\left(S_{j}\right)$, the following holds:
+
+$$
+\forall j \in[1, t-1]: c\left(v_{t}\right)>B_{t-1}
+$$
+
+Proof.
+
+$$
+\begin{aligned}
+c\left(v_{t}\right) & =c\left(S_{t}\right)-c\left(S_{t-1}\right) \\
+& \geq \frac{1}{\gamma(1-\epsilon)} A-c\left(S_{t-1}\right) \quad \text { follows from the case } 2 \text { condition Eq. (18) } \\
+& =\frac{1}{\gamma(1-\epsilon)}\left(A-\gamma(1-\epsilon) c\left(S_{t-1}\right)\right) \\
+& \geq A-\gamma(1-\epsilon) c\left(S_{t-1}\right)=B_{t-1}
+\end{aligned}
+$$Lemma 23. Under the case 2.2 (i.e., there exist $t \in[1, \ell]$ such that $c\left(S_{t-1}\right)<\frac{1}{\gamma(1-\epsilon)} A \leq c\left(S_{t}\right)$ and for all $j \in[1, t-1], f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi)$, the following holds: for all $j \in[1, t-1]$, if $B_{j}=A-\gamma(1-\epsilon) c\left(S_{j}\right)$, then
+
+$$
+f(\mathrm{OPT})-c(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right) \leq \frac{B_{j}(f(\mathrm{OPT})-f\left(S_{j}\right))}{c(\mathrm{OPT})}+f\left(S_{j}\right)
+$$
+
+Proof. We divide this proof into two cases.
+
+- For $B_{j}>c(\mathrm{OPT})$, the lemma holds immediately.
+- We focus on $B_{j} \leq c(\mathrm{OPT})$.
+$\frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right)$
+$=\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) f\left(S_{j}\right)+\frac{B_{j}}{c(\mathrm{OPT})} f(\mathrm{OPT})$
+$\geq\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) \underbrace{\left[\left(1-\prod_{k=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{k}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)\right]}_{\text {follows from Lemma } 20}+\frac{B_{j}}{c(\mathrm{OPT})} f(\mathrm{OPT})$
+$=f(\mathrm{OPT})-\left(\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) \prod_{k=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{k}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) 2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)$
+$=\left(1-\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) \prod_{k=1}^{j}\left(1-\gamma(1-\epsilon) \frac{c\left(v_{k}\right)}{c(\mathrm{OPT})}\right)\right) f(\mathrm{OPT})-\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) 2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)$
+
+We proceed with the following known inequality: for any
+
+$$
+\begin{aligned}
+& x_{1}, x_{2}, \cdots, x_{n}, y \in \mathbb{R}^{+} \text {and } x_{i} \leq y \text { for } i \leq n \\
+& 1-\prod_{i=1}^{n}\left(1-\frac{x_{i}}{y}\right) \geq 1-\left(1-\frac{\sum_{i=1}^{n} x_{i}}{n y}\right)^{n}
+\end{aligned}
+$$
+
+Consider $\forall k \in[1, j], x_{k}=\gamma(1-\epsilon) c\left(v_{k}\right), x_{k+1}=B_{j}$ and $y=c(\mathrm{OPT})$. Note that, $\forall k \in[1, j], \gamma(1-\epsilon) c\left(v_{k}\right) \leq$ $c(\mathrm{OPT})$, which follows from Claim 21 and $\gamma(1-\epsilon) \leq 1$. Also, $B_{j} \leq c(\mathrm{OPT})$ follows from the condition for this case.
+
+Therefore, by applying Eq. (20), we derive the following
+
+$$
+\begin{aligned}
+& \frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right) \\
+& \geq\left(1-\left(1-\frac{B_{j}+\gamma(1-\epsilon) \cdot \sum_{k=1}^{j} c\left(v_{k}\right)}{(j+1) \cdot c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT})-\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) 2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)
+\end{aligned}
+$$
+
+Since $B_{j} \leq c(\mathrm{OPT}), 0 \leq\left(1-\frac{B_{j}}{c(\mathrm{OPT})}\right) \leq 1$. Proceeding further,$$
+\begin{aligned}
+& \frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right) \\
+& \geq\left(1-\left(1-\frac{B_{j}+\gamma(1-\epsilon) \cdot \sum_{k=1}^{j} c\left(v_{k}\right)}{(j+1) \cdot c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right) \\
+& =\left(1-\left(1-\frac{A-\gamma(1-\epsilon) c\left(S_{j}\right)+\gamma(1-\epsilon) \cdot \sum_{k=1}^{j} c\left(v_{k}\right)}{(j+1) \cdot c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right) \\
+& \text { follows from the definition of } B_{j} \\
+& =\left(1-\left(1-\frac{A}{(j+1) \cdot c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right) \quad \text { as } \sum_{k=1}^{j} c\left(v_{k}\right)=c\left(S_{j}\right) \\
+& =\left(1-\left(1-\frac{1}{j+1} \cdot \ln \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}\right)^{j+1}\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right) \quad \text { as } A=c(\mathrm{OPT}) \ln \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})} \\
+& \geq\left(1-e^{-\ln \frac{f(\mathrm{OPT})}{c(\mathrm{OPT})}}\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right) \quad \text { as }\left(1-\frac{c}{t}\right)^{t} \leq e^{-c} \text { for any positive } t \\
+& =\left(1-\frac{c(\mathrm{OPT})}{f(\mathrm{OPT})}\right) f(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right) \\
+& =f(\mathrm{OPT})-c(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)
+\end{aligned}
+$$
+
+Corollary 24. Under the Case 2.2 (i.e., there exist $t \in[1, \ell]$ such that $c\left(S_{t-1}\right)<\frac{1}{\gamma(1-\epsilon)} A \leq c\left(S_{t}\right)$ and for all $j \in[1, t-1], f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi)$, the following holds: for all $j \in[1, t-1]$, if $B_{j}=A-\gamma(1-\epsilon) c\left(S_{j}\right)$ then
+
+$$
+f(\mathrm{OPT})-f\left(S_{j}\right) \geq \frac{1}{\gamma(1-\epsilon)} c(\mathrm{OPT})
+$$
+
+Proof. Note that, for the case $f\left(S_{j}\right)-c\left(S_{j}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-\xi$, Theorem 10 holds immediately. Hence, we consider the case where $f\left(S_{j}\right)-c\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-\xi$.$$
+\begin{aligned}
+f\left(S_{j}\right)-c\left(S_{j}\right) & <\gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-\xi \\
+& \leq \gamma(1-\epsilon)(f(\mathrm{OPT})-c(\mathrm{OPT}))-\frac{1}{\gamma(1-\epsilon)} A-\xi \\
+& \leq \gamma(1-\epsilon)(f(\mathrm{OPT})-c(\mathrm{OPT}))-\frac{1}{\gamma(1-\epsilon)} A-\xi \\
+& =\gamma(1-\epsilon)(f(\mathrm{OPT})-c(\mathrm{OPT}))-c\left(S_{j}\right)-\left(\frac{1}{\gamma(1-\epsilon)} A-c\left(S_{j}\right)\right)-\xi \\
+& =\gamma(1-\epsilon)(f(\mathrm{OPT})-c(\mathrm{OPT}))-c\left(S_{j}\right)-\frac{1}{\gamma(1-\epsilon)}\left(A-\gamma(1-\epsilon) c\left(S_{j}\right)\right)-\xi \\
+& =\gamma(1-\epsilon)(f(\mathrm{OPT})-c(\mathrm{OPT}))-c\left(S_{j}\right)-\frac{1}{\gamma(1-\epsilon)} B_{j}-\xi \\
+& \leq \gamma(1-\epsilon) \underbrace{\left[\frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right)+2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)\right]}_{=0}-c\left(S_{j}\right)-\frac{1}{\gamma(1-\epsilon)} B_{j}-\xi \\
+& \text { due to Lemma } 23 \\
+& \leq \frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right)-c\left(S_{j}\right)-\frac{1}{\gamma(1-\epsilon)} B_{j}+ \\
+& 2 \delta\left(\beta+\frac{n}{\gamma}\right)-\xi \\
+& <0 \text { since } \xi=2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right) \\
+& \leq \frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})}+f\left(S_{j}\right)-c\left(S_{j}\right)-\frac{1}{\gamma(1-\epsilon)} B_{j}
+\end{aligned}
+$$
+
+The above inequality implies:
+
+$$
+\frac{B_{j}\left(f(\mathrm{OPT})-f\left(S_{j}\right)\right)}{c(\mathrm{OPT})} \geq \frac{1}{\gamma(1-\epsilon)} B_{j}
+$$
+
+Rearranging the term concludes the proof of the corollary.
+
+$$
+f(\mathrm{OPT})-f\left(S_{j}\right) \geq \frac{1}{\gamma(1-\epsilon)} c(\mathrm{OPT})
+$$
+
+The following lemma discharges the proof for Theorem 10 for the sub-case 2.2 .
+Lemma 25. Under the Case 2.2 (i.e., there exist $t \in[1, \ell]$ such that $c\left(S_{t-1}\right)<\frac{1}{\gamma(1-\epsilon)} A \leq c\left(S_{t}\right)$ and for all $j \in[1, t-1], f\left(S_{j}\right)<\gamma(1-\epsilon) f(\mathrm{OPT})-\xi$ ), the following holds:
+
+$$
+f\left(S_{t}\right)-c\left(S_{t}\right) \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)
+$$
+
+Proof. Consider $v_{t}$ the element added to $S_{t-1}$.
+
+$$
+\begin{aligned}
+& f\left(S_{t}\right)-c\left(S_{t}\right) \\
+& =f\left(v_{t} \mid S_{t-1}\right)+f\left(S_{t-1}\right)-c\left(S_{t}\right) \\
+& \geq\left[\gamma(1-\epsilon) \frac{c\left(v_{t}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)-2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{t}\right)}{c(\mathrm{OPT})}\right)\right]+f\left(S_{t-1}\right)-c\left(S_{t}\right) \quad \text { due to Lemma } 19 \\
+& =\left[\gamma(1-\epsilon) \frac{c\left(v_{t}\right)}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)-\phi\right]+f\left(S_{t-1}\right)-\left(c\left(S_{t-1}\right)+c\left(v_{t}\right)\right) \quad \text { denote } \phi=2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{t}\right)}{c(\mathrm{OPT})}\right) \\
+& =\left[\gamma(1-\epsilon) \frac{B_{t-1}+c\left(v_{t}\right)-B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)-\phi\right]+f\left(S_{t-1}\right)-\left(\frac{1}{\gamma(1-\epsilon)}\left(A-B_{t-1}\right)+c\left(v_{t}\right)\right)
+\end{aligned}
+$$The last equality follows from the definition of $B_{t-1}=A-\gamma(1-\epsilon) c\left(S_{t-1}\right)$.
+Proceeding further,
+
+$$
+\begin{aligned}
+& f\left(S_{t}\right)-c\left(S_{t}\right) \\
+& \geq\left[\gamma(1-\epsilon) \frac{B_{t-1}+c\left(v_{t}\right)-B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)-\phi\right]+f\left(S_{t-1}\right)-\left(\frac{1}{\gamma(1-\epsilon)}\left(A-B_{t-1}\right)+c\left(v_{t}\right)\right) \\
+& \geq \gamma(1-\epsilon) \frac{B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)+f\left(S_{t-1}\right)+\gamma(1-\epsilon) \frac{c\left(v_{t}\right)-B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right) \\
+& \quad-\phi-\frac{1}{\gamma(1-\epsilon)} A-\left(c\left(v_{t}\right)-\frac{1}{\gamma(1-\epsilon)} B_{t-1}\right) \\
+& \geq \gamma(1-\epsilon)\left[\frac{B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right)+f\left(S_{t-1}\right)\right]+\gamma(1-\epsilon) \frac{c\left(v_{t}\right)-B_{t-1}}{c(\mathrm{OPT})}\left(f(\mathrm{OPT})-f\left(S_{t-1}\right)\right) \\
+& \quad-\phi-\frac{1}{\gamma(1-\epsilon)} A-\left[c\left(v_{t}\right)-B_{t-1}\right] \\
+& \geq \gamma(1-\epsilon) \underbrace{\left(f(\mathrm{OPT})-c(\mathrm{OPT})-2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)\right)}_{\text {apply Lemma } 23}-\phi-\frac{1}{\gamma(1-\epsilon)} A \\
+& \quad+\left[c\left(v_{t}\right)-B_{t-1}\right]\left(\gamma(1-\epsilon) \frac{f(\mathrm{OPT})-f\left(S_{t-1}\right)}{c(\mathrm{OPT})}-1\right) \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\gamma(1-\epsilon) 2 \delta\left(\frac{\beta}{\gamma(1-\epsilon)}+\frac{n}{\gamma}\right)-\phi-\frac{1}{\gamma(1-\epsilon)} A \\
+& \quad+\left[c\left(v_{t}\right)-B_{t-1}\right]\left(\gamma(1-\epsilon) \frac{f(\mathrm{OPT})-f\left(S_{t-1}\right)}{c(\mathrm{OPT})}-1\right) \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-2 \delta\left(\beta+\frac{n}{\gamma}\right)-\phi-\frac{1}{\gamma(1-\epsilon)} A \\
+& \quad+\left[c\left(v_{t}\right)-B_{t-1}\right]\left(\gamma(1-\epsilon) \frac{f(\mathrm{OPT})-f\left(S_{t-1}\right)}{c(\mathrm{OPT})}-1\right)
+\end{aligned}
+$$
+
+Note that, in Claim 22, we have established $c\left(v_{t}\right) \geq B_{t-1}$. Furthermore, from Corollary 24, we know $f(\mathrm{OPT})-f\left(S_{j}\right) \geq \frac{1}{\gamma(1-\epsilon)} c(\mathrm{OPT})$. Therefore,
+
+$$
+\left[c\left(v_{t}\right)-B_{t-1}\right]\left(\gamma(1-\epsilon) \frac{f(\mathrm{OPT})-f\left(S_{t-1}\right)}{c(\mathrm{OPT})}-1\right)
+$$
+
+is non-negative. Hence, If we denote $\beta^{\prime}=\frac{c_{\max }}{c(\mathrm{OPT})}$, then $\phi=2 \delta\left(1+n \frac{(1-\epsilon) c\left(v_{t}\right)}{c(\mathrm{OPT})}\right) \leq 2 \delta\left(1+n(1-\epsilon) \beta^{\prime}\right)$
+
+$$
+\begin{aligned}
+& f(\tilde{S})-c(\tilde{S}) \geq f\left(S_{t}\right)-c\left(S_{t}\right) \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-2 \delta\left(\beta+\frac{n}{\gamma}\right)-\phi \\
+& \geq \gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-2 \delta\left(\beta+\frac{n}{\gamma}\right)-2 \delta\left(1+n(1-\epsilon) \beta^{\prime}\right) \\
+& =\gamma(1-\epsilon) f(\mathrm{OPT})-c(\mathrm{OPT})-\frac{1}{\gamma(1-\epsilon)} A-2 \delta\left(\beta+\frac{n}{\gamma}+1+n(1-\epsilon) \beta^{\prime}\right)
+\end{aligned}
+$$This concludes the proof for Theorem 10 for Case 2.2.
+Lemma 26. The time complexity of Algorithm 1 is $\mathcal{O}\left(\frac{n}{r} \log \frac{n}{r \gamma}\right)$.
+Proof. As per line 17 of Algorithm 1, every element can be considered for adding to the solution set for at most $\frac{\log \frac{n}{r \gamma}}{r}$ times. Each such consideration involves one oracle call to the function $f$. Therefore, the total number of oracle calls is $\mathcal{O}\left(\frac{n}{r} \log \frac{n}{r \gamma}\right)$.
+
+# References 
+
+Georgios Amanatidis, Federico Fusco, Philip Lazos, Stefano Leonardi, and Rebecca Reiffenhäuser. Fast adaptive non-monotone submodular maximization subject to a knapsack constraint. In Hugo Larochelle, Marc'Aurelio Ranzato, Raia Hadsell, Maria-Florina Balcan, and Hsuan-Tien Lin (eds.), Advances in Neural Information Processing Systems 33: Annual Conference on Neural Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual, 2020. URL https://proceedings.neurips.cc/paper/ 2020/hash/c49e446a46fa27a6e18ffb6119461c3f-Abstract.html.
+
+Ashwinkumar Badanidiyuru and Jan Vondrák. Fast algorithms for maximizing submodular functions. In Chandra Chekuri (ed.), Proceedings of the Twenty-Fifth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2014, Portland, Oregon, USA, January 5-7, 2014, pp. 1497-1514. SIAM, 2014. doi: 10.1137/1.9781611973402.110. URL https://doi.org/10.1137/1.9781611973402.110.
+
+MohammadHossein Bateni, Hossein Esfandiari, and Vahab S. Mirrokni. Optimal distributed submodular optimization via sketching. In Yike Guo and Faisal Farooq (eds.), Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery 8 Data Mining, KDD 2018, London, UK, August 1923, 2018, pp. 1138-1147. ACM, 2018. doi: 10.1145/3219819.3220081. URL https://doi.org/10.1145/ 3219819.3220081 .
+
+MohammadHossein Bateni, Lin Chen, Hossein Esfandiari, Thomas Fu, Vahab S. Mirrokni, and Afshin Rostamizadeh. Categorical feature compression via submodular optimization. In Kamalika Chaudhuri and Ruslan Salakhutdinov (eds.), Proceedings of the 36th International Conference on Machine Learning, ICML 2019, 9-15 June 2019, Long Beach, California, USA, volume 97 of Proceedings of Machine Learning Research, pp. 515-523. PMLR, 2019. URL http://proceedings.mlr.press/v97/bateni19a.html.
+
+Andrew An Bian, Joachim M. Buhmann, Andreas Krause, and Sebastian Tschiatschek. Guarantees for greedy maximization of non-submodular functions with applications. In Doina Precup and Yee Whye Teh (eds.), Proceedings of the 34th International Conference on Machine Learning, ICML 2017, Sydney, NSW, Australia, 6-11 August 2017, volume 70 of Proceedings of Machine Learning Research, pp. 498-507. PMLR, 2017. URL http://proceedings.mlr.press/v70/bian17a.html.
+
+Chao Bian, Chao Qian, Frank Neumann, and Yang Yu. Fast pareto optimization for subset selection with dynamic cost constraints. In Zhi-Hua Zhou (ed.), Proceedings of the Thirtieth International Joint Conference on Artificial Intelligence, IJCAI 2021, Virtual Event / Montreal, Canada, 19-27 August 2021, pp. 2191-2197. ijcai.org, 2021. doi: 10.24963/IJCAI.2021/302. URL https://doi.org/10.24963/ijcai. 2021/302.
+
+Kobi Bodek and Moran Feldman. Maximizing sums of non-monotone submodular and linear functions: Understanding the unconstrained case. In Shiri Chechik, Gonzalo Navarro, Eva Rotenberg, and Grzegorz Herman (eds.), 30th Annual European Symposium on Algorithms, ESA 2022, September 5-9, 2022, Berlin/Potsdam, Germany, volume 244 of LIPIcs, pp. 23:1-23:17. Schloss Dagstuhl - Leibniz-Zentrum für Informatik, 2022. doi: 10.4230/LIPICS.ESA.2022.23. URL https://doi.org/10.4230/LIPIcs.ESA. 2022.23 .
+
+Christian Borgs, Michael Brautbar, Jennifer T. Chayes, and Brendan Lucier. Maximizing social influence in nearly optimal time. In Chandra Chekuri (ed.), Proceedings of the Twenty-Fifth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2014, Portland, Oregon, USA, January 5-7, 2014, pp. 946-957. SIAM, 2014. doi: 10.1137/1.9781611973402.70. URL https://doi.org/10.1137/1.9781611973402.70.Niv Buchbinder and Moran Feldman. Deterministic algorithms for submodular maximization problems. ACM Trans. Algorithms, 14(3):32:1-32:20, 2018. doi: 10.1145/3184990. URL https://doi.org/10. $1145 / 3184990$.
+
+Niv Buchbinder, Moran Feldman, Joseph Naor, and Roy Schwartz. A tight linear time (1/2)-approximation for unconstrained submodular maximization. SIAM J. Comput., 44(5):1384-1402, 2015. doi: 10.1137/ 130929205. URL https://doi.org/10.1137/130929205.
+
+Niv Buchbinder, Moran Feldman, and Mohit Garg. Deterministic $(1 / 2+\epsilon)$-approximation for submodular maximization over a matroid. In Timothy M. Chan (ed.), Proceedings of the Thirtieth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2019, San Diego, California, USA, January 6-9, 2019, pp. 241254. SIAM, 2019. doi: 10.1137/1.9781611975482.16. URL https://doi.org/10.1137/1.9781611975482. 16 .
+
+Gruia Călinescu, Chandra Chekuri, Martin Pál, and Jan Vondrák. Maximizing a monotone submodular function subject to a matroid constraint. SIAM J. Comput., 40(6):1740-1766, 2011. doi: 10.1137/080733991. URL https://doi.org/10.1137/080733991.
+
+Wei Chen, Yajun Wang, and Siyu Yang. Efficient influence maximization in social networks. In John F. Elder IV, Françoise Fogelman-Soulié, Peter A. Flach, and Mohammed Javeed Zaki (eds.), Proceedings of the 15th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, Paris, France, June 28 - July 1, 2009, pp. 199-208. ACM, 2009. doi: 10.1145/1557019.1557047. URL https: //doi.org/10.1145/1557019.1557047.
+
+Yixin Chen and Alan Kuhnle. Approximation algorithms for size-constrained non-monotone submodular maximization in deterministic linear time. In Ambuj K. Singh, Yizhou Sun, Leman Akoglu, Dimitrios Gunopulos, Xifeng Yan, Ravi Kumar, Fatma Ozcan, and Jieping Ye (eds.), Proceedings of the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining, KDD 2023, Long Beach, CA, USA, August 6-10, 2023, pp. 250-261. ACM, 2023. doi: 10.1145/3580305.3599259. URL https://doi.org/10. $1145 / 3580305.3599259$.
+
+Edith Cohen, Daniel Delling, Thomas Pajor, and Renato F. Werneck. Sketch-based influence maximization and computation: Scaling up with guarantees. In Jianzhong Li, Xiaoyang Sean Wang, Minos N. Garofalakis, Ian Soboroff, Torsten Suel, and Min Wang (eds.), Proceedings of the 23rd ACM International Conference on Conference on Information and Knowledge Management, CIKM 2014, Shanghai, China, November 3-7, 2014, pp. 629-638. ACM, 2014. doi: 10.1145/2661829.2662077. URL https://doi.org/10.1145/2661829.2662077.
+
+Victoria G. Crawford, Alan Kuhnle, and My T. Thai. Submodular cost submodular cover with an approximate oracle. In Kamalika Chaudhuri and Ruslan Salakhutdinov (eds.), Proceedings of the 36th International Conference on Machine Learning, ICML 2019, 9-15 June 2019, Long Beach, California, USA, volume 97 of Proceedings of Machine Learning Research, pp. 1426-1435. PMLR, 2019. URL http://proceedings.mlr.press/v97/crawford19a.html.
+
+Shuang Cui, Kai Han, Jing Tang, and He Huang. Constrained subset selection from data streams for profit maximization. In Ying Ding, Jie Tang, Juan F. Sequeda, Lora Aroyo, Carlos Castillo, and GeertJan Houben (eds.), Proceedings of the ACM Web Conference 2023, WWW 2023, Austin, TX, USA, 30 April 2023 - 4 May 2023, pp. 1822-1831. ACM, 2023. doi: 10.1145/3543507.3583490. URL https: //doi.org/10.1145/3543507.3583490.
+
+Abhimanyu Das and David Kempe. Submodular meets spectral: Greedy algorithms for subset selection, sparse approximation and dictionary selection. In Lise Getoor and Tobias Scheffer (eds.), Proceedings of the 28th International Conference on Machine Learning, ICML 2011, Bellevue, Washington, USA, June 28 - July 2, 2011, pp. 1057-1064. Omnipress, 2011. URL https://icml.cc/2011/papers/542_icmlpaper. pdf.Paul Duetting, Federico Fusco, Silvio Lattanzi, Ashkan Norouzi-Fard, and Morteza Zadimoghaddam. Deletion robust submodular maximization over matroids. In Kamalika Chaudhuri, Stefanie Jegelka, Le Song, Csaba Szepesvári, Gang Niu, and Sivan Sabato (eds.), International Conference on Machine Learning, ICML 2022, 17-23 July 2022, Baltimore, Maryland, USA, volume 162 of Proceedings of Machine Learning Research, pp. 5671-5693. PMLR, 2022. URL https://proceedings.mlr.press/v162/duetting22a. html.
+
+Alina Ene and Huy L. Nguyen. A nearly-linear time algorithm for submodular maximization with a knapsack constraint. In Christel Baier, Ioannis Chatzigiannakis, Paola Flocchini, and Stefano Leonardi (eds.), 46th International Colloquium on Automata, Languages, and Programming, ICALP 2019, July 9-12, 2019, Patras, Greece, volume 132 of LIPIcs, pp. 53:1-53:12. Schloss Dagstuhl - Leibniz-Zentrum für Informatik, 2019. doi: 10.4230/LIPICS.ICALP.2019.53. URL https://doi.org/10.4230/LIPIcs.ICALP.2019.53.
+
+Matthew Fahrbach, Vahab S. Mirrokni, and Morteza Zadimoghaddam. Submodular maximization with nearly optimal approximation, adaptivity and query complexity. In Timothy M. Chan (ed.), Proceedings of the Thirtieth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2019, San Diego, California, USA, January 6-9, 2019, pp. 255-273. SIAM, 2019. doi: 10.1137/1.9781611975482.17. URL https: //doi.org/10.1137/1.9781611975482.17.
+
+Uriel Feige. A threshold of $\ln n$ for approximating set cover. J. ACM, 45(4):634-652, 1998. doi: 10.1145/ 285055.285059. URL https://doi.org/10.1145/285055.285059.
+
+Moran Feldman, Zeev Nutov, and Elad Shoham. Practical budgeted submodular maximization. Algorithmica, 85(5):1332-1371, 2023. doi: 10.1007/S00453-022-01071-2. URL https://doi.org/10.1007/ s00453-022-01071-2.
+
+Mengxue Geng, Shufang Gong, Bin Liu, and Weili Wu. Bicriteria algorithms for maximizing the difference between submodular function and linear function under noise. In Qiufen Ni and Weili Wu (eds.), Algorithmic Aspects in Information and Management - 16th International Conference, AAIM 2022, Guangzhou, China, August 13-14, 2022, Proceedings, volume 13513 of Lecture Notes in Computer Science, pp. 133-143. Springer, 2022. doi: 10.1007/978-3-031-16081-3__12. URL https://doi.org/10.1007/ $978-3-031-16081-3 \_12$.
+
+Shufang Gong, Bin Liu, Mengxue Geng, and Qizhi Fang. Algorithms for maximizing monotone submodular function minus modular function under noise. J. Comb. Optim., 45(3):96, 2023. doi: 10.1007/S10878-023-01026-5. URL https://doi.org/10.1007/s10878-023-01026-5.
+
+Marwa El Halabi and Stefanie Jegelka. Optimal approximation for unconstrained non-submodular minimization. In Proceedings of the 37th International Conference on Machine Learning, ICML 2020, 13-18 July 2020, Virtual Event, volume 119 of Proceedings of Machine Learning Research, pp. 3961-3972. PMLR, 2020. URL http://proceedings.mlr.press/v119/halabi20a.html.
+
+Marwa El Halabi, Suraj Srinivas, and Simon Lacoste-Julien. Data-efficient structured pruning via submodular optimization. In Sanmi Koyejo, S. Mohamed, A. Agarwal, Danielle Belgrave, K. Cho, and A. Oh (eds.), Advances in Neural Information Processing Systems 35: Annual Conference on Neural Information Processing Systems 2022, NeurIPS 2022, New Orleans, LA, USA, November 28 - December 9, 2022, 2022. URL http://papers.nips.cc/paper_files/paper/2022/hash/ ed5854c456e136afa3faa5e41b1f3509-Abstract-Conference.html.
+
+David Harrison and Daniel L Rubinfeld. Hedonic housing prices and the demand for clean air. Journal of Environmental Economics and Management, 5(1):81-102, 1978. ISSN 0095-0696. doi: https: //doi.org/10.1016/0095-0696(78)90006-2. URL https://www.sciencedirect.com/science/article/ pii/0095069678900062.
+
+Chris Harshaw, Moran Feldman, Justin Ward, and Amin Karbasi. Submodular maximization beyond nonnegativity: Guarantees, fast algorithms, and applications. In Kamalika Chaudhuri and Ruslan Salakhutdinov (eds.), Proceedings of the 36th International Conference on Machine Learning, ICML 2019, 9-15 June 2019, Long Beach, California, USA, volume 97 of Proceedings of Machine Learning Research, pp. 2634-2643. PMLR, 2019. URL http://proceedings.mlr.press/v97/harshaw19a.html.Avinatan Hassidim and Yaron Singer. Submodular optimization under noise. In Satyen Kale and Ohad Shamir (eds.), Proceedings of the 30th Conference on Learning Theory, COLT 2017, Amsterdam, The Netherlands, 7-10 July 2017, volume 65 of Proceedings of Machine Learning Research, pp. 1069-1122. PMLR, 2017. URL http://proceedings.mlr.press/v65/hassidim17a.html.
+
+Keke Huang, Sibo Wang, Glenn S. Bevilacqua, Xiaokui Xiao, and Laks V. S. Lakshmanan. Revisiting the stop-and-stare algorithms for influence maximization. Proc. VLDB Endow., 10(9):913-924, 2017. doi: 10.14778/3099622.3099623. URL http://www.vldb.org/pvldb/vol10/p913-Huang.pdf.
+
+Tianyuan Jin, Yu Yang, Renchi Yang, Jieming Shi, Keke Huang, and Xiaokui Xiao. Unconstrained submodular maximization with modular costs: Tight approximation and application to profit maximization. Proc. VLDB Endow., 14(10):1756-1768, 2021. doi: 10.14778/3467861.3467866. URL http://www.vldb.org/pvldb/vol14/p1756-jin.pdf.
+
+David Kempe, Jon M. Kleinberg, and Éva Tardos. Maximizing the spread of influence through a social network. In Lise Getoor, Ted E. Senator, Pedro M. Domingos, and Christos Faloutsos (eds.), Proceedings of the Ninth ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, Washington, DC, USA, August 24 - 27, 2003, pp. 137-146. ACM, 2003. doi: 10.1145/956750.956769. URL https://doi.org/10.1145/956750.956769.
+
+Alan Kuhnle. Quick streaming algorithms for maximization of monotone submodular functions in linear time. In Arindam Banerjee and Kenji Fukumizu (eds.), The 24th International Conference on Artificial Intelligence and Statistics, AISTATS 2021, April 13-15, 2021, Virtual Event, volume 130 of Proceedings of Machine Learning Research, pp. 1360-1368. PMLR, 2021. URL http://proceedings.mlr.press/v130/ kuhnle21a.html.
+
+Silvio Lattanzi, Slobodan Mitrovic, Ashkan Norouzi-Fard, Jakub Tarnawski, and Morteza Zadimoghaddam. Fully dynamic algorithm for constrained submodular optimization. In Hugo Larochelle, Marc'Aurelio Ranzato, Raia Hadsell, Maria-Florina Balcan, and Hsuan-Tien Lin (eds.), Advances in Neural Information Processing Systems 33: Annual Conference on Neural Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual, 2020. URL https://proceedings.neurips.cc/paper/2020/hash/ 9715d04413f296eaf3c30c47cec3daa6-Abstract.html.
+
+Jure Leskovec, Jon M. Kleinberg, and Christos Faloutsos. Graph evolution: Densification and shrinking diameters. ACM Trans. Knowl. Discov. Data, 1(1):2, 2007. doi: 10.1145/1217299.1217301. URL https: //doi.org/10.1145/1217299.1217301.
+
+Ruolin Li, Negar Mehr, and Roberto Horowitz. Submodularity of optimal sensor placement for traffic networks. Transportation Research Part B: Methodological, 171:29-43, 2023.
+
+Wenxin Li, Moran Feldman, Ehsan Kazemi, and Amin Karbasi. Submodular maximization in clean linear time. In Sanmi Koyejo, S. Mohamed, A. Agarwal, Danielle Belgrave, K. Cho, and A. Oh (eds.), Advances in Neural Information Processing Systems 35: Annual Conference on Neural Information Processing Systems 2022, NeurIPS 2022, New Orleans, LA, USA, November 28 - December 9, 2022, 2022. URL http://papers.nips.cc/paper_files/paper/2022/hash/ 6faf3b8ed0df532c14d0fc009e451b6d-Abstract-Conference.html.
+
+Michel Minoux. Accelerated greedy algorithms for maximizing submodular set functions. In Optimization Techniques: Proceedings of the 8th IFIP Conference on Optimization Techniques Würzburg, September $5-9,1977$, pp. 234-243. Springer, 2005.
+
+Baharan Mirzasoleiman, Ashwinkumar Badanidiyuru, Amin Karbasi, Jan Vondrák, and Andreas Krause. Lazier than lazy greedy. In Blai Bonet and Sven Koenig (eds.), Proceedings of the Twenty-Ninth AAAI Conference on Artificial Intelligence, January 25-30, 2015, Austin, Texas, USA, pp. 1812-1818. AAAI Press, 2015. doi: 10.1609/AAAI.V29I1.9486. URL https://doi.org/10.1609/aaai.v29i1.9486.
+
+George L. Nemhauser, Laurence A. Wolsey, and Marshall L. Fisher. An analysis of approximations for maximizing submodular set functions - I. Math. Program., 14(1):265-294, 1978. doi: 10.1007/BF01588971. URL https://doi.org/10.1007/BF01588971.Hung T. Nguyen, My T. Thai, and Thang N. Dinh. Stop-and-stare: Optimal sampling algorithms for viral marketing in billion-scale networks. In Fatma Özcan, Georgia Koutrika, and Sam Madden (eds.), Proceedings of the 2016 International Conference on Management of Data, SIGMOD Conference 2016, San Francisco, CA, USA, June 26 - July 01, 2016, pp. 695-710. ACM, 2016. doi: 10.1145/2882903.2915207. URL https://doi.org/10.1145/2882903.2915207.
+
+Guanyu Nie, Yididiya Y. Nadew, Yanhui Zhu, Vaneet Aggarwal, and Christopher John Quinn. A framework for adapting offline algorithms to solve combinatorial multi-armed bandit problems with bandit feedback. In Andreas Krause, Emma Brunskill, Kyunghyun Cho, Barbara Engelhardt, Sivan Sabato, and Jonathan Scarlett (eds.), International Conference on Machine Learning, ICML 2023, 23-29 July 2023, Honolulu, Hawaii, USA, volume 202 of Proceedings of Machine Learning Research, pp. 26166-26198. PMLR, 2023. URL https://proceedings.mlr.press/v202/nie23b.html.
+
+Sofia Maria Nikolakaki, Alina Ene, and Evimaria Terzi. An efficient framework for balancing submodularity and cost. In Feida Zhu, Beng Chin Ooi, and Chunyan Miao (eds.), KDD '21: The 27th ACM SIGKDD Conference on Knowledge Discovery and Data Mining, Virtual Event, Singapore, August 14-18, 2021, pp. 1256-1266. ACM, 2021. doi: 10.1145/3447548.3467367. URL https://doi.org/10.1145/3447548. 3467367 .
+
+Madhavan R. Padmanabhan, Yanhui Zhu, Samik Basu, and Aduri Pavan. Maximizing submodular functions under submodular constraints. In Robin J. Evans and Ilya Shpitser (eds.), Uncertainty in Artificial Intelligence, UAI 2023, July 31 - 4 August 2023, Pittsburgh, PA, USA, volume 216 of Proceedings of Machine Learning Research, pp. 1618-1627. PMLR, 2023.
+
+Christos H. Papadimitriou and Mihalis Yannakakis. Optimization, approximation, and complexity classes (extended abstract). In Janos Simon (ed.), Proceedings of the 20th Annual ACM Symposium on Theory of Computing, May 2-4, 1988, Chicago, Illinois, USA, pp. 229-234. ACM, 1988. doi: 10.1145/62212.62233. URL https://doi.org/10.1145/62212.62233.
+
+Pierre Perrault, Jennifer Healey, Zheng Wen, and Michal Valko. On the approximation relationship between optimizing ratio of submodular (RS) and difference of submodular (DS) functions. CoRR, abs/2101.01631, 2021. URL https://arxiv.org/abs/2101.01631.
+
+Benjamin Qi. On maximizing sums of non-monotone submodular and linear functions. Algorithmica, 86(4):1080-1134, 2024. doi: 10.1007/S00453-023-01183-3. URL https://doi.org/10.1007/ s00453-023-01183-3.
+
+Chao Qian. Multiobjective evolutionary algorithms are still good: Maximizing monotone approximately submodular minus modular functions. Evol. Comput., 29(4):463-490, 2021. doi: 10.1162/EVCO $\$ A $\backslash$ _00288. URL https://doi.org/10.1162/evco_a_00288.
+
+Chao Qian, Jing-Cheng Shi, Yang Yu, Ke Tang, and Zhi-Hua Zhou. Subset selection under noise. In Isabelle Guyon, Ulrike von Luxburg, Samy Bengio, Hanna M. Wallach, Rob Fergus, S. V. N. Vishwanathan, and Roman Garnett (eds.), Advances in Neural Information Processing Systems 30: Annual Conference on Neural Information Processing Systems 2017, December 4-9, 2017, Long Beach, CA, USA, pp. 3560-3570, 2017. URL https://proceedings.neurips.cc/paper/2017/hash/ d7a84628c025d30f7b2c52c958767e76-Abstract.html.
+
+Vahid Roostapour, Aneta Neumann, Frank Neumann, and Tobias Friedrich. Pareto optimization for subset selection with dynamic cost constraints. In The Thirty-Third AAAI Conference on Artificial Intelligence, AAAI 2019, The Thirty-First Innovative Applications of Artificial Intelligence Conference, IAAI 2019, The Ninth AAAI Symposium on Educational Advances in Artificial Intelligence, EAAI 2019, Honolulu, Hawaii, USA, January 27 - February 1, 2019, pp. 2354-2361. AAAI Press, 2019. doi: 10.1609/AAAI. V33I01.33012354. URL https://doi.org/10.1609/aaai.v33i01.33012354.
+
+Ruben Sipos, Adith Swaminathan, Pannaga Shivaswamy, and Thorsten Joachims. Temporal corpus summarization using submodular word coverage. In Xue-wen Chen, Guy Lebanon, Haixun Wang, andMohammed J. Zaki (eds.), 21st ACM International Conference on Information and Knowledge Management, CIKM'12, Maui, HI, USA, October 29 - November 02, 2012, pp. 754-763. ACM, 2012. doi: $10.1145 / 2396761.2396857$. URL https://doi.org/10.1145/2396761.2396857.
+
+Ulrich Stelzl, Uwe Worm, Maciej Lalowski, Christian Haenig, Felix H. Brembeck, Heike Goehler, Martin Stroedicke, Martina Zenkner, Anke Schoenherr, Susanne Koeppen, Jan Timm, Sascha Mintzlaff, Claudia Abraham, Nicole Bock, Silvia Kietzmann, Astrid Goedde, Engin Toksöz, Anja Droege, Sylvia Krobitsch, Bernhard Korn, Walter Birchmeier, Hans Lehrach, and Erich E. Wanker. A human protein-protein interaction network: A resource for annotating the proteome. Cell, 122(6):957-968, 2005. ISSN 0092-8674. doi: https://doi.org/10.1016/j.cell.2005.08.029. URL https://www.sciencedirect.com/science/article/ pii/S0092867405008664.
+
+Maxim Sviridenko. A note on maximizing a submodular set function subject to a knapsack constraint. Oper. Res. Lett., 32(1):41-43, 2004. doi: 10.1016/S0167-6377(03)00062-2. URL https://doi.org/10.1016/ S0167-6377(03)00062-2.
+
+Maxim Sviridenko, Jan Vondrák, and Justin Ward. Optimal approximation for submodular and supermodular optimization with bounded curvature. Math. Oper. Res., 42(4):1197-1218, 2017. doi: 10.1287/MOOR.2016.0842. URL https://doi.org/10.1287/moor.2016.0842.
+
+Jing Tang, Xueyan Tang, and Junsong Yuan. Towards profit maximization for online social network providers. In 2018 IEEE Conference on Computer Communications, INFOCOM 2018, Honolulu, HI, USA, April 16-19, 2018, pp. 1178-1186. IEEE, 2018. doi: 10.1109/INFOCOM.2018.8485975. URL https://doi.org/10.1109/INFOCOM.2018.8485975.
+
+Shaojie Tang and Jing Yuan. Optimizing ad allocation in social advertising. In Snehasis Mukhopadhyay, ChengXiang Zhai, Elisa Bertino, Fabio Crestani, Javed Mostafa, Jie Tang, Luo Si, Xiaofang Zhou, Yi Chang, Yunyao Li, and Parikshit Sondhi (eds.), Proceedings of the 25th ACM International Conference on Information and Knowledge Management, CIKM 2016, Indianapolis, IN, USA, October 24-28, 2016, pp. 1383-1392. ACM, 2016. doi: 10.1145/2983323.2983834. URL https://doi.org/10.1145/2983323. 2983834 .
+
+Youze Tang, Xiaokui Xiao, and Yanchen Shi. Influence maximization: near-optimal time complexity meets practical efficiency. In Curtis E. Dyreson, Feifei Li, and M. Tamer Özsu (eds.), International Conference on Management of Data, SIGMOD 2014, Snowbird, UT, USA, June 22-27, 2014, pp. 75-86. ACM, 2014. doi: $10.1145 / 2588555.2593670$. URL https://doi.org/10.1145/2588555.2593670.
+
+Youze Tang, Yanchen Shi, and Xiaokui Xiao. Influence maximization in near-linear time: A martingale approach. In Timos K. Sellis, Susan B. Davidson, and Zachary G. Ives (eds.), Proceedings of the 2015 ACM SIGMOD International Conference on Management of Data, Melbourne, Victoria, Australia, May 31 - June 4, 2015, pp. 1539-1554. ACM, 2015. doi: 10.1145/2723372.2723734. URL https://doi.org/ $10.1145 / 2723372.2723734$.
+
+Yijing Wang, Yicheng Xu, and Xiaoguang Yang. On maximizing the difference between an approximately submodular function and a linear function subject to a matroid constraint. In Ding-Zhu Du, Donglei Du, Chenchen Wu, and Dachuan Xu (eds.), Combinatorial Optimization and Applications - 15th International Conference, COCOA 2021, Tianjin, China, December 17-19, 2021, Proceedings, volume 13135 of Lecture Notes in Computer Science, pp. 75-85. Springer, 2021. doi: 10.1007/978-3-030-92681-6 $\$ 7. URL https: //doi.org/10.1007/978-3-030-92681-6_7.
+
+Grigory Yaroslavtsev, Samson Zhou, and Dmitrii Avdiukhin. "bring your own greedy"+max: Near-optimal 1/2-approximations for submodular knapsack. In Silvia Chiappa and Roberto Calandra (eds.), The 23rd International Conference on Artificial Intelligence and Statistics, AISTATS 2020, 26-28 August 2020, Online [Palermo, Sicily, Italy], volume 108 of Proceedings of Machine Learning Research, pp. 3263-3274. PMLR, 2020. URL http://proceedings.mlr.press/v108/yaroslavtsev20a.html.Hao Yin, Austin R. Benson, Jure Leskovec, and David F. Gleich. Local higher-order graph clustering. In Proceedings of the 23rd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, Halifax, NS, Canada, August 13 - 17, 2017, pp. 555-564. ACM, 2017. doi: 10.1145/3097983. 3098069. URL https://doi.org/10.1145/3097983.3098069.
+
+Qixin Zhang, Zengde Deng, Xiangru Jian, Zaiyi Chen, Haoyuan Hu, and Yu Yang. Communication-efficient decentralized online continuous dr-submodular maximization. In Ingo Frommholz, Frank Hopfgartner, Mark Lee, Michael Oakes, Mounia Lalmas, Min Zhang, and Rodrygo L. T. Santos (eds.), Proceedings of the 32nd ACM International Conference on Information and Knowledge Management, CIKM 2023, Birmingham, United Kingdom, October 21-25, 2023, pp. 3330-3339. ACM, 2023. doi: 10.1145/3583780. 3614817. URL https://doi.org/10.1145/3583780.3614817.
+
+Yanhui Zhu, Samik Basu, and A. Pavan. Improved evolutionary algorithms for submodular maximization with cost constraints. In Kate Larson (ed.), Proceedings of the Thirty-Third International Joint Conference on Artificial Intelligence, IJCAI-24, pp. 7082-7090. International Joint Conferences on Artificial Intelligence Organization, 8 2024. doi: 10.24963/ijcai.2024/783. URL https://doi.org/10.24963/ijcai. 2024/783. Main Track.

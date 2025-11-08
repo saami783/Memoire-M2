@@ -1,0 +1,995 @@
+# Subset verification and search algorithms for causal DAGs 
+
+Davin Choo*<br>National University of Singapore<br>davin@u.nus.edu
+
+Kirankumar Shiragur*<br>Broad Institute of MIT and Harvard<br>shiragur@stanford.edu
+
+
+#### Abstract
+
+Learning causal relationships between variables is a fundamental task in causal inference and directed acyclic graphs (DAGs) are a popular choice to represent the causal relationships. As one can recover a causal graph only up to its Markov equivalence class from observations, interventions are often used for the recovery task. Interventions are costly in general and it is important to design algorithms that minimize the number of interventions performed.
+
+In this work, we study the problem of identifying the smallest set of interventions required to learn the causal relationships between a subset of edges (target edges). Under the assumptions of faithfulness, causal sufficiency, and ideal interventions, we study this problem in two settings: when the underlying ground truth causal graph is known (subset verification) and when it is unknown (subset search).
+
+For the subset verification problem, we provide an efficient algorithm to compute a minimum sized interventional set; we further extend these results to bounded size non-atomic interventions and nodedependent interventional costs. For the subset search problem, in the worst case, we show that no algorithm (even with adaptivity or randomization) can achieve an approximation ratio that is asymptotically better than the vertex cover of the target edges when compared with the subset verification number. This result is surprising as there exists a logarithmic approximation algorithm for the search problem when we wish to recover the whole causal graph. To obtain our results, we prove several interesting structural properties of interventional causal graphs that we believe have applications beyond the subset verification/search problems studied here.
+
+
+## 1 Introduction
+
+Learning causal relationships from data is an important problem with applications in many areas such as biology [ $\mathrm{KWJ}^{+} 04, \mathrm{SC} 17, \mathrm{RHT}^{+} 17, \mathrm{POS}^{+} 18$ ], economics [Hoo90, RW06], and philosophy [Rei56, Woo05, ES07]. More recently, causal inference techniques have also been used to design methods that generalize to out-ofdistribution samples [GUA ${ }^{+} 16$, ABGLP19, Arj20]. In many of these applications, directed acyclic graphs (DAG) are used to model the causal relationships, where an arc $x \rightarrow y$ encodes $x$ causes $y$, and the goal is to recover these graphs from data.
+
+One can only recover causal graphs up to a Markov equivalence class using observational data [Pea09, SGSH00], and additional model assumptions [SHHK06, PB14, MPJ ${ }^{+} 16$ ] or interventions [EGS06, Ebe10, EGS12, HLV14, SKDV15, GKS ${ }^{+} 19, \mathrm{SMG}^{+} 20$ ] are often used to recover the true underlying causal graph. In this work, we study the causal discovery problem using interventions. Performing interventions in real life are often costly as in many cases they correspond to performing randomized controlled trials or gene knockout experiments. As such, most of the prior works focused on recovering the causal graph while minimizing the interventions performed.
+
+Besides minimizing the number of interventions performed, many applications care about recovering only a subset of the causal relationships. For instance, in local graph discovery, efficient learning of localized causal relationships play a central role in feature selection via Markov blankets ${ }^{1}$ [ATS03, TA03, MC04, AST ${ }^{+} 10$ ] while scalability is of significant concern when one only wishes to learn localized causal effects (e.g. the direct causes and effects of a target variable of interest) $\left[\mathrm{SMH}^{+} 15, \mathrm{FMT}^{+} 21\right]$ within a potentially large causal graph (e.g. gene regulatory networks [DL05]). Meanwhile, in the context of designing algorithms that generalize to novel distributions [ABGLP19, LWHLS21], it suffices to just learn the causal relationship between the target
+
+[^0]
+[^0]:    *Equal contribution
+    ${ }^{1}$ A Markov blanket of a variable $X \in V$ is a subset of variables $S \subseteq V$ such that all other variables are independent of $X$, conditioned on $S$.variable and feature/latent variables while ignoring all other causal relationships. Furthermore, in practice, there may be constraints on the interventions that one can perform and it is natural to prioritize the recovery of important causal relationships. As such, in many practical situations, one is interested in learning the causal relationship only for a subset of the edges of the causal graph while minimizing the number of interventions.
+
+In this work, we formally initiate the study of this question by studying two fundamental problems under the assumptions of ideal interventions ${ }^{2}$, faithfulness ${ }^{3}$, and causal sufficiency ${ }^{4}$ : verification and search for learning the subset of edges in the causal graph, which we formally define below.
+
+Definition 1 (Subset verification problem). Given a DAG $G=(V, E)$ and target edges $T \subseteq E$, find the minimum size/cost intervention set $\mathcal{I} \subseteq 2^{V}$ such that $T \subseteq R(G, \mathcal{I})$.
+
+Definition 2 (Subset search problem). Given an unknown ground truth DAG $G^{*}=(V, E)$ and target edges $T \subseteq E$, find the minimum size/cost intervention set $\mathcal{I} \subseteq 2^{V}$ such that $T \subseteq R\left(G^{*}, \mathcal{I}\right)$.
+
+Assuming $G$ was the ground truth, we use $R(G, \mathcal{I})$ to denote the set of recovered arc directions due to interventions $\mathcal{I}$ performed on an unoriented graph ${ }^{5}$, and $\nu_{1}(G, T)$ to denote the minimum number of interventions needed to fully orient edges in $T$. The above definitions are natural generalizations of the standard well-studied verification and search problems when $T=E$. For $T=E$, the authors of [CSB22] gave an efficient algorithm to compute the verification set of size $\nu_{1}(G, E)$ using the notion of covered edges and also provided an adaptive search algorithm that orients the whole causal graph using $\mathcal{O}\left(\log n \cdot \nu_{1}(G, E)\right)$ interventions. Just as how the verification number $\nu_{1}(G, E)$ is a natural lower bound for the search problem, the subset verification number $\nu_{1}(G, T)$ also serves as a lower bound for the subset search problem.
+
+# 1.1 Our Contributions 
+
+Despite being a simple generalization, the approach of [CSB22] fails to directly extend to the subset verification and search problems. In our work, we show the following.
+
+### 1.1.1 Subset verification
+
+We give an efficient dynamic programming algorithm to compute a minimal subset verification set, and also extend to more general settings involving non-atomic interventions and additive vertex costs.
+
+### 1.1.2 Subset search
+
+We provide an explicit family of graphs $G$ and subsets $T$ such that the subset verification number $\nu_{1}(G, T)=1$ while any search algorithm needs $\mathrm{vc}(T)$ interventions to orient edges in $T$ against an adaptive adversary, where $\mathrm{vc}(T)$ is the size of the minimum vertex cover of $T$. Thus, no subset search algorithm has a better approximation ratio than $\mathrm{vc}(T)$ when compared with the $\nu_{1}(G, T)$ in general. Furthermore, as $\nu_{1}(G, T) \leq \mathrm{vc}(T)$, it is trivial to design an algorithm to achieve this approximation ratio. Meanwhile, in the special case where $T$ is a subset of all edges within a node-induced subgraph - a setting that we believe is of practical interest - we give a subset search algorithm that only incurs a logarithmic overhead in the size of the subgraph, with respect to $\nu_{1}\left(G^{*}\right)$. Note that here we compete against $\nu_{1}\left(G^{*}\right)$ and not $\nu_{1}\left(G^{*}, T\right)$.
+
+To obtain the above results, we provide a better understanding of how interventions work and prove several other interesting results. We believe these results are fundamental and could be of independent interest. For instance, we show that in the context of minimizing the number of ideal interventions used in causal graph discovery, it suffices to study DAGs without v-structures. We also characterize the set of vertices orienting any given arc via Hasse diagrams. We formalize these and other properties in Section 3.
+
+[^0]
+[^0]:    ${ }^{2}$ Ideal interventions assume hard interventions (forcefully setting a variable value) and the ability to obtain as many interventional samples as desired, ensuring that we always recover the directions of all edges cut by interventions. Without this assumption, we may fail to correctly infer some arc directions and our algorithms will only succeed with some success probability.
+    ${ }^{3}$ Faithfulness assumes that independencies that occur in data does not occur due to "cancellations" in the functional relationships, but rather due to the causal graph structure. It is known [Moe95b, SGSH00] that, under many natural parameterizations and settings, the set of unfaithful parameters for any given causal DAG has zero Lebesgue measure (i.e. faithfulness holds; see also [ZS02, Section 3.2] for a discussion about faithfulness). However, one should be aware that the faithfulness assumption may be violated in reality [And13, URBY13], especially in the presence of sampling errors in the finite sample regime.
+    ${ }^{4}$ Under causal sufficiency, there are no hidden confounders (i.e. unobserved common causes to the observed variables). While causal sufficiency may not always hold, it is still a reasonable one to make in certain applications such as studying gene regulatory networks (e.g. see [WSYU17]).
+    ${ }^{5}$ The graph on which we perform interventions may not be completely oriented but a partially oriented one that is consistent with the Markov equivalence class of $G$. See Section 2 for a more accurate definition.# 1.2 Organization 
+
+Section 2 contains preliminary notions and some related work. We state our main results in Section 3. One of our results show that the subset verification problem is equivalent to a computational problem called interval stabbing on a rooted tree, which we solve in Section 4. Some experimental results are shown in Section 5. Full proofs and source code are given in the appendix.
+
+## 2 Preliminaries and related work
+
+We write $A \dot{\cup} B$ to represent the disjoint union of two disjoint sets $A$ and $B$.
+
+### 2.1 Basic graph definitions
+
+Let $G=(V, E)$ be a graph on $|V|=n$ vertices. We use $V(G), E(G)$ and $A(G) \subseteq E(G)$ to denote its vertices, edges, and oriented arcs respectively. The graph $G$ is said to be directed or fully oriented if $A(G)=E(G)$, and partially oriented otherwise. For any two vertices $u, v \in V$, we write $u \sim v$ if these vertices are connected in the graph and $u \neq v$ otherwise. To specify the arc directions, we use $u \rightarrow v$ or $u \leftarrow v$. For any subset $V^{\prime} \subseteq V$ and $E^{\prime} \subseteq E, G\left[V^{\prime}\right]$ and $G\left[E^{\prime}\right]$ denote the vertex-induced and edge-induced subgraphs respectively.
+
+Consider an vertex $v \in V$ in a directed graph, let $\mathrm{Pa}(v), \operatorname{Anc}(v), \operatorname{Des}(v)$ denote the parents, ancestors and descendants of $v$ respectively. Let vector $p a(v)$ denotes the values taken by $v$ 's parents, e.g. if a parent node $v$ represents Season, then $p a(v) \in\{$ Spring, Summer, Autumn, Winter $\}$. Let $\operatorname{Des}[v]=\operatorname{Des}(v) \cup\{v\}$ and $\operatorname{Anc}[v]=\operatorname{Anc}(v) \cup\{v\}$. We define $\operatorname{Ch}(v) \subseteq \operatorname{Des}(v)$ as the set of direct children of $v$, that is, for any $w \in \operatorname{Ch}(v)$ there does not exists $z \in V \backslash\{v, w\}$ such that $z \in \operatorname{Des}(v) \cap \operatorname{Anc}(w)$. Note that, $\operatorname{Ch}(v) \subseteq\{w \in V: v \rightarrow w\} \subseteq \operatorname{Des}(v)$, i.e. $\operatorname{Ch}(v)$ is a subset of the standard notion of children in a directed graph, which in turn is a subset of all reachable vertices in a directed graph.
+
+The skeleton $\operatorname{skel}(G)$ of a (partially oriented) graph $G$ is the underlying graph where all edges are made undirected. A $v$-structure refers to three distinct vertices $u, v, w \in V$ such that $u \rightarrow v \leftarrow w$ and $u \neq w$. A simple cycle is a sequence of $k \geq 3$ vertices where $v_{1} \sim v_{2} \sim \ldots \sim v_{k} \sim v_{1}$. The cycle is partially directed if at least one of the edges is directed and all directed arcs are in the same direction along the cycle. A partially directed graph is a chain graph if it contains no partially directed cycle. In the undirected graph $G[E \backslash A]$ obtained by removing all arcs from a chain graph $G$, each connected component in $G[E \backslash A]$ is called a chain component. We use $C C(G)$ to denote the set of chain components, where each $H \in C C(G)$ is a subgraph of $G$ and $V=\dot{U}_{H \in C C(G)} V(H)$. For any partially directed graph, an acyclic completion / consistent extension is an assignment of edge directions to all unoriented edges such that the resulting directed graph has no directed cycles.
+
+Directed acyclic graphs (DAGs) are fully oriented chain graphs that are commonly used as graphical causal models [Pea09], where vertices represents random variables and the joint probability density $f$ factorizes according to the Markov property: $f\left(v_{1}, \ldots, v_{n}\right)=\prod_{i=1}^{n} f\left(v_{i} \mid p a(v)\right)$. We can associate a (not necessarily unique) valid permutation / topological ordering $\pi: V \rightarrow[n]$ to any (partially directed) DAG such that oriented arcs $(u, v)$ satisfy $\pi(u)<\pi(v)$ and unoriented $\operatorname{arcs}\{u, v\}$ can be oriented as $u \rightarrow v$ without forming directed cycles when $\pi(u)<\pi(v)$.
+
+For any DAG $G$, we denote its Markov equivalence class (MEC) by $[G]$ and essential graph by $\mathcal{E}(G)$. DAGs in the same MEC $[G]$ have the same skeleton and essential graph $\mathcal{E}(G)$ is a partially directed graph such that an arc $u \rightarrow v$ is directed if $u \rightarrow v$ in every DAG in MEC $[G]$, and an edge $u \sim v$ is undirected if there exists two DAGs $G_{1}, G_{2} \in[G]$ such that $u \rightarrow v$ in $G_{1}$ and $v \rightarrow u$ in $G_{2}$. It is known that two graphs are Markov equivalent if and only if they have the same skeleton and v-structures [VP90, AMP97]. An edge $u \sim v$ is a covered edge [Chi95, Definition 2] if $\mathrm{Pa}(u) \backslash\{v\}=\mathrm{Pa}(v) \backslash\{u\} .^{6}$
+
+### 2.2 Interventions and verifying sets
+
+An intervention $S \subseteq V$ is an experiment where all variables $s \in S$ is forcefully set to some value, independent of the underlying causal structure. An intervention is atomic if $|S|=1$ and bounded if $|S| \leq k$ for some $k>0$; observational data is a special case where $S=\emptyset$. The effect of interventions is formally captured by Pearl's docalculus [Pea09]. We call any $\mathcal{I} \subseteq 2^{V}$ a intervention set: an intervention set is a set of interventions where each
+
+[^0]
+[^0]:    ${ }^{6}$ On fully oriented graphs, the related notion of protected edges [AMP97, Definition 3.2] is equivalent: an edge $a \sim b$ is not protected if and only if it is a covered edge in $G[A]$.intervention corresponds to a subset of variables. An ideal intervention on $S \subseteq V$ in $G$ induces an interventional graph $G_{S}$ where all incoming arcs to vertices $v \in S$ are removed [EGS12]. It is known that intervening on $S$ allows us to infer the edge orientation of any edge cut by $S$ and $V \backslash S$ [Ebe07, HEH13, HLV14, SKDV15, KDV17].
+
+For ideal interventions, an $\mathcal{I}$-essential graph $\mathcal{E}_{\mathcal{I}}(G)$ of $G$ is the essential graph representing the Markov equivalence class of graphs whose interventional graphs for each intervention is Markov equivalent to $G_{S}$ for any intervention $S \in \mathcal{I}$. There are several known properties about $\mathcal{I}$-essential graph properties [HB12, HB14]: Every $\mathcal{I}$-essential graph is a chain graph with chordal ${ }^{7}$ chain components. This includes the case of $S=\emptyset$. Orientations in one chain component do not affect orientations in other components. In other words, to fully orient any essential graph $\mathcal{E}\left(G^{*}\right)$, it is necessary and sufficient to orient every chain component in $\mathcal{E}\left(G^{*}\right)$.
+
+A verifying set $\mathcal{I}$ for a DAG $G \in\left[G^{*}\right]$ is an intervention set that fully orients $G$ from $\mathcal{E}\left(G^{*}\right)$, possibly with repeated applications of Meek rules (see Appendix A). In other words, for any graph $G=(V, E)$ and any verifying set $\mathcal{I}$ of $G$, we have $\mathcal{E}_{\mathcal{I}}(G)\left[V^{\prime}\right]=G\left[V^{\prime}\right]$ for any subset of vertices $V^{\prime} \subseteq V$. Furthermore, if $\mathcal{I}$ is a verifying set for $G$, then $\mathcal{I} \cup S$ is also a verifying set for $G$ for any additional intervention $S \subseteq V$. An subset verifying set $\mathcal{I}$ for a subset of target edges $T \subseteq E$ in a DAG $G \in\left[G^{*}\right]$ is an intervention set that fully orients all arcs in $T$ given $\mathcal{E}\left(G^{*}\right)$, possibly with repeated applications of Meek rules. Note that the subset verifying set depends on the target edges and the underlying ground truth DAG - the subset verifying set for the same $T \subseteq E$ may differ across two different DAGs $G, G^{\prime} \in\left[G^{*}\right]$ in the same Markov equivalence class. While there may be multiple verifying sets in general, we are often interested in finding one with a minimum size or cost.
+
+Definition 3 (Minimum size/cost subset verifying set). Let $w$ be a weight function on intervention sets. An intervention set $\mathcal{I}$ is called a subset verifying set for a subset of target edges $T \subseteq E$ in a DAG $G^{*}$ if all edges in $T$ are oriented in $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$. In the special case of $T=E$, we have $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)=G^{*} . \mathcal{I}$ is a minimum size (resp. cost) subset verifying set if some edge in $T$ remains unoriented in $\mathcal{E}_{\mathcal{I}^{\prime}}\left(G^{*}\right)$ for any $\left|\mathcal{I}^{\prime}\right|<|\mathcal{I}|$ (resp. for any $\left.w\left(\mathcal{I}^{\prime}\right)<w(\mathcal{I})\right)$
+
+While restricting to interventions of size at most $k$, the minimum verification number $\nu_{k}(G, T)$ denotes the size of the minimum size subset verifying set for any DAG $G \in\left[G^{*}\right]$ and subset of target edges $T \subseteq E$. That is, any revealed arc directions when performing interventions on $\mathcal{E}\left(G^{*}\right)$ respects $G$. We write $\nu_{1}(G, T)$ when we restrict to atomic interventions. When $k=1$ and $T=E$, [CSB22] tells us that it is necessary and sufficient to intervene on a minimum vertex cover of the covered edges in $G$.
+
+For any intervention set $\mathcal{I} \subseteq 2^{V}$, we write $R(G, \mathcal{I})=A\left(\mathcal{E}_{\mathcal{I}}(G)\right) \subseteq E$ to mean the set of oriented arcs in the $\mathcal{I}$-essential graph of a DAG $G$. Under this notation, we see that the directed arcs in the partially directed graph $\mathcal{E}_{\mathcal{I}}(G)$ can be expressed as $A\left(\mathcal{E}_{\mathcal{I}}(G)\right)=R(G, \mathcal{I})$. For cleaner notation, we write $R(G, I)$ for single interventions $\mathcal{I}=\{I\}$ for some $I \subseteq V$, and $R(G, v)$ for single atomic interventions $\mathcal{I}=\{\{v\}\}$ for some $v \in V$. The following lemma ${ }^{8}$ implies that the combined knowledge of two intervention sets do not further trigger any Meek rules.
+
+Lemma 4 (Modified lemma 2 of [GSKB18]). For any DAG $G=(V, E)$ and any two intervention sets $\mathcal{I}_{1}, \mathcal{I}_{2} \subseteq$ $2^{V}$, we have $R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right)=R\left(G, \mathcal{I}_{1}\right) \cup R\left(G, \mathcal{I}_{2}\right)$.
+
+We define $R_{1}^{-1}(G, a \rightarrow b) \subseteq V$ and $R_{k}^{-1}(G, a \rightarrow b) \subseteq 2^{V}$ to refer to interventions orienting an arc $a \rightarrow b$ :
+
+$$
+\begin{aligned}
+& R_{1}^{-1}(G, a \rightarrow b)=\{v \in V: a \rightarrow b \in R(G, v)\} \\
+& R_{k}^{-1}(G, a \rightarrow b)=\{I \subseteq V:|I| \leq k, a \rightarrow b \in R(G, I)\}
+\end{aligned}
+$$
+
+For any oriented arc $a \rightarrow b \in A$, we let $R_{1}^{-1}(a \rightarrow b)=V$ and $R_{k}^{-1}(a \rightarrow b)=\{I \subseteq V:|I| \leq k\}$. For any subset $S \subseteq E$, we denote $R(G, S) \subseteq E$ as the set of oriented arcs in the essential graph of $G$ if we orient $S$, along with the v-structure arcs in $G$, then apply Meek rules till convergence. In particular, when $S=\{(u, v): u \in \mathcal{I}$ or $v \in \mathcal{I}\} \subseteq E$ is the set of incident edges to some vertex set $\mathcal{I} \subseteq V$, then $R(G, S)=R(G, \mathcal{I})$ are precisely the oriented arcs in the interventional essential graph $\mathcal{E}_{\mathcal{I}}(G)$. Furthermore, if $S$ is a superset of the set of incident edges to some vertex set $\mathcal{I} \subseteq V$, then $R(G, \mathcal{I}) \subseteq R(G, S)$. When we use the $R(G, \cdot)$ notation, we will be explicit about its type - whether $\cdot$ is a subset of vertices $V$, a subset of a subset of vertices $2^{V}$, or a subset of edges $E$.
+
+[^0]
+[^0]:    ${ }^{7}$ A chordal graph is a graph where every cycle of length at least 4 has a chord, which is an edge that is not part of the cycle but connects two vertices of the cycle; see [BP93] for an introduction.
+    ${ }^{8}$ While [GSKB18] studies atomic interventions, their proof extends to non-atomic intervention sets, and even the observational case where the intervention set could be $\emptyset$. However, there are some minor fixable bugs in their proof. For completeness, we provide a shorter fixed proof of Lemma 4 in Appendix C.# 2.3 Hasse diagrams 
+
+Definition 5 (Directed Hasse diagram). Any poset $(\mathcal{X}, \leq)$ can be uniquely represented by a directed Hasse diagram $H_{(X, \leq)}$, a directed graph where each element in $\mathcal{X}$ is a vertex and there is an arc $y \rightarrow x$ whenever $y$ covers $x$ for any two elements $x, y \in \mathcal{X}$. We call these arcs as Hasse arcs.
+
+Any DAG $G=(V, E)$ induces a poset on the vertices $V$ with respect to the ancestral relationships in the graph: $x \leq_{\text {Anc }} y$ whenever $x \in \operatorname{Anc}[y]$. Since "covers" correspond to "direct children" for DAGs, we will say " $y$ is a direct child of $x$ " instead of " $x$ covers $y$ " to avoid confusion with the notion of covered edges. We will use $H_{G}=H_{\left(V, \leq_{\text {Anc }}\right)}$ to denote the Hasse diagram corresponding to a DAG $G$. The Hasse diagram $H_{G}$ can be computed in polynomial time [AGU72] and may have multiple roots (vertices without incoming arcs) in general. Background on posets and related notions are given in Appendix B.
+
+### 2.4 Related work
+
+As discussed in Section 1, the most relevant prior work to ours is [CSB22] where they studied the problems of verification and search under the special case of $T=E$.
+
+Other related works using non-atomic interventions include: [HLV14] showed that $G^{*}$ can be identified using $\mathcal{O}(\log (\log (n)))$ unbounded randomized interventions in expectation; [SKDV15] showed that $\mathcal{O}\left(\frac{n}{k} \log (\log (k))\right)$ bounded sized interventions suffices.
+
+Other related works in the setting of additive vertex costs include: [GSKB18] studied the problem of maximizing the number of oriented edges given a budget of atomic interventions; [KDV17, LKDV18] studied the problem of finding a minimum cost (bounded size) intervention set to identify $G^{*}$; [LKDV18] showed that computing the minimum cost intervention set is NP-hard and gave search algorithms with constant approximation factors.
+
+## 3 Results
+
+Here, we present our main results for the subset verification and subset search problems: we provide an efficient algorithm to compute a minimal subset verifying set for any given subset of target edges and show asymptotically matching upper and lower bounds for subset search.
+
+In Section 3.1, we show that it suffices to study the subset search and verification problems on DAGs without v-structures. Then, in Section 3.2, we consider DAGs without v-structures and show several interesting properties regarding their Hasse diagram $H_{G}$. In Section 3.3, we use structural properties on $H_{G}$ to show that the subset verification problem is equivalent to another problem called interval stabbing on a rooted tree, which we solve in Section 4. By further exploiting the structural properties of $H_{G}$, we show how to extend our subset verification results to the settings of non-atomic interventions and additive vertex costs in Section 3.4. Finally, we present our results for the subset search problem in Section 3.5.
+
+We believe that the properties presented in Section 3.1 and Section 3.2 are of independent interest and have applications beyond the subset verification and search problems.
+
+### 3.1 Sufficient to study DAGs without v-structures
+
+Here, we state some structural properties of interventional essential graphs $\mathcal{E}_{\mathcal{I}}(G)$. These properties enable us to ignore v-structures and justify the study of the subset verification and search problems solely on DAGs without v-structures. Recall the observational essential graph $\mathcal{E}(G)$ is an interventional essential graph for $\mathcal{I}=\emptyset$.
+
+Definition 6 (Oriented subgraphs and recovered parents). For any interventional set $\mathcal{I} \subseteq 2^{V}$ and $u \in V$, define $G^{\mathcal{I}}=G[E \backslash R(G, \mathcal{I})]$ as the fully directed subgraph DAG induced by the unoriented arcs in $G$ and $\operatorname{Pa}_{G, \mathcal{I}}(u)=\{x \in V: x \rightarrow u \in R(G, \mathcal{I})\}$ as the recovered parents of $u$ by $\mathcal{I}$.
+
+Theorem 7 (Properties of interventional essential graphs). Consider a $D A G G=(V, E)$ and intervention sets $\mathcal{A}, \mathcal{B} \subseteq 2^{V}$. Then, the following statements are true:
+
+1. $\operatorname{skel}\left(G^{\mathcal{A}}\right)$ is exactly the chain components of $\mathcal{E}_{\mathcal{A}}(G)$.2. $G^{\mathcal{A}}$ does not have new v-structures. ${ }^{9}$
+3. For any two vertices $u$ and $v$ in the same chain component of $\mathcal{E}_{\mathcal{A}}(G)$, we have $P a_{G, \mathcal{A}}(u)=P a_{G, \mathcal{A}}(v)$.
+4. If the arc $u \rightarrow v \in R(G, \mathcal{A})$, then $u$ and $v$ belong to different chain components of $\mathcal{E}_{\mathcal{A}}(G)$.
+5. Any acyclic completion of $\mathcal{E}\left(G^{\mathcal{A}}\right)$ that does not form new v-structures can be combined with $R(G, \mathcal{A})$ to obtain a valid DAG that belongs to both $\mathcal{E}(G)$ and $\mathcal{E}_{\mathcal{A}}(G)$. ${ }^{10}$
+6. $R\left(G^{\mathcal{A}}, \mathcal{B}\right)=R(G, \mathcal{B}) \backslash R(G, \mathcal{A})$.
+7. $R(G, \mathcal{A} \cup \mathcal{B})=R\left(G^{\mathcal{A}}, \mathcal{B}\right) \dot{\cup} R(G, \mathcal{A})$.
+8. $R(G, \mathcal{A} \cup \mathcal{B})=R\left(G^{\mathcal{A}}, \mathcal{B}\right) \dot{\cup} R\left(G^{\mathcal{B}}, \mathcal{A}\right) \dot{\cup}(R(G, \mathcal{A}) \cap R(G, \mathcal{B}))$.
+9. $R(G, \emptyset)$ does not contain any covered edge of $G$.
+
+From prior work Lemma 4, we have $R(G, \mathcal{A} \cup \mathcal{B})=R(G, \mathcal{A}) \cup R(G, \mathcal{B})$ for any two interventions $\mathcal{A}$ and $\mathcal{B}$. Informally, this means that combining prior orientations will not trigger Meek rules. Meanwhile, Theorem 7 says that the adjacencies will also not, thus we can simplify the causal graphs by removing any oriented edges before performing further interventions. Fig. 1 gives an illustration.
+
+An important implication of Theorem 7 for verification and search problems is that it suffices to solve these problems only on DAGs without v-structures. As any oriented arcs in the observational graph can be removed before performing any interventions, the optimality of the solution is unaffected since $R(G, \mathcal{I})=$ $R\left(G^{\emptyset}, \mathcal{I}\right) \dot{\cup} R(G, \emptyset)$, where $G^{\emptyset}$ is the graph obtained after removing all the oriented arcs in the observational essential graph due to v-structures.
+
+
+Figure 1: Example for Theorem 7. Here, recovered edges $R(G, \cdot)$ are colored while the black edges are the hidden arc directions. Since $b \rightarrow c \leftarrow f$ is a v-structure in $G$, these edges are oriented in the observational essential graph $\mathcal{E}(G)$ and so Meek rule R3 orients $e \rightarrow c$ in $\mathcal{E}(G)$. Intervening on $A=\{a\}$ orients $\{a \rightarrow e, a \rightarrow f\}$ and Meek rule R1 further orients $\{e \rightarrow b, e \rightarrow d\}$. Intervening on $B=\{b\}$ orients $\{e \rightarrow b, b \rightarrow d\}$ and Meek rule R2 further orients $\{e \rightarrow d\}$. Observe that $R\left(G^{A}, B\right)=\{b \rightarrow d\}, R\left(G^{B}, A\right)=\{a \rightarrow e, a \rightarrow f\}$, and $R(G, A) \cap R(G, B) \backslash R(G, \emptyset)=\{e \rightarrow b, e \rightarrow d\}$.
+
+[^0]
+[^0]:    ${ }^{9}$ While classic results [AMP97, HB12] tell us that chain components of interventional essential graphs are chordal, i.e. $\mathcal{E}(G)[E \backslash A]$ is a chordal graph, it is not immediately obvious why such edge-induced subgraphs cannot have v-structures in any of the DAGs compatible with $\mathcal{E}(G)$. Here, we formalize this fact.
+    ${ }^{10}$ Stated in a different language in [HB12, Proposition 16].# 3.2 Hasse diagrams of DAGs without v-structures 
+
+Here, we show some interesting properties of the Hasse diagrams for DAGs without v-structures.
+Lemma 8. A DAG $G=(V, E)$ is a single connected component without v-structures if and only if the Hasse diagram $H_{G}$ is a directed tree with a unique root vertex.
+
+As it is known [HB12, Lemma 23] that any DAG without v-structures whose skeleton is a connected chordal graph has exactly one source vertex, Lemma 8 is not entirely surprising. However, it enables us to properly define the notion of rooted subtrees in a Hasse diagram.
+
+Definition 9 (Rooted subtree). Let $H_{G}$ be a Hasse diagram of a single component DAG $G=(V, E)$ without v-structures. By Lemma $8, H_{G}$ is a rooted tree. For any vertex $y \in V$, the rooted subtree $T_{y}$ has vertices $V\left(T_{y}\right)=\{u \in V: y \in \operatorname{Anc}[u]\}$ and edges $E\left(T_{y}\right)=\{a \rightarrow b: a, b \in V\left(T_{y}\right)\}$. See Fig. 2 for an illustration.
+
+
+Figure 2: A Hasse diagram $H_{G}$ of some DAG $G$ with root $r$ where triangles represent unexpanded subtrees. For a vertex $w, \operatorname{Anc}(w)$ is the set of vertices along the unique path from $r$ to $w$ and $z=\operatorname{Pa}(w)$ is the vertex directly before $w$. The direct children of $w$ are $\operatorname{Ch}(w)=\{a, b, y\}$. If the arc $w \rightarrow c$ exists in $G$, it will not appear in $H_{G}$ because $w \rightarrow y \rightarrow c$ exists, i.e. $c \notin \operatorname{Ch}(w)$. The rooted subtree $T_{y}$ at $y$ includes all the nodes that have $y$ as an ancestor.
+
+Using rooted subtrees, we prove several structural properties regarding the arc directions that are recovered by an atomic intervention, cumulating into Theorem 10 which states that the set $R_{1}^{-1}(G, u \rightarrow v)$ of vertices whose intervention recovers $u \rightarrow v$ forms a consecutive sequence of vertices in some branch in the Hasse diagram $H_{G}$.
+
+Theorem 10. Let $G=(V, E)$ be a $D A G$ without v-structures and $u \rightarrow v$ be an unoriented arc in $\mathcal{E}(G)$. Then, $R_{1}^{-1}(G, u \rightarrow v)=\operatorname{Des}[w] \cap \operatorname{Anc}[v]$ for some $w \in \operatorname{Anc}[u]$.
+
+By Theorem 10, we only need to intervene on some vertex within each sequence of Hasse arcs. Meanwhile, Lemma 11 tells us that covered edges correspond directly to an interval involving only the endpoints. Thus, we see that our subset verification algorithm is a non-trivial generalization of [CSB22].
+
+Lemma 11. If $G$ be a $D A G$ without v-structures, then the covered edges of $G$ are a subset of the Hasse edges in $H_{G}$.
+
+### 3.3 Subset verification on DAGs without v-structures with atomic interventions
+
+In this section, we show that the atomic subset verification problem is equivalent to the problem of interval stabbing on a rooted tree that we define next. For a DAG $G$ without v-structures, let $H_{G}$ be its rooted Hasse tree.For any rooted tree $\widehat{G}=(V, E)$, an ordered pair $[u, v]_{\widehat{G}} \in V \times V$ is called an interval if $u \in \operatorname{Anc}(v)$. If the graph is clear from context, we will drop the subscript $\widehat{G}$. We say that a vertex $z \in V$ stabs an interval $[u, v]$ if and only if $z \in \operatorname{Des}[u] \cap \operatorname{Anc}[v]$, and that a subset $S \subseteq V$ stabs $[a, b]$ if $S$ has a vertex that stabs it.
+
+Interpreting Theorem 10 with respect to the definition of an interval, we see that every edge $u \rightarrow v$ can be associated with some interval $[w, v]_{H_{G}}$, for some $w \in \operatorname{Anc}[u]$, such that $u \rightarrow v \in R(G, \mathcal{I})$ if and only if $\mathcal{I}$ stabs $[w, v]_{H_{G}}$. As such, we can reduce the subset verification problem on DAGs without v-structures to the following problem.
+
+Definition 12 (Interval stabbing problem on a rooted tree). Given a rooted tree $\widehat{G}=(V, E)$ with root $r \in V$ and a set $\mathcal{J}$ of intervals of the form $[u, v]$, find a set $\mathcal{I} \subseteq V$ of minimum size such that $[u, v] \cap \mathcal{I} \neq \emptyset$ for all $[u, v] \in \mathcal{J}$.
+
+The interval stabbing problem on a rooted tree can be viewed both as a special case of the set cover problem, and as a generalization of the interval stabbing problem on a line. The former is NP-hard [Kar72], while the latter can be solved using a polynomial time greedy algorithm (e.g. see [Eri19, Chapter 4, Exercise 4]). The next result shows that one can reduce the subset verification problem on DAGs without v-structures to the interval stabbing problem.
+
+Lemma 13. Let $G=(V, E)$ be a connected $D A G$ without v-structures, $H$ be the Hasse tree of $G$, and $T \subseteq E$ be a subset of target edges. Then, there exists a set of intervals $\mathcal{J} \subseteq 2^{V \times V}$ such that any solution to minimum interval stabbing problem on $(H, \mathcal{J})$ is a solution to the minimum sized atomic subset verification set $(G, T)$.
+
+Section 3.1 tells us that we can ignore arc orientations due to v-structures, thus we can apply Theorem 10 and Lemma 13 to reduce the problem to an instance of interval stabbing on a rooted tree. As Theorem 14 tells us that this can be solved efficiently, we obtain an efficient algorithm for the subset verification problem (Theorem 15).
+
+Theorem 14. There exists a polynomial time algorithm for solving the interval stabbing problem on a rooted tree.
+
+Theorem 15. For any $D A G G=(V, E)$ and subset of target edges $T \subseteq E$, there exists a polynomial time algorithm to compute the minimal sized atomic subset verifying set.
+
+Interestingly, any instance of interval stabbing on a rooted tree can also be reduced in polynomial time to an instance of subset verification on DAGs without v-structures.
+
+Lemma 16. Let $H$ be a rooted tree and $\mathcal{J} \subseteq 2^{V \times V}$ be a set of intervals. Then, there exists a connected $D A G$ $G=(V, E)$ without v-structures and a subset $T \subseteq E$ of edges such that any solution to the minimum sized atomic subset verification set $(G, T)$ is a solution to minimum interval stabbing problem on $(H, \mathcal{J})$.
+
+# 3.4 Subset verification on DAGs without v-structures with bounded size interventions and additive costs 
+
+Here we extend our results to the setting of bounded size interventions, where each intervention involves at most $k$ vertices, and additive vertex costs, where each vertex has an associative cost $w(v)$ for intervening. Formally, one can define a weight function on the vertices $w: V \rightarrow \mathbb{R}$ which overloads to $w(S)=\sum_{v \in S} w(v)$ on interventions and $w(\mathcal{I})=\sum_{S \in \mathcal{I}} S$ on intervention sets. To trade off minimum cost and minimum size, we study how to minimize the following objective function that has been studied by [KDV17, GSKB18, CSB22]:
+
+$$
+\alpha \cdot w(\mathcal{I})+\beta \cdot|\mathcal{I}| \quad \text { where } \alpha, \beta \geq 0
+$$
+
+To extend the verification results to the bounded size and additive node costs settings, [CSB22] exploited the fact that the covered edges were a forest, and thus bipartite, to construct non-atomic interventions sets by grouping vertices from the minimum size atomic verification set. In our problem setting, the target edges $T \subseteq E$ may not even involve covered edges of $G$ and it is a priori unclear how one can hope to apply the above-mentioned strategy of [CSB22].
+
+Motivated by the fact that $R(G, \mathcal{I})=R(G, S)$ for any atomic verifying set $\mathcal{I} \subseteq V$ and set of incident arcs $S=\{(u, v): u \in \mathcal{I}$ or $v \in \mathcal{I}\} \subseteq E$, we show the following:Lemma 17. Let $G=(V, E)$ be a $D A G$ without $v$-structures and $S \subseteq E$. Then, there exists a subset $S^{\prime} \subseteq$ $E$ computable in polynomial time such that $G\left[S^{\prime}\right]$ is a forest, $R(G, S) \subseteq R\left(G, S^{\prime}\right)$, and $\bigcup_{(u, v) \in S^{\prime}}\{u, v\} \subseteq$ $\bigcup_{(u, v) \in S}\{u, v\}$.
+
+By invoking Lemma 17 with $S$ as the incident arcs of the minimum size subset verification set $\mathcal{I}$, we can obtain a 2-coloring of $\mathcal{I}$ with respect to $S^{\prime}$. Thus, we can apply the "greedy grouping" generalization strategy of [CSB22] to achieve the similar guarantees as them, generalizing their results beyond $T=E$.
+
+Theorem 18. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. If $\nu_{1}(G, T)=\ell$, then $\nu_{k}(G, T) \geq\left\lceil\frac{\ell}{k}\right\rceil$ and there exists a polynomial time algorithm to compute a bounded size intervention set $\mathcal{I}$ of size $|\mathcal{I}| \leq\left\lceil\frac{\ell}{k}\right\rceil+1$.
+
+Theorem 19. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. Suppose the optimal bounded size intervention set that minimizes Eq. (1) costs OPT. Then, there exists a polynomial time algorithm that computes a bounded size intervention set with total cost $O P T+2 \beta$.
+
+# 3.5 Subset search on DAGs without v-structures 
+
+While a vertex cover of the target edges is a trivial upper bound for atomic subset search, we show that one needs to perform that many number of atomic interventions asymptotically in the worst case when facing an adaptive adversary. That is, the adversary gets to see the interventions made by the adaptive algorithm and gets to choose the ground truth DAG among the set of all DAGs that are consistent with the already revealed information.
+
+Lemma 20. Given a subset of target edges $T \subseteq E$, intervening on the vertices in a vertex cover of $T$ one-by-one will fully orient all edges in $T$.
+
+Lemma 21. Fix any integer $n \geq 1$. There exists a fully unoriented essential graph on $2 n$ vertices a subset $T \subseteq E$ on $n$ edges such that the size of the minimum vertex cover of $T$ is $v c(T)$ and any algorithm needs at least $v c(T)-1$ number atomic interventions to orient all the edges in $T$ against an adaptive adversary that reveals arc directions consistent with a $D A G G^{*} \in[G]$ with $\nu_{1}\left(G^{*}, T\right)=1$.
+
+Fig. 8 in Appendix D. 5 illustrates our construction for Lemma 21, where $\operatorname{vc}(T) \in \omega(n)$.
+On the other hand, if we restrict the class of target edges to be edges within a node-induced subgraph $H$, then we can actually obtain the following non-trivial search result.
+
+Definition 22 (Relevant nodes). Fix a DAG $G^{*}=(V, E)$ and arbitrary subset $V^{\prime} \subseteq V$. For any intervention set $\mathcal{I} \subseteq V$ and resulting interventional essential graph $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$, we define the relevant nodes $\rho\left(\mathcal{I}, V^{\prime}\right) \subseteq V^{\prime}$ as the set of nodes within $V^{\prime}$ that is adjacent to some unoriented arc within the node-induced subgraph $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)\left[V^{\prime}\right]$.
+
+Theorem 23. Fix an interventional essential graph $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$ of an unknown underlying $D A G G^{*}$ and let $H$ be an arbitrary node-induced subgraph. There exists an algorithm that runs in polynomial time and computes an atomic intervention set $\mathcal{I}^{\prime}$ in a deterministic and adaptive manner such that $\mathcal{E}_{\mathcal{I} \cup \mathcal{I}^{\prime}}\left(G^{*}\right)[V(H)]=G^{*}[V(H)]$ and $\left|\mathcal{I}^{\prime}\right| \in \mathcal{O}\left(\log (|\rho(\mathcal{I}, V(H))|) \cdot \nu_{1}\left(G^{*}, E\right)\right)$.
+
+Note that Theorem 23 compares against $\nu_{1}\left(G^{*}, E\right)$ and not $\nu_{1}\left(G^{*}, E(H)\right)$ and that the observational essential graph simply corresponds to the special case where $\mathcal{I}=\emptyset$. Since node-induced subgraphs of a chordal graph are also chordal, the chain components in $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)[V(H)]$ are chordal. Our algorithm SubsetSearch, given in Appendix D.5, is a generalization of [CSB22, Algorithm 1], where we employ the weighted chordal graph separator guarantees from [GRE84]. Just like [CSB22], SubsetSearch can be also be generalized to perform bounded size interventions on the computed clique separators via the labelling scheme of [SKDV15, Lemma 1].
+
+Theorem 24. Fix an interventional essential graph $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$ of an unknown underlying $D A G G^{*}$ and let $H$ be an arbitrary node-induced subgraph. There exists an algorithm that runs in polynomial time and computes a bounded size intervention set $\mathcal{I}^{\prime}$, where each intervention involves at most $k \geq 1$ nodes, in a deterministic and adaptive manner such that $\mathcal{E}_{\mathcal{I} \cup \mathcal{I}^{\prime}}\left(G^{*}\right)[V(H)]=G^{*}[V(H)]$ and $\left|\mathcal{I}^{\prime}\right| \in \mathcal{O}\left(\log (|\rho(\mathcal{I}, V(H))|) \cdot \log (k) \cdot \nu_{k}\left(G^{*}, E\right)\right)$.# 4 Interval stabbing problem on a rooted tree 
+
+Here, we formulate a recurrence relation for the interval stabbing problem on a rooted tree and give an efficient dynamic programming implementation in Appendix E.
+
+To formally describe the recurrence relation, we will use the following definitions to partition the given set of intervals. Given a set of intervals $\mathcal{J}$, we define the following sets with respect to an arbitrary vertex $v \in V$ :
+
+$$
+\begin{aligned}
+E_{v} & =\{[a, b] \in \mathcal{J}: b=v\} \\
+M_{v} & =\{[a, b] \in \mathcal{J}: v \in(a, b)\} \\
+S_{v} & =\{[a, b] \in \mathcal{J}: a=v\} \\
+W_{v} & =\left\{[a, b] \in \mathcal{J}: a, b \in V\left(T_{v}\right) \backslash\{v\}\right\} \\
+I_{v} & =E_{v} \cup M_{v} \cup S_{v} \cup W_{v} \\
+B_{v} & =S_{v} \cup W_{v} \\
+C_{v} & =E_{v} \cup M_{v} \cup S_{v}
+\end{aligned}
+$$
+
+(End with $v$ )
+(Middle with $v$ )
+(Start with $v$ )
+(Without $v$ )
+(Intersect $T_{v}$ )
+(Back of $I_{v}$ )
+(Covered by $v$ )
+
+Note that $I_{v}$ includes all the intervals in $\mathcal{J}$ that intersect with the subtree $T_{v}$ (i.e. has some vertex in $V\left(T_{v}\right)$ ) and $C_{v}$ includes all the intervals that will be covered whenever $v \in \mathcal{I}$. Observe that $I_{y} \subseteq I_{v}$ for any $y \in \operatorname{Des}(v)$. See Fig. 3 for an example illustrating these definitions.
+
+
+Figure 3: Consider the rooted tree $\widehat{G}$ with $v_{1} \rightarrow \ldots \rightarrow v_{8}$ and $\mathcal{J}=\left\{J_{1}, \ldots, J_{5}\right\}$, where $J_{1}=\left[v_{1}, v_{6}\right]$, $J_{2}=\left[v_{2}, v_{4}\right], J_{3}=\left[v_{2}, v_{5}\right], J_{4}=\left[v_{4}, v_{7}\right]$, and $J_{5}=\left[v_{7}, v_{8}\right]$. Then, $E_{v_{4}}=\left\{J_{2}\right\}, M_{v_{4}}=\left\{J_{1}, J_{3}\right\}, S_{v_{4}}=\left\{J_{4}\right\}$, $W_{v_{4}}=\left\{J_{5}\right\}$.
+
+To solve the interval stabbing problem, we perform recursion from the root towards the leaves, solving subproblems defined on subsets of the intervals that are still "relevant" at each subtree. More formally, for any set of intervals $U \subseteq \mathcal{J}$, let $\operatorname{opt}(U, v)$ denote the size of the optimum solution to stab all the intervals in $U$ using only vertices $V\left(T_{v}\right)$ in the subtree $T_{v}$ rooted at $v$. There are three possible cases while recursing from the root towards the leaves:
+
+Case 1. If $U \cap E_{v} \neq \emptyset$, then $v$ must be in any valid solution output and we recurse on the set $\left(U \backslash C_{v}\right) \cap I_{y}$ for subtree $T_{y}$ rooted at each child $y \in \operatorname{Ch}(v)$.
+
+Case 2. If $U \cap E_{v}=\emptyset$ and $v$ is in the output, then we can recurse on the set $\left(U \backslash C_{v}\right) \cap I_{y}$ for subtree $T_{y}$ rooted at each child $y \in \operatorname{Ch}(v)$.
+
+Case 3. If $U \cap E_{v}=\emptyset$ and $v$ is not in the output, then we need to recurse on the set $U \cap I_{y}$ subtree $T_{y}$ rooted at each child $y \in \operatorname{Ch}(v)$.
+
+For any $v \in V$ and $y \in \operatorname{Ch}(v)$, we have $C_{v} \cap I_{y} \subseteq E_{y} \cup M_{y}$ by definition. So, $\left(U \backslash C_{v}\right) \cap I_{y}=U \cap B_{y}$. The correctness of the first case is trivial while Lemma 25 formalizes the correctness of the second and third cases.
+
+Lemma 25. At least one of the following must hold for any optimal solution $\mathcal{I}$ to the interval stabbing problem with respect to ordering $\pi$ and any vertex $v \in V$ with $E_{v}=\emptyset$ :
+
+1. Either $v \in \mathcal{I}$ or $\mathcal{I}$ includes some ancestor of $v$.
+2. For $y \in \operatorname{Ch}(v)$ such that $C_{v} \cap I_{y} \neq \emptyset$, we must have $w_{v, y} \in \mathcal{I}$ for some $w_{v, y} \in \operatorname{Des}(v) \cap \operatorname{Anc}\left[b_{v, y}\right]$, where $\left[a_{v, y}, b_{v, y}\right]=\operatorname{argmin}_{[a, b] \in U \cap C_{v} \cap I_{y}}\{\pi(b)\}$.Therefore, we have the following recurrence relation:
+
+$$
+\begin{aligned}
+& \operatorname{opt}(U, v)= \begin{cases}\infty & \text { if } U \nsubseteq I_{v} \\
+\alpha_{v} & \text { if } U \subseteq I_{v}, U \cap E_{v} \neq \emptyset \\
+\min \left\{\alpha_{v}, \beta_{v}\right\} & \text { if } U \subseteq I_{v}, U \cap E_{v}=\emptyset\end{cases} \\
+& \text { where } \quad \alpha_{v}=1+\sum_{y \in \mathfrak{O}(v)} \operatorname{opt}\left(U \cap B_{y}, y\right) \\
+& \beta_{v}=\sum_{y \in \mathfrak{O}(v)} \operatorname{opt}\left(U \cap I_{y}, y\right)
+\end{aligned}
+$$
+
+That is, we must pick $v \in \mathcal{I}$ whenever $E_{v} \neq \emptyset$, while $\alpha_{v}$ and $\beta_{v}$ correspond to the decisions of picking $v$ into the output and ignoring $v$ from the output respectively. Then, $\operatorname{opt}(\mathcal{J}, r)$ is the optimum solution size to the interval stabbing problem, where $r$ as the root of the given rooted tree.
+
+In Appendix E, we explain how to implement Eq. (2) efficiently using dynamic programming. To do so, we first compute the Euler tour data structure on $G$ and use it to define an ordering on $\mathcal{J}$ so that our state space ranges over the indices of a sorted array instead of a subset of intervals.
+
+# 5 Experiments and implementation 
+
+Here, we discuss some experiments conducted on synthetic graphs. For full details and source code, see Appendix F.
+
+### 5.1 Experiment 1: Randomly chosen target edges
+
+We implemented our subset verification algorithm by invoking our dynamic programming algorithm for the interval stabbing problem, given in Appendix E. Using experiments on synthetic random graphs, we empirically show that subset verification numbers $\nu_{1}(G, T)$ decreases from the full verification number $\nu_{1}(G, E)$ as the $T$ decreases (see Fig. 4), as expected. Despite the trend suggested in Fig. 4, the number of target edges is typically not a good indication for the number of interventions needed to be performed and one can always construct examples where $\left|T^{\prime}\right|>|T|$ but $\nu\left(G, T^{\prime}\right) \ngtr \nu(G, T)$. For example, for a subset $T \subseteq E$, we have $\nu\left(G^{*}, T^{\prime}\right)=\nu\left(G^{*}, T\right)$ if $T^{\prime} \supset T$ is obtained by adding edges that are already oriented by orienting $T$. Instead, the number of "independent target edges" ${ }^{11}$ is a more appropriate measure.
+
+### 5.2 Experiment 2: Local causal graph discovery
+
+As motivated in Section 1, many practical applications are interested in only recovering localized causal relations for a fixed target variable of interest. Unfortunately, existing full graph search algorithms are not tailored to recover directions of a given subset of edges. In fact, one can create simple instances where the optimum number of interventions needed to perform the recovery task is just one, while a full graph search algorithm performs $\Omega(n)$ interventions ${ }^{12}$.
+
+In Fig. 5, we show the number of interventions needed to orient all edges within a $r$-hop neighborhood of some randomly chosen target node $v$. We see that that node-induced subgraph search SubsetSearch uses less interventions than existing state-of-the-art full graph search algorithms, even when we terminate them as soon as all edges in $T$ are oriented. We also give results for $r=3$ in Appendix F.
+
+## 6 Conclusion and discussion
+
+Correctly identify causal relationships is a fundamental task both for understanding a system and for downstream tasks such as designing fair algorithms. In many practical situations, the causal graph may be large and
+
+[^0]
+[^0]:    ${ }^{11}$ Akin to "linearly independent vectors" in linear algebra.
+    ${ }^{12}$ Suppose we wish to orient a single edge. Clearly single intervention on one of the endpoints suffice. Meanwhile, in the event that the target edge is not in any $1 / 2$-clique separator, the algorithm of [CSB22] already incurs $\omega\left(G^{*}\right)$ interventions in the very first round, where $\omega\left(G^{*}\right)$ can be made arbitrarily large.
+
+Figure 4: For each graph \( G^* \) with \( |E| = m \) edges, we sampled a random subset \( T \subseteq E \) of various sizes. The subset verification numbers \( \nu_1(G^*, T) \) increases towards the full verification number \( \nu_1(G^*, E) \) as the \( |T| \) increases, and directly coincides with it in the special case of \( |T| = m \).
+
+only a subset of causal relationships are important. In this work, we give efficient algorithms for solving the subset verification and subset search problems under the standard causal inference assumptions (see Section 1), generalizing the results of CSB22. However, if our assumptions are violated by the data, then wrong causal conclusions may be drawn and possibly lead to unintended downstream consequences. Hence, it is of great interest to remove/weaken these assumptions while maintaining strong theoretical guarantees.
+
+For search on a subset of target edges \( T \subseteq E \), we showed that \( \Omega(\text{vc}(T) \cdot \nu_1(G^*, T)) \) interventions are necessary in general while \( \mathcal{O}(\log n \cdot \nu_1(G^*, E)) \) interventions suffice when \( T = E \). This suggests that the verification number \( \nu(G^*, \cdot) \) is perhaps too pessimistic of a benchmark to compare against in general, and we should instead compare against the "best" algorithm that does not know \( G^* \).
+
+### Acknowledgements
+
+This research/project is supported by the National Research Foundation, Singapore under its AI Singapore Programme (AISG Award No: AISG-PhD/2021-08-013). KS was supported by a Stanford Data Science Scholarship, a Dantzig-Lieberman Research Fellowship and a Simons-Berkeley Research Fellowship. Part of this work was done while the authors were visiting the Simons Institute for the Theory of Computing. We would like to thank the AISTATS reviewers, Arnab Bhattacharyya, Themis Gouleakis, and Marcel Wienöbst for their valuable feedback, discussion, and writing suggestions.
+
+### References
+
+- ABGLP19 Martin Arjovsky, Léon Bottou, Ishaan Gulrajani, and David Lopez-Paz. Invariant risk minimization. *arXiv preprint arXiv:1907.02893*, 2019.
+- AGU72 Alfred V. Aho, Michael R. Garey, and Jeffrey D. Ullman. The Transitive Reduction of a Directed Graph. *SIAM Journal on Computing*, 1(2):131–137, 1972.
+- AMP97 Steen A. Andersson, David Madigan, and Michael D. Perlman. A characterization of Markov equivalence classes for acyclic digraphs. *The Annals of Statistics*, 25(2):505–541, 1997.
+
+Figure 5: SubsetSearch consistently uses less interventions than existing state-of-the-art full graph search algorithms when we only wish to orient edges within a 1-hop neighborhood of a randomly chosen target node $v$.
+[And13] Holly Andersen. When to expect violations of causal faithfulness and why it matters. Philosophy of Science, 80(5):672-683, 2013.
+[Arj20] Martin Arjovsky. Out of distribution generalization in machine learning. PhD thesis, New York University, 2020.
+$\left[\right.$AST $\left.^{+} 10\right]$ Constantin F Aliferis, Alexander Statnikov, Ioannis Tsamardinos, Subramani Mani, and Xenofon D Koutsoukos. Local causal and markov blanket induction for causal discovery and feature selection for classification part i: algorithms and empirical evaluation. Journal of Machine Learning Research, 11(1), 2010.
+[ATS03] Constantin F Aliferis, Ioannis Tsamardinos, and Alexander Statnikov. Hiton: a novel markov blanket algorithm for optimal variable selection. In AMIA annual symposium proceedings, volume 2003, page 21. American Medical Informatics Association, 2003.
+[BP93] Jean R. S. Blair and Barry W. Peyton. An introduction to chordal graphs and clique trees. In Graph theory and sparse matrix computation, pages 1-29. Springer, 1993.
+[Chi95] David Maxwell Chickering. A Transformational Characterization of Equivalent Bayesian Network Structures. In Proceedings of the Eleventh Conference on Uncertainty in Artificial Intelligence, UAI'95, page 87-98, San Francisco, CA, USA, 1995. Morgan Kaufmann Publishers Inc.
+[CSB22] Davin Choo, Kirankumar Shiragur, and Arnab Bhattacharyya. Verification and search algorithms for causal DAGs. Advances in Neural Information Processing Systems, 35, 2022.
+[DL05] Eric Davidson and Michael Levin. Gene regulatory networks. Proceedings of the National Academy of Sciences, 102(14):4935-4935, 2005.
+[Ebe07] Frederick Eberhardt. Causation and Intervention. Unpublished doctoral dissertation, Carnegie Mellon University, page 93, 2007.
+[Ebe10] Frederick Eberhardt. Causal Discovery as a Game. In Causality: Objectives and Assessment, pages 87-96. PMLR, 2010.[EGS06] Frederick Eberhardt, Clark Glymour, and Richard Scheines. N-1 Experiments Suffice to Determine the Causal Relations Among N Variables. In Innovations in machine learning, pages 97-112. Springer, 2006.
+[EGS12] Frederick Eberhardt, Clark Glymour, and Richard Scheines. On the Number of Experiments Sufficient and in the Worst Case Necessary to Identify All Causal Relations Among N Variables. arXiv preprint arXiv:1207.1389, 2012.
+[Eri19] Jeff Erickson. Algorithms. 2019.
+[ES07] Frederick Eberhardt and Richard Scheines. Interventions and Causal Inference. Philosophy of science, 74(5):981-995, 2007.
+$\left[\mathrm{FMT}^{+} 21\right]$ Chris J Frangieh, Johannes C Melms, Pratiksha I Thakore, Kathryn R Geiger-Schuller, Patricia Ho, Adrienne M Luoma, Brian Cleary, Livnat Jerby-Arnon, Shruti Malu, Michael S Cuoco, et al. Multimodal pooled perturb-cite-seq screens in patient models define mechanisms of cancer immune evasion. Nature genetics, 53(3):332-341, 2021.
+$\left[\mathrm{GKS}^{+} 19\right]$ Kristjan Greenewald, Dmitriy Katz, Karthikeyan Shanmugam, Sara Magliacane, Murat Kocaoglu, Enric Boix-Adserà, and Guy Bresler. Sample Efficient Active Learning of Causal Trees. Advances in Neural Information Processing Systems, 32, 2019.
+[GRE84] John R. Gilbert, Donald J. Rose, and Anders Edenbrandt. A Separator Theorem for Chordal Graphs. SIAM Journal on Algebraic Discrete Methods, 5(3):306-313, 1984.
+[GSKB18] AmirEmad Ghassami, Saber Salehkaleybar, Negar Kiyavash, and Elias Bareinboim. Budgeted Experiment Design for Causal Structure Learning. In International Conference on Machine Learning, pages 1724-1733. PMLR, 2018.
+$\left[\mathrm{GUA}^{+} 16\right]$ Yaroslav Ganin, Evgeniya Ustinova, Hana Ajakan, Pascal Germain, Hugo Larochelle, François Laviolette, Mario Marchand, and Victor Lempitsky. Domain-adversarial training of neural networks. The journal of machine learning research, 17(1):2096-2030, 2016.
+[HB12] Alain Hauser and Peter Bühlmann. Characterization and greedy learning of interventional Markov equivalence classes of directed acyclic graphs. The Journal of Machine Learning Research, 13(1):2409-2464, 2012.
+[HB14] Alain Hauser and Peter Bühlmann. Two optimal strategies for active learning of causal models from interventional data. International Journal of Approximate Reasoning, 55(4):926-939, 2014.
+[HEH13] Antti Hyttinen, Frederick Eberhardt, and Patrik O. Hoyer. Experiment Selection for Causal Discovery. Journal of Machine Learning Research, 14:3041-3071, 2013.
+[HK95] Monika Rauch Henzinger and Valerie King. Randomized Dynamic Graph Algorithms with Polylogarithmic Time per Operation. In Proceedings of the twenty-seventh annual ACM symposium on Theory of computing, pages 519-527, 1995.
+[HLV14] Huining Hu, Zhentao Li, and Adrian Vetta. Randomized Experimental Design for Causal Graph Discovery. Advances in neural information processing systems, 27, 2014.
+[Hoo90] Kevin D Hoover. The logic of causal inference: Econometrics and the Conditional Analysis of Causation. Economics & Philosophy, 6(2):207-234, 1990.
+[Kar72] Richard M Karp. Reducibility among combinatorial problems. In Complexity of computer computations, pages 85-103. Springer, 1972.
+[KDV17] Murat Kocaoglu, Alex Dimakis, and Sriram Vishwanath. Cost-Optimal Learning of Causal Graphs. In International Conference on Machine Learning, pages 1875-1884. PMLR, 2017.
+$\left[\mathrm{KWJ}^{+} 04\right]$ Ross D. King, Kenneth E. Whelan, Ffion M. Jones, Philip G. K. Reiser, Christopher H. Bryant, Stephen H. Muggleton, Douglas B. Kell, and Stephen G. Oliver. Functional genomic hypothesis generation and experimentation by a robot scientist. Nature, 427(6971):247-252, 2004.[LKDV18] Erik M. Lindgren, Murat Kocaoglu, Alexandros G. Dimakis, and Sriram Vishwanath. Experimental Design for Cost-Aware Learning of Causal Graphs. Advances in Neural Information Processing Systems, 31, 2018.
+[LWHLS21] Chaochao Lu, Yuhuai Wu, José Miguel Hernández-Lobato, and Bernhard Schölkopf. Invariant causal representation learning for out-of-distribution generalization. In International Conference on Learning Representations, 2021.
+[MC04] Subramani Mani and Gregory F Cooper. Causal discovery using a bayesian local causal discovery algorithm. In MEDINFO 2004, pages 731-735. IOS Press, 2004.
+[Mee95a] Christopher Meek. Causal Inference and Causal Explanation with Background Knowledge. In Proceedings of the Eleventh Conference on Uncertainty in Artificial Intelligence, UAI'95, page 403-410, San Francisco, CA, USA, 1995. Morgan Kaufmann Publishers Inc.
+[Mee95b] Christopher Meek. Strong completeness and faithfulness in bayesian networks. In Proc. Conf. on Uncertainty in Artificial Intelligence (UAI-95), pages 411-418, 1995.
+$\left[\right.$MPJ $\left.^{+16}\right]$ Joris M. Mooij, Jonas Peters, Dominik Janzing, Jakob Zscheischler, and Bernhard Schölkopf. Distinguishing Cause from Effect Using Observational Data: Methods and Benchmarks. J. Mach. Learn. Res., 17(1):1103-1204, Jan 2016.
+[PB14] Jonas Peters and Peter Bühlmann. Identifiability of Gaussian structural equation models with equal error variances. Biometrika, 101(1):219-228, 2014.
+[Pea09] Judea Pearl. Causality: Models, Reasoning and Inference. Cambridge University Press, USA, 2nd edition, 2009.
+$\left[\right.$POS $\left.^{+18}\right]$ Jean-Baptiste Pingault, Paul F O’reilly, Tabea Schoeler, George B Ploubidis, Frühling Rijsdijk, and Frank Dudbridge. Using genetic data to strengthen causal inference in observational research. Nature Reviews Genetics, 19(9):566-580, 2018.
+[Rei56] Hans Reichenbach. The direction of time, volume 65. Univ of California Press, 1956.
+$\left[\right.$RHT $\left.^{+17}\right]$ Maya Rotmensch, Yoni Halpern, Abdulhakim Tlimat, Steven Horng, and David Sontag. Learning a Health Knowledge Graph from Electronic Medical Records. Scientific reports, 7(1):1-11, 2017.
+[RW06] Donald B Rubin and Richard P Waterman. Estimating the Causal Effects of Marketing Interventions Using Propensity Score Methodology. Statistical Science, pages 206-222, 2006.
+[SC17] Yuriy Sverchkov and Mark Craven. A review of active learning approaches to experimental design for uncovering biological networks. PLoS computational biology, 13(6):e1005466, 2017.
+[SGSH00] Peter Spirtes, Clark N. Glymour, Richard Scheines, and David Heckerman. Causation, Prediction, and Search. MIT press, 2000.
+[SHHK06] Shohei Shimizu, Patrik O. Hoyer, Aapo Hyvärinen, and Antti Kerminen. A linear non-gaussian acyclic model for causal discovery. Journal of Machine Learning Research, 7(10), 2006.
+[SKDV15] Karthikeyan Shanmugam, Murat Kocaoglu, Alexandros G. Dimakis, and Sriram Vishwanath. Learning Causal Graphs with Small Interventions. Advances in Neural Information Processing Systems, 28, 2015.
+$\left[\right.$SMG $\left.^{+20}\right]$ Chandler Squires, Sara Magliacane, Kristjan Greenewald, Dmitriy Katz, Murat Kocaoglu, and Karthikeyan Shanmugam. Active Structure Learning of Causal DAGs via Directed Clique Trees. Advances in Neural Information Processing Systems, 33:21500-21511, 2020.
+$\left[\right.$SMH $\left.^{+15}\right]$ Alexander Statnikov, Sisi Ma, Mikael Henaff, Nikita Lytkin, Efstratios Efstathiadis, Eric R Peskin, and Constantin F Aliferis. Ultra-scalable and efficient methods for hybrid observational and experimental local causal pathway discovery. The Journal of Machine Learning Research, $16(1): 3219-3267,2015$.[TA03] Ioannis Tsamardinos and Constantin F Aliferis. Towards principled feature selection: Relevancy, filters and wrappers. In International Workshop on Artificial Intelligence and Statistics, pages 300-307. PMLR, 2003.
+[TV84] Robert Endre Tarjan and Uzi Vishkin. Finding biconnected componemts and computing tree functions in logarithmic parallel time. In 25th Annual Symposium onFoundations of Computer Science, 1984., pages 12-20. IEEE, 1984.
+[URBY13] Caroline Uhler, Garvesh Raskutti, Peter Bühlmann, and Bin Yu. Geometry of the faithfulness assumption in causal inference. The Annals of Statistics, pages 436-463, 2013.
+[VP90] Thomas Verma and Judea Pearl. Equivalence and Synthesis of Causal Models. In Proceedings of the Sixth Annual Conference on Uncertainty in Artificial Intelligence, UAI '90, page 255-270, USA, 1990. Elsevier Science Inc.
+[WBL21] Marcel Wienöbst, Max Bannach, and Maciej Liśkiewicz. Extendability of causal graphical models: Algorithms and computational complexity. In Cassio de Campos and Marloes H. Maathuis, editors, Proceedings of the Thirty-Seventh Conference on Uncertainty in Artificial Intelligence, volume 161 of Proceedings of Machine Learning Research, pages 1248-1257. PMLR, 27-30 Jul 2021.
+[Woo05] James Woodward. Making Things Happen: A theory of Causal Explanation. Oxford university press, 2005 .
+[WSYU17] Yuhao Wang, Liam Solus, Karren Yang, and Caroline Uhler. Permutation-based causal inference algorithms with interventions. Advances in Neural Information Processing Systems, 30, 2017.
+[ZS02] Jiji Zhang and Peter Spirtes. Strong faithfulness and uniform consistency in causal inference. In Proceedings of the Nineteenth conference on Uncertainty in Artificial Intelligence, pages 632-639, 2002 .# A Meek rules 
+
+Meek rules are a set of 4 edge orientation rules that are sound and complete with respect to any given set of arcs that has a consistent DAG extension [Mee95a]. Given any edge orientation information, one can always repeatedly apply Meek rules till a fixed point to maximize the number of oriented arcs.
+
+Definition 26 (Consistent extension). A set of arcs is said to have a consistent DAG extension $\pi$ for a graph $G$ if there exists a permutation on the vertices such that (i) every edge $\{u, v\}$ in $G$ is oriented $u \rightarrow v$ whenever $\pi(u)<\pi(v)$, (ii) there is no directed cycle, (iii) all the given arcs are present.
+
+Definition 27 (The four Meek rules [Mee95a], see 6 for an illustration).
+R1 Edge $\{a, b\} \in E \backslash A$ is oriented as $a \rightarrow b$ if $\exists c \in V$ such that $c \rightarrow a$ and $c \nrightarrow b$.
+R2 Edge $\{a, b\} \in E \backslash A$ is oriented as $a \rightarrow b$ if $\exists c \in V$ such that $a \rightarrow c \rightarrow b$.
+R3 Edge $\{a, b\} \in E \backslash A$ is oriented as $a \rightarrow b$ if $\exists c, d \in V$ such that $d \sim a \sim c, d \rightarrow b \leftarrow c$, and $c \nrightarrow d$.
+R4 Edge $\{a, b\} \in E \backslash A$ is oriented as $a \rightarrow b$ if $\exists c, d \in V$ such that $d \sim a \sim c, d \rightarrow c \rightarrow b$, and $b \nrightarrow d$.
+
+
+Figure 6: An illustration of the four Meek rules
+There exists an algorithm [WBL21, Algorithm 2] that runs in $\mathcal{O}(d \cdot|E|)$ time and computes the closure under Meek rules, where $d$ is the degeneracy of the graph skeleton ${ }^{13}$.
+
+The following results tell us that Meek rules can only "propagate downstream".
+Lemma 28. Let $G=(V, E)$ be a DAG. If $v \in R^{-1}(G, a \rightarrow b)$, then there exists a directed path from $v$ to $b$ in G. That is, $v \in \operatorname{Anc}[b]$.
+
+Proof. Since $v \in R^{-1}(G, a \rightarrow b)$, there must be at least one new arc in the Meek rule (see 6) that fired to orient $a \rightarrow b$ due to $v$. Let us perform induction on the number of hops from $v$.
+
+Base case ( $v$ appears in all R1 to R4):
+R1 $v$ can only be $c$ and we have $c \rightarrow a \rightarrow b$
+R2 $v$ can only be $c$ and we have $c \rightarrow b$
+R3 $v$ can either be $c$ or $d$. In either case, we have $c \rightarrow b, d \rightarrow b$
+R4 $v$ can either be $c$ or $d$. In either case, we have $d \rightarrow c \rightarrow b$.
+Inductive case:
+R1 We must have $v \in R^{-1}(G, c \rightarrow a)$. By induction, there is a path from $v$ to $a$, so there is a path from $v$ to b.
+
+R2 We must have $v \in R^{-1}(G, a \rightarrow c)$ or $v \in R^{-1}(G, c \rightarrow b)$. By induction, there is a path from $v$ to $c$ or to $b$. In either case, there is a path from $v$ to $b$.
+
+R3 We must have $v \in R^{-1}(G, c \rightarrow b)$ or $v \in R^{-1}(G, d \rightarrow b)$. In either case, there is a path from $v$ to $b$ by induction.
+
+R4 We must have $v \in R^{-1}(G, d \rightarrow c)$ or $v \in R^{-1}(G, c \rightarrow b)$. By induction, there is a path from $v$ to $c$ or to $b$. In either case, there is a path from $v$ to $b$.
+
+[^0]
+[^0]:    ${ }^{13} \mathrm{~A} d$-degenerate graph is an undirected graph in which every subgraph has a vertex of degree at most $d$. Note that the degeneracy of a graph is typically smaller than the maximum degree of the graph.We can also show a arc version of Lemma 28.
+Lemma 29. Let $G=(V, E)$ be a DAG. If an arc $u \rightarrow v$ is used to orient $a \rightarrow b$, then $b \in \operatorname{Des}[v]$.
+Proof. Suppose $u \rightarrow v$ appears in the Meek rule that orients $a \rightarrow b$. Observe that $v \leq_{\text {Anc }} b$ in all cases.
+
+# B Hasse diagrams and transitive reductions 
+
+Definition 30 (Partial order). The tuple $(\mathcal{X}, \leq)$ is a partially ordered set (a.k.a. poset) whenever the partial order $\leq$ on a set $\mathcal{X}$ satisfies three properties: (1) Reflexivity: For all $x \in \mathcal{X}, x \leq x$; (2) Anti-symmetric: For all $x, y \in \mathcal{X}$, if $x \leq y$ and $y \leq x$, then $x=y$; (3) Transitivity: For all $x, y, z \in \mathcal{X}$, if $x \leq y$ and $y \leq z$, then $x \leq z$. Note that there may be pairs of elements in $X$ that are incomparable. For any two elements $x, y \in \mathcal{X}$, we say that $y$ covers $x$ if $x \leq y$ and there is no $z \in \mathcal{X} \backslash\{x, y\}$ such that $x \leq z \leq y$.
+
+Definition 31 (Directed Hasse diagram). Any poset $(\mathcal{X}, \leq$ ) can be uniquely represented by a directed Hasse diagram $H_{(X, \leq)}$, a directed graph where each element in $\mathcal{X}$ is a vertex and there is an arc $y \rightarrow x$ whenever $y$ covers $x$ for any two elements $x, y \in \mathcal{X}$. We call these arcs as Hasse arcs.
+
+Definition 32 (Transitive reduction). A transitive reduction of a directed graph $G=(V, E)$ is another directed graph $G^{t}=\left(V, E^{\prime}\right)$ with minimum sized $\left|E^{\prime}\right|$ such that there is a directed path from $u$ to $v$ in $G$ if and only if there is a directed path from $u$ to $v$ in $G^{t}$ for any $u, v \in V$.
+
+Any DAG $G=(V, E)$ induces a poset on the vertices $V$ with respect to the ancestral relationships in the graph: $x \leq_{\text {Anc }} y$ whenever $x \in \operatorname{Anc}[y]$. Furthermore, it is known (e.g. see [AGU72]) that the transitive reduction $G^{t}$ of a DAG $G$ is unique, is defined on a subset of edges (i.e. $E^{\prime} \subseteq E$ ), is polynomial time computable, and is exactly the Hasse diagram $H_{\left(V, \leq_{\text {Anc }}\right)}$ defined with respect to $\left(V, \leq_{\text {Anc }}\right)$. Since "covers" correspond to "direct children" for DAGs, we will say " $y$ is a direct child of $x$ " instead of " $x$ covers $y$ " to avoid confusion with the notion of covered edges. In the rest of the paper, we will use $H_{G}=H_{\left(V, \leq_{\text {Anc }}\right)}$ to denote the Hasse diagram corresponding to a DAG $G=(V, E)$. A vertex without incoming arcs in a Hasse diagram is called a root. In general, there may be multiple roots.
+
+## C Proof of Lemma 4
+
+While [GSKB18] studies atomic interventions, their proof extends to non-atomic intervention sets, and even the observational case where the intervention set could be $\emptyset$. For completeness, we give a short proof of Lemma 4 that generalizes the argument of [GSKB18] to non-atomic intervention sets. In particular, our proof is much shorter because we use Lemma 34 in the case analysis of Meek R2. ${ }^{14}$
+
+Lemma 4 (Modified lemma 2 of [GSKB18]). For any DAG $G=(V, E)$ and any two intervention sets $\mathcal{I}_{1}, \mathcal{I}_{2} \subseteq$ $2^{V}$, we have $R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right)=R\left(G, \mathcal{I}_{1}\right) \cup R\left(G, \mathcal{I}_{2}\right)$.
+
+Proof. We show containment in both directions.
+Direction 1: $R\left(G, \mathcal{I}_{1}\right) \cup R\left(G, \mathcal{I}_{2}\right) \subseteq R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right)$
+For any two interventions such that $A \subseteq B$, we can only recover more arc directions from the additional interventions in $B \backslash A$. So, $R\left(G, \mathcal{I}_{1}\right) \subseteq R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right)$ and $R\left(G, \mathcal{I}_{2}\right) \subseteq R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right)$.
+
+Direction 2: $R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right) \subseteq R\left(G, \mathcal{I}_{1}\right) \cup R\left(G, \mathcal{I}_{2}\right)$
+Consider an arbitrary edge $a \rightarrow b \in R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right)$. If $a \rightarrow b$ was oriented because there exists some intervention $S \in \mathcal{I}_{1} \cup \mathcal{I}_{2}$ such that $|S \cap\{a, b\}|=1$, then $a \rightarrow b \in R\left(G, \mathcal{I}_{1}\right) \cup R\left(G, \mathcal{I}_{2}\right)$ as well. Suppose $a \rightarrow b$ was oriented in $R\left(G, \mathcal{I}_{1} \cup \mathcal{I}_{2}\right)$ due to some Meek rule configuration (see Fig. 6).
+
+[^0]
+[^0]:    ${ }^{14}$ For this case analysis, the proof of [GSKB18, Appendix C] was more than 1.5 pages. Their structure $S_{0}$ (their figure 4) is precisely our Lemma 34 but it had some buggy arguments. For instance, in the case analysis of R2 with ground truth orientations $a \rightarrow c \rightarrow b \leftarrow a$, they wish to argue that the arc $c \sim b$ would be oriented in $S_{0}$. However, their arguments concluded that $b \rightarrow c$ is oriented. Instead, they should use other arguments to conclude that $c \rightarrow b$ is oriented. For example, for the case analysis of $S_{2}$ (their figure 5), conditioned on $v_{1} \rightarrow a$, Meek rules would enforce $v_{1} \rightarrow b$ in the ground truth and thus $c \rightarrow b \leftarrow v_{1}$ is a v-structure. They should have then used this to argue that $c \rightarrow b$ is oriented, instead of saying that Meek R4 orients $b \rightarrow c$. Fortunately, all such buggy arguments were fixable in their proofs and their conclusion is sound.R1 Suppose that $\exists c \in V$ such that $c \rightarrow a$ and $c \neq b$. That is, $c \rightarrow a$ is an oriented arc in either $R\left(G, \mathcal{I}_{1}\right)$ and/or $R\left(G, \mathcal{I}_{2}\right)$. Without loss of generality, $c \rightarrow a \in R\left(G, \mathcal{I}_{1}\right)$. Then, R1 would have triggered and oriented $a \rightarrow b$ when we intervened on $\mathcal{I}_{1}$ as well, i.e. $a \rightarrow b \in R\left(G, \mathcal{I}_{1}\right)$.
+
+R2 Suppose that $\exists c \in V$ such that $a \rightarrow c \rightarrow b$. That is, $a \rightarrow c$ and $c \rightarrow b$ are oriented arcs in either $R\left(G, \mathcal{I}_{1}\right)$ and/or $R\left(G, \mathcal{I}_{2}\right)$. By Lemma 34, it cannot be the case $R\left(G, \mathcal{I}_{1}\right)$ or $R\left(G, \mathcal{I}_{2}\right)$ contains only exactly one of these arcs. Without loss of generality, suppose that $a \rightarrow c, c \rightarrow b \in R\left(G, \mathcal{I}_{1}\right)$. Then, R2 would have triggered and oriented $a \rightarrow b$ when we intervened on $\mathcal{I}_{1}$ as well, i.e. $a \rightarrow b \in R\left(G, \mathcal{I}_{2}\right)$.
+
+R3 Suppose that $\exists c, d \in V$ such that $d \sim a \sim c, d \rightarrow b \leftarrow c$, and $c \nprec d$. Since $d \rightarrow b \leftarrow c$ is a v-structure, it will appear in the observational essential graph and R3 will trigger to orient $a \rightarrow b$ in both $R\left(G, \mathcal{I}_{1}\right)$ and $R\left(G, \mathcal{I}_{2}\right)$.
+
+R4 Suppose that $\exists c, d \in V$ such that $d \sim a \sim c, d \rightarrow c \rightarrow b$, and $b \neq d$. That is, $d \rightarrow c$ and $c \rightarrow b$ are oriented arcs in either $R\left(G, \mathcal{I}_{1}\right)$ and/or $R\left(G, \mathcal{I}_{2}\right)$. Without loss of generality, $c \rightarrow a \in R\left(G, \mathcal{I}_{1}\right)$. Then, when we intervened on $\mathcal{I}_{1}, \mathrm{R} 1$ would have triggered to orient $c \rightarrow b$, and then R4 would have triggered to orient $a \rightarrow b$, i.e. $c \rightarrow b, a \rightarrow b \in R\left(G, \mathcal{I}_{1}\right)$.
+
+In all cases, we see that $a \rightarrow b \in R\left(G, \mathcal{I}_{1}\right) \cup R\left(G, \mathcal{I}_{2}\right)$.
+
+# D Deferred proofs 
+
+## D. 1 Properties of interventional essential graphs
+
+Our proof of Theorem 7 is greatly simplified by Lemma 34, an observation ${ }^{15}$ that triangles in interventional essential graphs cannot have exactly one oriented arc. The proof of Lemma 34 relies on the following known fact:
+
+Lemma 33 (Proposition 15 of [HB12]). Consider the $\mathcal{I}$-essential graph $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$ of some $D A G G^{*}$ and let $H \in C C\left(\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)\right)$ be one of its chain components. Then, $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$ is a chain graph and $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)[V(H)]$ is chordal.
+
+Recall that chain graphs are partially directed graphs that do not contain directed cycles (i.e. a sequence of edges forming an undirected cycle with at least one oriented arc, and all oriented arcs are in the same direction along this cycle).
+
+Lemma 34 (Triangle lemma). Consider a $D A G G=(V, E)$ and an intervention set $\mathcal{I} \subseteq 2^{V}$. For any triangle on vertices $u, v, w \in V$ and three edges $u \sim v, v \sim w, u \sim w \in E$, we have $|R(G, \mathcal{I}) \cap\{u \sim v, v \sim w, u \sim w\}| \neq 1$.
+
+Proof. Recall that $R(G, \mathcal{I})=A\left(\mathcal{E}_{\mathcal{I}}(G)\right)$ and $\mathcal{E}_{\mathcal{I}}(G)$ is a chain graph (Lemma 33). Suppose there is a triangle on $u, v, w$ and $|R(G, \mathcal{I}) \cap\{u \sim v, v \sim w, u \sim w\}|=1$. Without loss of generality, suppose $u \rightarrow v \in R(G, \mathcal{I})$. Then, $u \rightarrow v \sim w \sim u$ is a directed cycle in $\mathcal{E}_{\mathcal{I}}(G)$, contradicting the fact that $\mathcal{E}_{\mathcal{I}}(G)$ is a chain graph.
+
+Note that there exists partially oriented chain graphs that are not interventional essential graphs where every triangle does not have exactly one oriented arc, and the edge-induced subgraph on the unoriented arcs do not form v-structures for any acyclic completion. See Fig. 7.
+
+Recall the definition of oriented subgraphs and recovered parents: For any interventional set $\mathcal{I} \subseteq 2^{V}$ and $u \in V, G^{\mathcal{I}}=G[E \backslash R(G, \mathcal{I})]$ is the oriented subgraph induced by the unoriented arcs in $G$ and $\operatorname{Pa}_{G, \mathcal{I}}(u)=$ $\{x \in V: x \rightarrow u \in R(G, \mathcal{I})\}$ is the recovered parents of $u$ by $\mathcal{I}$.
+
+Theorem 7 (Properties of interventional essential graphs). Consider a $D A G G=(V, E)$ and intervention sets $\mathcal{A}, \mathcal{B} \subseteq 2^{V}$. Then, the following statements are true:
+
+1. $\operatorname{skel}\left(G^{\mathcal{A}}\right)$ is exactly the chain components of $\mathcal{E}_{\mathcal{A}}(G)$.
+2. $G^{\mathcal{A}}$ does not have new v-structures. ${ }^{16}$
+[^0]
+[^0]:    ${ }^{15}$ A similar argument was made in [GSKB18, Appendix B, Figure 4, Structure $S_{0}$ ] for their case analysis proof of Lemma 4.
+    ${ }^{16}$ While classic results [AMP97, HB12] tell us that chain components of interventional essential graphs are chordal, i.e. $\mathcal{E}(G)[E \backslash A]$ is a chordal graph, it is not immediately obvious why such edge-induced subgraphs cannot have v-structures in any of the DAGs compatible with $\mathcal{E}(G)$. Here, we formalize this fact.
+
+Figure 7: In the partially oriented chain graph $G$ with oriented arcs $A$, all triangles have exactly two oriented arcs. Since $a \sim b$ and $c \sim d$ could be independently oriented in either directions, there are four possible acyclic completions of $G$. The edge-induced subgraph $G[E \backslash A]$ of the unoriented arcs does not have any v-structures for any of these possible acyclic completions. However, $G$ cannot be an interventional essential graph: there are no v-structures and every vertex is incident to some unoriented edge.
+3. For any two vertices $u$ and $v$ in the same chain component of $\mathcal{E}_{\mathcal{A}}(G)$, we have $\operatorname{Pa}_{G, \mathcal{A}}(u)=\operatorname{Pa}_{G, \mathcal{A}}(v)$.
+4. If the arc $u \rightarrow v \in R(G, \mathcal{A})$, then $u$ and $v$ belong to different chain components of $\mathcal{E}_{\mathcal{A}}(G)$.
+5. Any acyclic completion of $\mathcal{E}\left(G^{\mathcal{A}}\right)$ that does not form new v-structures can be combined with $R(G, \mathcal{A})$ to obtain a valid $D A G$ that belongs to both $\mathcal{E}(G)$ and $\mathcal{E}_{\mathcal{A}}(G) .{ }^{17}$
+6. $R\left(G^{\mathcal{A}}, \mathcal{B}\right)=R(G, \mathcal{B}) \backslash R(G, \mathcal{A})$.
+7. $R(G, \mathcal{A} \cup \mathcal{B})=R\left(G^{\mathcal{A}}, \mathcal{B}\right) \dot{\cup} R(G, \mathcal{A})$.
+8. $R(G, \mathcal{A} \cup \mathcal{B})=R\left(G^{\mathcal{A}}, \mathcal{B}\right) \dot{\cup} R\left(G^{\mathcal{B}}, \mathcal{A}\right) \dot{\cup}(R(G, \mathcal{A}) \cap R(G, \mathcal{B}))$.
+9. $R(G, \emptyset)$ does not contain any covered edge of $G$.
+
+Proof.
+
+1. By definition of $G^{\mathcal{A}}$ and chain components.
+2. For the statement to be false, there must exist a triangle in $G$ on 3 vertices $u, v, w$ such that $u \rightarrow v \in$ $R(G, \mathcal{A})$ and $u \rightarrow w, v \rightarrow w \notin R(G, \mathcal{A})$. This is impossible by Lemma 34.
+3. Without loss of generality, it suffices to consider two adjacent vertices $u$ and $v$ in the same chain component of $\mathcal{E}_{\mathcal{A}}(G)$ with $\left|\operatorname{Pa}_{G, \mathcal{A}}(u)\right| \geq\left|\operatorname{Pa}_{G, \mathcal{A}}(v)\right|$. This is because for the claim to hold between any two vertices $x$ and $y$ in the same chain component, we can apply the result for consecutive pairs of adjacent vertices between any connected path between $x$ and $y$.
+If $\left|\mathrm{Pa}_{G, \mathcal{A}}(u)\right|=0$, then the claim trivially holds since $\left|\mathrm{Pa}_{G, \mathcal{A}}(v)\right| \leq\left|\mathrm{Pa}_{G, \mathcal{A}}(u)\right|=0$.
+Now, for $\left|\mathrm{Pa}_{G, \mathcal{A}}(u)\right|>0$, consider an arbitrary vertex $x \in \mathrm{~Pa}_{G, \mathcal{A}}(u)$. If $x \nless v$ in $G$, then $u \rightarrow v \in R(G, \mathcal{A})$ via R1 configuration $x \rightarrow u \sim v$, thus $u$ and $v$ are not adjacent in the chain components of $\mathcal{E}_{\mathcal{A}}(G)$. Meanwhile, Lemma 34 tells us we cannot have $x \sim v$ in $G$ with $x \sim v \notin R(G, \mathcal{A})$, as this would further imply $|R(G, \mathcal{A}) \cap\{x \sim u, x \sim v, u \sim v\}|=1$, which is a contradiction. If $v \rightarrow x$ in $G$ and $v \rightarrow x \in R(G, \mathcal{A})$, then $u \rightarrow v \in R(G, \mathcal{A})$ via R 2 configuration $v \rightarrow x \rightarrow u \sim v$, thus $u$ and $v$ are not adjacent in the chain components of $\mathcal{E}_{\mathcal{A}}(G)$. So, we must have $x \rightarrow v$ in $G$ and $x \rightarrow v \in R(G, \mathcal{A})$. That is, $x \in \mathrm{~Pa}_{G, \mathcal{A}}(v)$.
+4. Suppose, for a contradiction, that $u$ and $v$ lie in the same chain component of $\mathcal{E}_{\mathcal{A}}(G)$. Since $u \rightarrow v \in$ $R(G, \mathcal{A})$, we see that $u \notin \mathrm{~Pa}_{G, \mathcal{A}}(u)$ and $u \in \mathrm{~Pa}_{G, \mathcal{A}}(v)$, i.e. $\mathrm{Pa}_{G, \mathcal{A}}(u) \neq \mathrm{Pa}_{G, \mathcal{A}}(v)$. This is a contradiction to condition 3 .
+5. Fix an acyclic completion $G^{\prime}$ of $\mathcal{E}\left(G^{\mathcal{A}}\right)$. Suppose, for a contradiction, that there is a cycle in $E\left(G^{\prime}\right) \cup$ $R(G, \mathcal{A})$. Let $C=v_{0} \rightarrow v_{1} \rightarrow \ldots \rightarrow v_{k} \rightarrow v_{0}$ be the smallest such cycle. Since $G^{\prime}$ is an acyclic completion, we know that at least one arc of $C$ was from $R(G, \mathcal{A})$. Without loss of generality, suppose that $v_{0} \rightarrow v_{1} \in R(G, \mathcal{A})$. Since $G^{*}$ is acyclic, we also know that at least one arc of $C$ is not from $R(G, \mathcal{A})$. If $k=2$, then $C=v_{0} \rightarrow v_{1} \rightarrow v_{2} \rightarrow v_{0}$. By Lemma 34, we cannot have $v_{1} \rightarrow v_{2}, v_{2} \rightarrow v_{0} \notin R(G, \mathcal{A})$.
+
+[^0]
+[^0]:    ${ }^{17}$ Stated in a different language in [HB12, Proposition 16].- If $v_{0} \rightarrow v_{1}, v_{1} \rightarrow v_{2} \in R(G, \mathcal{A})$ and $v_{2} \rightarrow v_{0} \notin R(G, \mathcal{A})$, then Meek rule R2 will orient $v_{0} \rightarrow v_{2}$ via $v_{0} \rightarrow v_{1} \rightarrow v_{2} \sim v_{0}$.
+- If $v_{2} \rightarrow v_{0}, v_{0} \rightarrow v_{1} \in R(G, \mathcal{A})$ and $v_{1} \rightarrow v_{2} \notin R(G, \mathcal{A})$, then Meek rule R2 will orient $v_{2} \rightarrow v_{1}$ via $v_{2} \rightarrow v_{0} \rightarrow v_{1} \sim v_{2}$.
+
+In any case, we arrive at a contradiction.
+Now, consider the case where $k>2$. Let $v_{i} \rightarrow v_{j} \notin R(G, \mathcal{A})$ be the arc of $C$ with the smallest source index $i \geq 1$, where we write $j=(i+1) \bmod k$ for notational convenience. Since $v_{i} \rightarrow v_{j} \notin R(G, \mathcal{A})$, it must be the case that the arc $v_{i-1} \sim v_{j}$ exists in $G$, otherwise Meek rule R1 will orient $v_{i} \rightarrow v_{j}$ via $v_{i-1} \rightarrow v_{i} \sim v_{j}$. By Lemma 34 and the assumption that $v_{i} \rightarrow v_{j} \notin R(G, \mathcal{A})$, it must be the case that $v_{i-1} \sim v_{j}$ is oriented in $R(G, \mathcal{A})$.
+
+- If $v_{i-1} \rightarrow v_{j} \in R(G, \mathcal{A})$, then $v_{0} \rightarrow \ldots \rightarrow v_{i-1} \rightarrow v_{j} \rightarrow \ldots \rightarrow v_{k} \rightarrow v_{0}$ is a smaller cycle than $C$ in $E\left(G^{\prime}\right) \cup R(G, \mathcal{A})$.
+- If $v_{j} \rightarrow v_{i-1} \in R(G, \mathcal{A})$, then Meek rule R2 orients $v_{j} \rightarrow v_{i}$ via $v_{j} \rightarrow v_{i-1} \rightarrow v_{i} \sim v_{j}$.
+
+In either case, we arrive at a contradiction.
+6. We show containment in both directions.
+
+Direction 1: $R\left(G^{\mathcal{A}}, \mathcal{B}\right) \subseteq R(G, \mathcal{B}) \backslash R(G, \mathcal{A})$
+Suppose, for a contradiction, that there exists an arc $a \rightarrow b \in R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ but $a \rightarrow b \notin R(G, \mathcal{B}) \backslash R(G, \mathcal{A})$. Note that $a \rightarrow b \notin R(G, \mathcal{A})$ otherwise $a \rightarrow b$ will not appear in $G^{\mathcal{A}}$ and thus cannot be in $R\left(G^{\mathcal{A}}, \mathcal{B}\right)$. So, to show a contradiction, it suffices to argue that $a \rightarrow b \in R(G, \mathcal{B})$.
+There are two possible situation explaining $a \rightarrow b \in R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ : either (i) there is some intervention $I \in \mathcal{B}$ such that $|I \cap\{a, b\}|=1$, or (ii) Meek rules oriented $\{a, b\}$.
+(i) In the first situation where there is some intervention $I \in \mathcal{B}$ such that $|I \cap\{a, b\}|=1$, we see that $a \rightarrow b \in R(G, \mathcal{B})$ as well. Contradiction.
+(ii) In the second situation, let us consider the sequence of Meek rule configurations that oriented $a \rightarrow b$ in $R\left(G^{\mathcal{A}}, \mathcal{B}\right)$. By definition of $R\left(G^{\mathcal{A}}, \mathcal{B}\right)$, all the edges (oriented or not) involved in these configurations do not belong to $R(G, \mathcal{A})$. If these configurations also appear in $R(G, \mathcal{B})$, then $a \rightarrow b \in R(G, \mathcal{B})$ as well. The only reason why any of these configurations may not appear in $R(G, \mathcal{B})$ is because there was some other edge in the node-induced subgraph that was removed due to being in $R(G, \mathcal{A})$ :
+
+- Suppose the R1 configuration involving three vertices $u \rightarrow v \sim w$ and $u \nrightarrow w$ was one of the configurations used by $R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ to orient $a \rightarrow b$, but this configuration did not appear for $R(G, \mathcal{B})$. Then, it was because $u \sim w$ appears in $G$ and was removed from $G^{\mathcal{A}}$ due to it being oriented in $R(G, \mathcal{A})$. However, this means that $|R(G, \mathcal{A}) \cap\{u, v, w\}|=1$, contradicting Lemma 34.
+- All possible edges are present in the node-induced subgraph of the R2 configuration.
+- There is only one possible edge removed by $R(G, \mathcal{A})$ in configurations R3 and R4. By the same argument to the R1 configuration above, one can check that this implies that there is some triangle on three vertices $u, v, w$ within the configuration such that $|R(G, \mathcal{A}) \cap\{u, v, w\}|=1$, contradicting Lemma 34.
+
+In other words, whenever $a \rightarrow b \in R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ due to Meek rules, we see that $a \rightarrow b \in R(G, \mathcal{B})$.
+Direction 2: $R(G, \mathcal{B}) \backslash R(G, \mathcal{A}) \subseteq R\left(G^{\mathcal{A}}, \mathcal{B}\right)$
+For any arc $a \rightarrow b \in R(G, \mathcal{B}) \backslash R(G, \mathcal{A})$, we have that $a \rightarrow b \notin R(G, \mathcal{A})$ and so the edge $a \sim b$ appears in $G^{\mathcal{A}}$. That is, we may ignore v-structure arcs in $R(G, \mathcal{B})$. There are two possible situation explaining why an arc $a \rightarrow b$ belongs in $R(G, \mathcal{B})$ : either (i) there is some intervention $I \in \mathcal{B}$ such that $|I \cap\{a, b\}|=1$, or (ii) Meek rules oriented $\{a, b\}$.
+(i) In the first situation, we have $a \rightarrow b \in R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ as well.
+(ii) We prove the second situation by contradiction. Suppose, for a contradiction, that $(R(G, \mathcal{B}) \backslash$ $\left.R(G, \mathcal{A})\right) \backslash R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ is non-empty. Let $a \rightarrow b \in(R(G, \mathcal{B}) \backslash R(G, \mathcal{A})) \backslash R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ be oriented in $R(G, \mathcal{B})$ via a sequence of Meek rule configurations such that only the last configuration does not appear in $R\left(G^{\mathcal{A}}, \mathcal{B}\right)$. By calling such a Meek rule configuration a bad configuration, we can see why such an arc $a \rightarrow b$ exists:for any arc in $(R(G, \mathcal{B}) \backslash R(G, \mathcal{A})) \backslash R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ that uses more than one bad configuration, one of the oriented arcs in the bad configuration is an arc in $(R(G, \mathcal{B}) \backslash R(G, \mathcal{A})) \backslash R\left(G^{\mathcal{A}}, \mathcal{B}\right)$ that is oriented with strictly fewer bad orientations.
+Now, consider the last Meek rule configuration used to orient $a \rightarrow b$ in $R(G, \mathcal{B})$. We make two observations:
+
+O1 If none of the oriented arcs of this Meek rule configuration belongs to $R(G, \mathcal{A})$, then these arcs appear in $G^{\mathcal{A}}$ and will be oriented due to $B$, thus $a \rightarrow b \in R\left(G^{\mathcal{A}}, \mathcal{B}\right)$.
+O2 If all of the oriented arcs of this Meek rule configuration belong to $R(G, \mathcal{A})$, then $a \rightarrow b \in R(G, \mathcal{A})$, which is a contradiction.
+
+There is only one arc in the R1 configuration, so either O1 or O2 applies. Meanwhile, the arcs in the R3 configuration form a v-structure and so both of them belong to $R(G,\{\emptyset\}) \subseteq R(G, \mathcal{A})$, so O 2 applies. In R2 or R4 configurations, there are two arcs. If none or both arcs are in $R(G, \mathcal{A})$, then we can apply O1 or O2. If exactly one of the arcs are in $R(G, \mathcal{A})$, then there will be a triangle on three vertices $u, v, w$ within the configuration such that $|R(G, \mathcal{A}) \cap\{u, v, w\}|=1$. This is impossible according to Lemma 34 Since all cases except O1 lead to contradiction, we must have $a \rightarrow b \in R\left(G^{\mathcal{A}}, \mathcal{B}\right)$. This contradicts our assumption that $a \rightarrow b \in(R(G, \mathcal{B}) \backslash R(G, \mathcal{A})) \backslash R\left(G^{\mathcal{A}}, \mathcal{B}\right)$.
+7. By Lemma 4, we have that $R(G, \mathcal{A} \cup \mathcal{B})=R(G, \mathcal{A}) \cup R(G, \mathcal{B})$. The claim follows using statement 6 .
+8. The disjointness follows from definitions of $G^{\mathcal{A}}$ and $G^{\mathcal{B}}$. We now argue containment in both directions.
+
+Direction 1: $R(G, \mathcal{A} \cup \mathcal{B}) \subseteq R\left(G^{\mathcal{A}}, \mathcal{B}\right) \dot{\cup} R\left(G^{\mathcal{B}}, \mathcal{A}\right) \dot{\cup}(R(G, \mathcal{A}) \cap R(G, \mathcal{B}))$
+By Lemma 4, we know that $R(G, \mathcal{A} \cup \mathcal{B})=R(G, \mathcal{A}) \cup R(G, \mathcal{B})$. Consider an arbitrary arc $e \in E$ such that $e \in R(G, \mathcal{A}) \cup R(G, \mathcal{B})$. Suppose $e \notin R(G, \mathcal{A}) \cap R(G, \mathcal{B})$. If $e \in R(G, \mathcal{A}) \backslash R(G, \mathcal{B})$, then $e$ appears in $G^{\mathcal{B}}$ and so $e \in R\left(G^{\mathcal{B}}, \mathcal{A}\right)$. If $e \in R(G, \mathcal{B}) \backslash R(G, \mathcal{A})$, then $e$ appears in $G^{\mathcal{A}}$ and so $e \in R\left(G^{\mathcal{A}}, \mathcal{B}\right)$. In either case, we see that $e \in R\left(G^{\mathcal{B}}, \mathcal{A}\right) \cup R\left(G^{\mathcal{A}}, \mathcal{B}\right) \subseteq R\left(G^{\mathcal{A}}, \mathcal{B}\right)$. Therefore, $e \in R\left(G^{\mathcal{A}}, \mathcal{B}\right) \dot{\cup} R\left(G^{\mathcal{B}}, \mathcal{A}\right) \dot{\cup}(R(G, \mathcal{A}) \cap$ $R(G, \mathcal{B}))$.
+Direction 2: $R\left(G^{\mathcal{A}}, \mathcal{B}\right) \dot{\cup} R\left(G^{\mathcal{B}}, \mathcal{A}\right) \dot{\cup}(R(G, \mathcal{A}) \cap R(G, \mathcal{B})) \subseteq R(G, \mathcal{A} \cup \mathcal{B})$
+We argue that each of $R\left(G^{\mathcal{A}}, \mathcal{B}\right), R\left(G^{\mathcal{B}}, \mathcal{A}\right)$, and $R(G, \mathcal{A}) \cap R(G, \mathcal{B})$ is a subset of $R(G, \mathcal{A} \cup \mathcal{B})$. By statement $7, R\left(G^{\mathcal{A}}, \mathcal{B}\right) \subseteq R(G, \mathcal{A} \cup \mathcal{B})$ and $R\left(G^{\mathcal{B}}, \mathcal{A}\right) \subseteq R(G, \mathcal{A} \cup \mathcal{B})$. By Lemma 4, we know that $R(G, \mathcal{A} \cup \mathcal{B})=R(G, \mathcal{A}) \cup R(G, \mathcal{B})$ and so $R(G, \mathcal{A}) \cap R(G, \mathcal{B}) \subseteq R(G, \mathcal{A}) \cup R(G, \mathcal{B}) \subseteq R(G, \mathcal{A} \cup \mathcal{B})$.
+9. By definition, covered edges are not v-structure edges. By [CSB22, Lemma 27], covered edges will not be oriented by Meek rules and we need to intervene on either of the endpoints to orient it. Therefore, $R(G, \emptyset)$ does not contain any covered edges.
+
+# D. 2 Hasse diagrams of DAGs without v-structures 
+
+Lemma 8. A DAG $G=(V, E)$ is a single connected component without v-structures if and only if the Hasse diagram $H_{G}$ is a directed tree with a unique root vertex.
+
+Proof. We prove each direction separately.
+Direction 1: If DAG $G$ is a single connected component without v-structures, then the Hasse diagram $H_{G}$ is a directed tree with a unique root vertex
+
+Suppose, for a contradiction, that there are two distinct paths $P_{1}=\left(u, \ldots, u^{\prime}, x\right)$ and $P_{2}=\left(v, \ldots, v^{\prime}, x\right)$ in $H_{G}$ that end at some vertex $x \in V$, where $u^{\prime} \neq v^{\prime}$. If $u^{\prime} \nrightarrow v^{\prime}$ in $G$, then $u^{\prime} \rightarrow x \leftarrow v^{\prime}$ is a v-structure. Without loss of generality, $u^{\prime} \rightarrow v^{\prime}$. But this means that $x \notin \operatorname{Ch}\left(u^{\prime}\right)$ and so we should not have an arc $u^{\prime} \rightarrow x$ in the Hasse diagram $H_{G}$. Contradiction.
+
+Direction 2: If the Hasse diagram $H_{G}$ is a directed tree with a unique root vertex, then DAG $G$ is a single connected component without v-structures.
+
+Suppose, for a contradiction, that the DAG $G$ has a v-structure $u \rightarrow x \leftarrow v$. Since $u, v \in \operatorname{Anc}(x)$ and reachability is preserved in Hasse diagrams, there will be paths $P_{1}=\left(u, \ldots, u^{\prime}, x\right)$ and $P_{2}\left(v, \ldots, v^{\prime}, x\right)$ in $H_{G}$. Since $H_{G}$ has a unique root, $u^{\prime}$ and $v^{\prime}$ must have a common ancestor $y$ in $H_{G}$ ( $y$ could be the root itself). But this means that the Hasse diagram is not a directed tree since there are two paths from $y$ to $x$ in $H_{G}$. Contradiction.The proof of Theorem 10 relies on Lemma 35, Lemma 36, Corollary 37, Lemma 38, and Lemma 39, which we prove first.
+
+Lemma 35. Suppose $H_{G}$ is a rooted tree induced by a $D A G G=(V, E)$ without v-structures. If $u \rightarrow v$ in $G$, then $u \rightarrow w$ in $G$ for any two vertices $u, v \in V$ and for all $w \in \operatorname{Des}(u) \cap \operatorname{Anc}(v)$.
+
+Proof. If $u \rightarrow v$ in $G$, then there exists a path $P_{u \rightarrow v}$ in $H_{G}$. If $P_{u \rightarrow v}=(u, v)$ is a direct arc, then the claim is vacuously true. Suppose $P_{u \rightarrow v}=\left(u, w_{1}, \ldots, w_{k}, v\right)$ where $\operatorname{Des}(u) \cap \operatorname{Anc}(v)=\left\{w_{1}, \ldots, w_{k}\right\}$. This implies that the arcs $u \rightarrow w_{1} \rightarrow \ldots \rightarrow w_{k} \rightarrow v$ are all present in $G$. Since $G$ has no v-structures, it must be the case that the arc $u \rightarrow w_{k}$ exists (otherwise $u \rightarrow v \leftarrow w_{k}$ is a v-structure). Thus, by recursive argument from $w_{k-1}$ up to $w_{1}$, there must be arcs $u \rightarrow w$ in $G$ for any $w \in\left\{w_{1}, \ldots, w_{k}\right\}$.
+
+Lemma 36. Let $G=(V, E)$ be a $D A G$ without v-structures and $u \rightarrow v$ be an unoriented arc in $\mathcal{E}(G)$. Then, we have $w \in R_{1}^{-1}(G, u \rightarrow v)$ for any $w \in \operatorname{Des}(u) \cap \operatorname{Anc}(v)$ in the Hasse diagram $H_{G}$.
+
+Proof. If $v \in \operatorname{Ch}(u)$, then the result is vacuously true since $\operatorname{Des}(u) \cap \operatorname{Anc}(v)=\emptyset$. Suppose $P_{u \rightarrow v}=\left(u, w_{1}, \ldots, w_{k}, v\right)$ is the unique path from $u$ to $v$ in $H_{G}$, where $\operatorname{Des}(u) \cap \operatorname{Anc}(v)=\left\{w_{1}, \ldots, w_{k}\right\}$. By Lemma 35, we know that the arc $u \rightarrow w$ exists in $G$ for any $w \in \operatorname{Anc}(v) \cap \operatorname{Des}(u)$. Suppose we intervened on an arbitrary $w_{i} \in\left\{w_{1}, \ldots w_{k}\right\}$, where $\operatorname{Des}\left(w_{i}\right) \cap \operatorname{Anc}(v)=\left\{w_{i+1}, \ldots, w_{k}, v\right\}$. For any fixed arbitrary valid permutation $\pi$, define
+
+$$
+\operatorname{last}\left(\pi, w_{i}\right)=\underset{\left(w_{i} \rightarrow z\right) \in E}{\operatorname{argmax}_{\substack{z \in \operatorname{Des}\left(w_{i}\right) \cap \operatorname{Anc}(v)}}\{\pi(z)\}}
+$$
+
+as the "last" vertex in $\operatorname{Des}\left(w_{i}\right) \cap \operatorname{Anc}(v)$ that $w_{i}$ has a direct arc within $G$.
+If last $\left(\pi, w_{i}\right)=v$, then intervening on $w_{i}$ yields $u \rightarrow w_{i} \rightarrow w_{j}=v \sim u$. So, Meek rule R2 will trigger to orient $u \rightarrow v$. Otherwise, if $\operatorname{last}\left(\pi, w_{i}\right) \neq v$, then intervening on $w_{i}$ will cause two sets of Meek rules to fire: (1) Meek rule R2 will orient the $\operatorname{arcs} u \rightarrow w_{j}$, for all $j \in \operatorname{Des}\left(w_{i}\right) \cap \operatorname{Anc}\left[\operatorname{last}\left(\pi, w_{i}\right)\right]$ since $u \rightarrow w_{i} \rightarrow w_{j} \sim u$; (2) Meek rule R1 will orient all outgoing arcs of $\operatorname{last}\left(\pi, w_{i}\right)$, since $w_{i} \neq w_{z}$ for all $z \in \operatorname{Des}\left(\operatorname{last}\left(\pi, w_{i}\right)\right)$, by maximality of last $\left(\pi, w_{i}\right)$. Repeating the above argument by replacing the role of $w_{i}$ by last $\left(\pi, w_{i}\right)$, we see that the arc $w_{\text {final }} \rightarrow v$ will eventually be oriented by some $w_{\text {final }} \in \operatorname{Des}\left(w_{i}\right)$, and so Meek rule R2 will orient $u \rightarrow v$. Intuitively, the direction $u \rightarrow v$ is forced in order to avoid a directed cycle since we will have $u \rightarrow w_{i} \rightarrow \operatorname{last}\left(\pi, w_{i}\right) \rightarrow \operatorname{last}\left(\operatorname{last}\left(\pi, w_{i}\right)\right) \ldots \rightarrow \operatorname{last}(\operatorname{last}\left(\ldots\left(\operatorname{last}\left(\pi, w_{i}\right)\right)\right)\right)=w_{\text {final }} \rightarrow v \sim u$.
+
+Corollary 37. Let $G=(V, E)$ be a $D A G$ without v-structures. For a vertex $w$ and a direct child $y \in \operatorname{Ch}(w)$, we have $\left\{w \rightarrow z: z \in V\left(T_{y}\right)\right\} \subseteq R_{1}(G, y)$ where $T_{y}$ is the subtree rooted at $y$ in the Hasse diagram $H_{G}$. That is, intervening on $y$ orients all outgoing arcs of $w$ with an endpoint in $T_{y}$.
+
+Proof. Since $y \in \operatorname{Des}(w) \cap \operatorname{Anc}\left(z_{i}\right)$ for any $z_{i} \in V\left(T_{y}\right)$, Lemma 35 gives $w \rightarrow z_{i} \in R_{1}(G, y)$.
+Lemma 38. Let $G=(V, E)$ be a $D A G$ without v-structures and $u \rightarrow v$ be an unoriented arc in $\mathcal{E}(G)$. If a vertex $w \in R_{1}^{-1}(G, u \rightarrow v)$, then $y \in R_{1}^{-1}(G, u \rightarrow v)$ for all $y \in \operatorname{Des}(w) \cap \operatorname{Anc}(u)$.
+
+Proof. We begin by making two observations which grants us stronger properties about $w$ and $y$ :
+
+1. If $w \in\{u, v\}$, then $\operatorname{Des}(w) \cap \operatorname{Anc}(u)=\emptyset$ and the result is trivially true.
+2. Suppose the chain of direct children from $w$ to $v$ is $w \rightarrow y_{1} \rightarrow y_{2} \rightarrow \ldots \rightarrow y_{k} \rightarrow u \rightarrow v$. To prove the result, it suffices to argue that $y_{1} \in R_{1}^{-1}(G, u \rightarrow v)$ and then apply induction to conclude that $y_{2} \in R_{1}^{-1}(G, u \rightarrow v)$, and so on.
+
+Thus, in the rest of the proof, we can assume that $w \notin\{u, v\}$ and $y \in \operatorname{Ch}(w)$ is a direct child of $w$.
+Since $w \notin\{u, v\}$ and $y \in \operatorname{Ch}(w)$, we see that the arc $u \rightarrow v$ belongs in the set $R_{1}(G, w) \cap B\left(T_{y}\right)$, where $T_{y}$ is the subtree rooted at $y$ in the Hasse diagram $H_{G}$. So, it suffices to show that $R_{1}(G, w) \cap B\left(T_{y}\right) \subseteq R_{1}(G, y)$. By Lemma 28, intervening on $w$ will not orient new arc directions of the form $a \rightarrow b$ where $b \in \operatorname{Anc}(w)$. So, we can partition the newly recovered arcs in $R_{1}(G, w)$ into three disjoint sets $R^{1}(w), R^{2}(w)$, and $R^{3}(w)$ as follows:
+
+$$
+\begin{aligned}
+& R^{1}(w)=\{a \rightarrow w: a \in \operatorname{Anc}(w)\} \\
+& R^{2}(w)=\{a \rightarrow b: a \in \operatorname{Anc}[w], b \in \operatorname{Des}(w)\} \\
+& R^{3}(w)=\{a \rightarrow b: a, b \in \operatorname{Des}(w)\}
+\end{aligned}
+$$Clearly, $R^{1}(w) \cap B\left(T_{y}\right)=\emptyset$ since neither endpoint lies in $T_{y}$. By Lemma 35 and Corollary 37, we know that $R^{2}(w) \cap B\left(T_{y}\right) \subseteq R_{1}(G, y)$. Thus, it suffices to argue that $R^{3}(w) \cap B\left(T_{y}\right) \subseteq R_{1}(G, y)$. To do so, consider an arbitrary (non-unique) ordering $\sigma$ on the arcs in $R^{3}(w) \cap B\left(T_{y}\right)$ by which Meek rule orients them: $\sigma(a \rightarrow b)<\sigma(c \rightarrow d)$ means that the arc $a \rightarrow b$ was oriented before $c \rightarrow d$.
+
+Suppose, for a contradiction, that there exists some arc in $\left(R^{3}(w) \cap B\left(T_{y}\right)\right) \backslash R(y)$. Let $a \rightarrow b \in\left(R^{3}(w) \cap\right.$ $\left.B\left(T_{y}\right)\right) \backslash R(y)$ be the arc with the minimal $\sigma$ ordering, where $a, b \in \operatorname{Des}[y]$. We check the four Meek rule configurations that could have oriented $a \rightarrow b$ while using some arc orientation that is not in $R_{1}(G, y)$. If the oriented arc in the configuration belongs to $R^{3}(w)$, then it must be arc with lower $\sigma$ ordering than $a \rightarrow b$ and is oriented in $R_{1}(G, y)$ by assumption. Meanwhile, observe that any arc in $R^{1}(w) \cup R^{2}(w)$ has $\operatorname{Anc}[w]$ as the start of the arc. In the configurations of Meek rule R1 and R2, if any of the oriented arcs belong to $R^{1}(w) \cup R^{2}(w)$, then $a \rightarrow b \notin B\left(T_{y}\right)$ since $a \in \operatorname{Anc}[w]$. So, it suffices to check only Meek rules R3 and R4:
+
+R3 There exists $c, d$ such that $d \sim a \sim c, d \rightarrow b \leftarrow c, c \not \sim d$.
+If $(c \rightarrow b) \in R^{1}(w)$ or $d \rightarrow b \in R^{1}(w)$, then $b=w$ and $a \rightarrow b \notin B\left(T_{y}\right)$. Meanwhile, if $c \rightarrow b \in R^{2}(w)$ or $d \rightarrow b \in R^{2}(w)$, then $c \rightarrow b, d \rightarrow b \in R_{1}(G, y)$ by Lemma 36. Thus, Meek rule R3 will trigger and $a \rightarrow b \in R_{1}(G, y)$.
+
+R4 There exists $c, d$ such that $d \sim a \sim c, d \rightarrow c \rightarrow b, b \not \sim d$.
+If $d \in \operatorname{Des}(w)$, then all the arcs belong to $R^{3}(w)$ and are thus trivially oriented. Suppose now that $d \in \operatorname{Anc}[w]$. If $c \rightarrow b \in R^{1}(w)$, then $b=w$ and $a \rightarrow b \notin B\left(T_{y}\right)$. If $a=y$, then $a \rightarrow b \in R_{1}(G, y)$ trivially. Otherwise, $a \in \operatorname{Des}(y)$ and $d \rightarrow a$ will be oriented by Lemma 36 since $d \in \operatorname{Anc}[w]$. Then, we have $d \rightarrow a \sim b$ and Meek R1 will trigger and orient $a \rightarrow b$. In other words, $a \rightarrow b \in R_{1}(G, y)$.
+
+Since we always conclude that $a \rightarrow b \in R_{1}(G, y)$, this is a contradiction.
+
+Lemma 39. Let $G=(V, E)$ be a $D A G$ without v-structures and $u \rightarrow v$ be an unoriented arc in $\mathcal{E}(G)$. If a vertex $w \notin R_{1}^{-1}(G, u \rightarrow v)$, then $x \notin R_{1}^{-1}(G, u \rightarrow v)$ for all $x \in \operatorname{Anc}(w)$.
+Proof. Suppose, for a contradiction, that $x \in R_{1}^{-1}(G, u \rightarrow v)$. Since $x \in \operatorname{Anc}(w)$, we have that $x \in \operatorname{Anc}(u)$ and $w \in \operatorname{Des}(x) \cap \operatorname{Anc}(u)$. By Lemma $38, w \in R_{1}^{-1}(G, u \rightarrow v)$. Contradiction.
+
+We are now ready to prove Theorem 10 .
+Theorem 10. Let $G=(V, E)$ be a $D A G$ without v-structures and $u \rightarrow v$ be an unoriented arc in $\mathcal{E}(G)$. Then, $R_{1}^{-1}(G, u \rightarrow v)=\operatorname{Des}[w] \cap \operatorname{Anc}[v]$ for some $w \in \operatorname{Anc}[u]$.
+Proof. We have $u, v \in R_{1}^{-1}(G, u \rightarrow v)$ trivially. By Lemma 28, $\operatorname{Des}(v) \cap R_{1}^{-1}(G, u \rightarrow v)=\emptyset$. By Lemma 28, $R_{1}^{-1}(G, u \rightarrow v) \subseteq \operatorname{Anc}[v]$. For an arbitrary consistent topological ordering $\pi$, let
+
+$$
+w=\underset{z \in R_{1}^{-1}(G, u \rightarrow v)}{\operatorname{argmin}_{\substack{z \in \operatorname{Anc}(u) \\ z \in R_{1}^{-1}(G, u \rightarrow v)}}}\{\pi(z)\}
+$$
+
+be the "furthest" ancestor vertex of $u$ that orients $u \rightarrow v$. By Lemma 38, Des $(w) \cap \operatorname{Anc}(u) \subseteq R_{1}^{-1}(G, u \rightarrow v)$. By minimality of $w$ and Lemma $39, \operatorname{Anc}(w) \cap R_{1}^{-1}(G, u \rightarrow v)=\emptyset$. Putting everything together, we see that $R_{1}^{-1}(G, u \rightarrow v)=\operatorname{Des}[w] \cap \operatorname{Anc}[v]$.
+
+Lemma 11. If $G$ be a $D A G$ without v-structures, then the covered edges of $G$ are a subset of the Hasse edges in $H_{G}$.
+
+Proof. To prove this, we argue that any edge $a \rightarrow b \notin E\left(H_{G}\right)$ cannot be a covered edge. Since $E\left(H_{G}\right)$ only contains arcs involving direct children, we see that $b \notin \operatorname{Ch}(a)$. So, there exists some $z \in \operatorname{Des}(a) \cap \operatorname{Anc}(b)$ such that $z \rightarrow b$ but $z \nrightarrow a$. Thus, $a \rightarrow b$ cannot be a covered edge.
+
+# D. 3 Subset verification with atomic interventions 
+
+Lemma 13. Let $G=(V, E)$ be a connected $D A G$ without v-structures, $H$ be the Hasse tree of $G$, and $T \subseteq E$ be a subset of target edges. Then, there exists a set of intervals $\mathcal{J} \subseteq 2^{V \times V}$ such that any solution to minimum interval stabbing problem on $(H, \mathcal{J})$ is a solution to the minimum sized atomic subset verification set $(G, T)$.Proof. By Theorem 10, we know that each target edge $e \in T$ has a corresponding interval $\left[a_{e}, b_{e}\right]_{H}$ will be oriented if and only if some vertex in $\left[a_{e}, b_{e}\right]_{H}$ is selected into the intervention set. Define $\mathcal{J}=\left\{\left[a_{e}, b_{e}\right]: e \in T\right\}$ as the collection of intervals corresponding to each edge $e \in T$ of the target edges. Then, any solution to the interval stabbing problem on $(H, \mathcal{J})$ ensures that every interval is stabbed, which translates to every edge in $T$ being oriented via Theorem 10. Meanwhile, the minimality of the interval stabbing solution corresponds to the minimality of the atomic verification set size.
+
+Theorem 14. There exists a polynomial time algorithm for solving the interval stabbing problem on a rooted tree.
+
+Proof. See Theorem 53.
+Theorem 15. For any $D A G G=(V, E)$ and subset of target edges $T \subseteq E$, there exists a polynomial time algorithm to compute the minimal sized atomic subset verifying set.
+
+Proof. Since closure under Meek rules can be computed in polynomial time (e.g. via [WBL21, Algorithm 2]), we can compute all $R(G, v)$ for each $v \in V$, and thus $R^{-1}(u \rightarrow v)$ in polynomial time. Then, the reduction given in Lemma 13 runs in polynomial time and we can apply the polynomial time algorithm of Theorem 14 to solve the resulting interval stabbing instance.
+
+Lemma 16. Let $H$ be a rooted tree and $\mathcal{J} \subseteq 2^{V \times V}$ be a set of intervals. Then, there exists a connected DAG $G=(V, E)$ without v-structures and a subset $T \subseteq E$ of edges such that any solution to the minimum sized atomic subset verification set $(G, T)$ is a solution to minimum interval stabbing problem on $(H, \mathcal{J})$.
+
+Proof. Consider the following construction:
+
+1. Relabel endpoints $(u, v) \in \mathcal{J}$ such that $\pi(u)<\pi(v)$, if necessary.
+2. Define $E^{\prime}=E \cup \mathcal{J} \cup A$, where $A$ is the set of additional arcs defined as follows: For each $(u, v) \in \mathcal{J}$, add $z \rightarrow w$ for all $z \in \operatorname{Anc}(v)$ and $w \in \operatorname{Des}[u] \cap \operatorname{Anc}[v]$.
+3. Let $G=\left(V, E^{\prime}\right)$ be the resulting DAG and let $T=\{u \rightarrow v:(u, v) \in \mathcal{J}\}$. Note that $G$ is a DAG without v -structures and one can check that the Hasse diagram is exactly equal to $H$.
+
+To argue that the solution to the subset verification problem instance $(G, T)$ is a solution to the interval stabbing on a tree instance $(H, \mathcal{J})$, it suffices to show that $R_{1}^{-1}(G, u \rightarrow v)=\operatorname{Des}[u] \cap \operatorname{Anc}[v]$ for each arc $u \rightarrow v \in T$.
+
+Consider an arbitrary $u \rightarrow v \in T$. By Lemma 4, it suffices to consider an arbitrary vertex $w$ in the atomic intervention set. By Lemma 28, we know that $u \rightarrow v \notin R(G, w)$ if $w \cap \operatorname{Anc}[v]$. We also know from Lemma 36 that $u \rightarrow v \in R(G, w)$ if $w \in \operatorname{Des}[u] \cap \operatorname{Anc}[v]$. It remains to argue that $u \rightarrow v \notin R(G, w)$ for $w \in \operatorname{Anc}(u)$. We do this by arguing that Meek rules cannot orient $u \rightarrow v$ through an intervention on any $w \in \operatorname{Anc}(u)$.
+
+R1 Meek rule R1 cannot trigger to orient $u \rightarrow v$ since the arc $w \rightarrow v \in E^{\prime}$ whenever $w \rightarrow u$ exists, by construction.
+
+R3 Since $G$ is a DAG without v-structures, Meek rule R3 will never be invoked.
+R4 Meek rule R4 cannot trigger to orient $u \rightarrow v$ since it implies that there is a $c \rightarrow d \rightarrow v$ but $c \rightarrow v$ is not in the graph. This cannot happen by construction.
+
+R2 Suppose, for a contradiction, that Meek rule R2 triggers. This implies that the arcs $u \rightarrow z^{\prime}$ and $z^{\prime} \rightarrow v$ are oriented for some $z^{\prime} \in \operatorname{Des}(u) \cap \operatorname{Anc}(v)$. If $\operatorname{Des}(u) \cap \operatorname{Anc}(v)=\emptyset$, then this case cannot happen. Otherwise, let $z$ be the earliest such vertex (i.e. $z \in \operatorname{Anc}\left[z^{\prime}\right]$ for any such $z^{\prime}$ ) and consider the edge $u \rightarrow z$. By choice of $z$, Meek rule R2 did not orient $u \rightarrow z$ when we intervene on $w \in \operatorname{Anc}(u)$. From the other case analyses, we see that $u \rightarrow z$ is also not oriented by the other Meek rules. Therefore, contradicting the implication that $u \rightarrow v$ was oriented via Meek rule R2 due to $u \rightarrow z$ being oriented.# D. 4 Subset verification with bounded size interventions and additive vertex costs 
+
+In this section, we follow the proof strategy of [CSB22], generalizing their results for $T=E$ to arbitrary subset of target edges $T \subseteq E$. One crucial difference in our approaches is that they rely on the bipartiteness of the covered edges of $G^{*}$ while we rely on Lemma 17 to argue that there is a way to 2 -color the atomic minimum subset verifying set.
+
+Lemma 17. Let $G=(V, E)$ be a $D A G$ without v-structures and $S \subseteq E$. Then, there exists a subset $S^{\prime} \subseteq$ $E$ computable in polynomial time such that $G\left[S^{\prime}\right]$ is a forest, $R(G, S) \subseteq R\left(G, S^{\prime}\right)$, and $\bigcup_{(u, v) \in S^{\prime}}\{u, v\} \subseteq$ $\bigcup_{(u, v) \in S}\{u, v\}$.
+
+Proof. If $G[S]$ is a forest, the claim trivially holds. Otherwise, we apply the following recursive argument to tranform $S$ : as long as $G$ still contains an undirected cycle, we can update $S$ to $S^{\prime}$ such that $G\left[S^{\prime}\right]$ has fewer cycles than $G[S]$ while still ensuring that $R(G, S) \subseteq R\left(G, S^{\prime}\right)$.
+
+Let $\pi$ be an arbitrary valid ordering for $G$. Suppose $G[S]$ contains an undirected cycle $C=r \rightarrow u_{1} \rightarrow \ldots \rightarrow$ $u_{k} \rightarrow s \leftarrow v_{\ell} \leftarrow \ldots \leftarrow v_{1} \leftarrow r$ of length $|C|=k+\ell+2 \geq 3$, where $r=u_{0}=v_{0}=\operatorname{argmin}_{z \in V(C)}\{\pi(z)\}$ and $s=\operatorname{argmax}_{z \in V(C)}\{\pi(z)\}$. We write $C=r \rightarrow s \leftarrow v_{\ell} \leftarrow \ldots \leftarrow v_{1} \leftarrow r$ and $C=r \rightarrow u_{1} \rightarrow \ldots \rightarrow u_{k} \rightarrow s \leftarrow r$ if $k=0$ or $\ell=0$ respectively.
+
+Since $G$ has no v-structures, we must have $v_{l} \sim u_{k}$ in $G$. Without loss of generality, suppose $v_{\ell} \rightarrow u_{k}$. Then, we update $S$ to $S^{\prime}=S \cup\left\{v_{\ell} \rightarrow u_{k}\right\} \backslash\left\{v_{\ell} \rightarrow s\right\}$. Note that $v_{\ell}, s \in S$, so the vertices of the endpoints in $S^{\prime}$ are a subset of $S$. Observe that $R(G, S) \subseteq R\left(G, S^{\prime}\right)$ because Meek rule R2 will orient $v_{\ell} \rightarrow s$ via $v_{\ell} \rightarrow u_{k} \rightarrow s \sim v_{\ell}$. Furthermore, the cycle $C$ is either destroyed (if $|C|=3$ ) or is shortened by one (if $|C|>3$ ). We can repeat this edge replacement argument until $G\left[S^{\prime}\right]$ has strictly one less undirected cycle than $G[S]$, and eventually until $G\left[S^{\prime}\right]$ has no undirected cycles, i.e. $G\left[S^{\prime}\right]$ is a forest.
+
+It remains to argue that the recursive procedure described above runs in polynomial time. We first note that cycle finding can be done in polynomial time using depth-first search (DFS). Now, consider the potential function $\phi(S)=\sum_{v=(u, v) \in S} \pi(u)+\pi(v)$. In each round, $\phi(S)$ decreases since we replace $v_{\ell} \rightarrow u_{k}$ by $v_{\ell} \rightarrow s$ and $\pi\left(u_{k}\right)<\pi(s)$. Since the initial potential function value is polynomial in $n$, and we decrease it by at least 1 in each step, the entire procedure runs in polynomial time.
+
+Definition 40 (Separation of covered edges [CSB22]). We say that an intervention $S \subseteq V$ separates a covered edge $u \sim v$ if $|\{u, v\} \cap S|=1$. That is, exactly one of the endpoints is intervened by $S$. We say that an intervention set $\mathcal{I}$ separates a covered edge $u \sim v$ if there exists $S \in \mathcal{I}$ that separates $u \sim v$.
+
+Lemma 41 (Lemma 29 of [CSB22]). Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. Suppose $\mathcal{I}$ is an arbitrary bounded size intervention set. Intervening on vertices in $\cup_{S \in \mathcal{I}} S$ one at a time, in an atomic fashion, can only increase the number of separated covered edges of $G$.
+
+Lemma 42. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. If $\nu_{1}(G, T)=\ell$, then $\nu_{k}(G, T) \geq\left\lceil\frac{\ell}{k}\right\rceil$.
+Proof. A bounded size intervention set of size strictly less than $\left\lceil\frac{\ell}{k}\right\rceil$ involves strictly less than $\ell$ vertices. By Lemma 41, intervening on the vertices of the bounded size intervention set one at a time (i.e. simulate it as an atomic intervention set) can only increase the number of oriented edges. However, such an atomic intervention set cannot be a subset verifying set since it involves strictly less than $\ell$ vertices because $\nu_{1}(G, T)=\ell$.
+
+Lemma 43. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. If $\nu_{1}(G, T)=\ell$, then there exists a polynomial time algorithm that computes a bounded size subset verifying set $\mathcal{I}$ of size $|\mathcal{I}| \leq\left\lceil\frac{\ell}{k}\right\rceil+1$.
+
+Proof. Consider any atomic subset verifying set $\mathcal{I}$ of $G$ of size $\ell$. Let $S$ be the set of edges incident to vertices in $\mathcal{I}$. By Lemma 17, there is a subset $S^{\prime} \subseteq E$ such that $G\left[S^{\prime}\right]$ is a forest, $R(G, \mathcal{I})=R(G, S) \subseteq R\left(G, S^{\prime}\right)$ and $\bigcup_{(u, v) \in S^{\prime}}\{u, v\} \subseteq \bigcup_{(u, v) \in S}\{u, v\}$. Since $G\left[S^{\prime}\right]$ is a forest and $V\left(G\left[S^{\prime}\right]\right) \subseteq \mathcal{I}$, there is a 2-coloring of the vertices in $\mathcal{I}$.
+
+Split the vertices in $\mathcal{I}$ into partitions according to the 2-coloring. By construction, vertices belonging in the same partite will not be adjacent and thus choosing them together to be in an intervention $S$ will not reduce the number of separated covered edges. Now, form interventions of size $k$ by greedily picking vertices in $\mathcal{I}$ within the same partite. For the remaining unpicked vertices (strictly less than $k$ of them), we form a new intervention with them. Repeat the same process for the other partite.
+
+This greedy process forms groups of size $k$ and at most 2 groups of sizes, one from each partite. Suppose that we formed $z$ groups of size $k$ in total and two "leftover groups" of sizes $x$ and $y$, where $0 \leq x, y<k$.Then, $\ell=z \cdot k+x+y, \frac{\ell}{k}=z+\frac{x+y}{k}$, and we formed at most $z+2$ groups. If $0 \leq x+y<k$, then $\left\lceil\frac{\ell}{k}\right\rceil=z+1$. Otherwise, if $k \leq x+y<2 k$, then $\left\lceil\frac{\ell}{k}\right\rceil=z+2$. In either case, we use at most $\left\lceil\frac{\ell}{k}\right\rceil+1$ interventions, each of size $\leq k$.
+
+One can compute a bounded size intervention set efficiently because the following procedures can all be run in polynomial time: (i) Lemma 17 runs in polynomial time; (ii) 2-coloring a tree; (iii) greedily grouping vertices into sizes $\leq k$.
+
+Theorem 18. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. If $\nu_{1}(G, T)=\ell$, then $\nu_{k}(G, T) \geq\left\lceil\frac{\ell}{k}\right\rceil$ and there exists a polynomial time algorithm to compute a bounded size intervention set $\mathcal{I}$ of size $|\mathcal{I}| \leq\left\lceil\frac{\ell}{k}\right\rceil+1$.
+
+Proof. Follows by combining Lemma 42 and Lemma 43.
+To solve the subset verification problem with respect to Eq. (1), we need to compute a weighted minimum interval stabbing set on a rooted tree.
+
+Lemma 44. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. An atomic subset verifying set for $G$ that minimizes Eq. (1) can be computed in polynomial time.
+
+Proof. Replace $\alpha_{v}=1+\sum_{y \in \operatorname{Ch}(v)} \operatorname{DP}\left(y, \max \left\{a_{y}, i\right\}\right)$ by $\alpha_{v}=w(v)+\sum_{y \in \operatorname{Ch}(v)} \operatorname{DP}\left(y, \max \left\{a_{y}, i\right\}\right)$ in Algorithm 3.
+
+Lemma 45. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. Let $\mathcal{I}_{A}$ be an atomic subset verifying set for $G$ that minimizes $\alpha \cdot w\left(\mathcal{I}_{A}\right)+\frac{\beta}{k} \cdot\left|\mathcal{I}_{A}\right|$ and $\mathcal{I}_{B}$ be a bounded size verifying set for $G$ that minimizes Eq. (1). Then, $\alpha \cdot w\left(\mathcal{I}_{A}\right)+\frac{\beta}{k} \cdot\left|\mathcal{I}_{A}\right| \leq \alpha \cdot w\left(\mathcal{I}_{B}\right)+\beta \cdot\left|\mathcal{I}_{B}\right|$.
+Proof. Let $\mathcal{I}=\sum_{S \in \mathcal{I}_{B}} S$ be the atomic subset verifying set derived from $\mathcal{I}_{B}$ by treating each vertex as an atomic intervention. Clearly, $w\left(\mathcal{I}_{B}\right) \geq w(\mathcal{I})$ and $k \cdot\left|\mathcal{I}_{B}\right| \geq|\mathcal{I}|$. So,
+
+$$
+\alpha \cdot w\left(\mathcal{I}_{B}\right)+\beta \cdot\left|\mathcal{I}_{B}\right| \geq \alpha \cdot w(\mathcal{I})+\frac{\beta}{k} \cdot|\mathcal{I}| \geq \alpha \cdot w\left(\mathcal{I}_{A}\right)+\frac{\beta}{k} \cdot\left|\mathcal{I}_{A}\right|
+$$
+
+since $\mathcal{I}_{A}=\operatorname{argmin}_{\text {atomic subset verifying set } \mathcal{I}^{\prime}}\left\{\alpha \cdot w\left(\mathcal{I}^{\prime}\right)+\frac{\beta}{k} \cdot\left|\mathcal{I}^{\prime}\right|\right\}$.
+Theorem 19. Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. Suppose the optimal bounded size intervention set that minimizes Eq. (1) costs OPT. Then, there exists a polynomial time algorithm that computes a bounded size intervention set with total cost $O P T+2 \beta$.
+
+Proof. Let $\mathcal{I}_{A}$ be an atomic subset verifying set for $G$ that minimizes $\alpha \cdot w\left(\mathcal{I}_{A}\right)+\frac{\beta}{k} \cdot\left|\mathcal{I}_{A}\right|$ and $\mathcal{I}_{B}$ be a bounded size verifying set for $G$ that minimizes Eq. (1). Using the polynomial time greedy algorithm in Lemma 43, we construct bounded size intervention set $\mathcal{I}$ by greedily grouping together atomic interventions from $\mathcal{I}_{A}$. Clearly, $w(\mathcal{I})=w\left(\mathcal{I}_{A}\right)$ and $|\mathcal{I}| \leq\left\lceil\frac{\left|\mathcal{I}_{A}\right|}{k}\right\rceil+1$. So,
+
+$$
+\alpha \cdot w(\mathcal{I})+\beta \cdot|\mathcal{I}| \leq \alpha \cdot w\left(\mathcal{I}_{A}\right)+\beta \cdot\left(\left\lceil\frac{\left|\mathcal{I}_{A}\right|}{k}\right\rceil+1\right) \leq \alpha \cdot w\left(\mathcal{I}_{B}\right)+\beta \cdot\left|\mathcal{I}_{B}\right|+2 \beta=O P T+2 \beta
+$$
+
+where the second inequality is due to Lemma 45 .
+
+# D. 5 Subset search 
+
+Lemma 20. Given a subset of target edges $T \subseteq E$, intervening on the vertices in a vertex cover of $T$ one-by-one will fully orient all edges in $T$.
+
+Proof. Each intervention will orient all the incident edges.
+Lemma 21. Fix any integer $n \geq 1$. There exists a fully unoriented essential graph on $2 n$ vertices a subset $T \subseteq E$ on $n$ edges such that the size of the minimum vertex cover of $T$ is $v c(T)$ and any algorithm needs at least $v c(T)-1$ number atomic interventions to orient all the edges in $T$ against an adaptive adversary that reveals arc directions consistent with a $D A G G^{*} \in[G]$ with $\nu_{1}\left(G^{*}, T\right)=1$.
+
+Proof. Let $[2 n]$ be the vertex set. We construct our lower bound graph as follows (see Fig. 8 for an illustration):
+
+- A clique on first 1 to $n$ vertices, where their relative orderings can be chosen by the adaptive adversary.- Add an edge between vertex $i \in[n]$ to $n+i$ and restrict that the vertices outside the clique come after the clique nodes in any order. Then, the essential graph has no v-structures.
+- Let $T=\{(i, n+i) \mid i \in[n]\}$ be the set of target edges. Note that its minimum vertex cover has size $\omega(n)$.
+
+To orient all the edges in set $T$, we just need to orient on the source vertex of the clique and then apply Meek rules. Therefore, $\nu_{1}\left(G^{*}, T\right)=1$ for any graph $G^{*}$ in this equivalence class.
+
+Meanwhile, figuring out the source vertex $s$ and $n+s$ for any search algorithm will require at least $n-1$ for any adaptive search algorithm when we have an adapative adversary. Since intervening on vertices outside the clique only learns the incident arc itself while intervening on the other endpoint in the clique recovers more arc orientations, we may assume without loss of generality that search algorithms will only intervene on vertices within the clique. Now, to orient all the edges in the set $T$, we need to figure out the source vertex and it is well known that figuring out the source vertex requires at least $n-1$ queries.
+
+
+Figure 8: Adaptive lower bound construction of $G$ with $n=5$ : Given an integer $n \geq 1$, construct a directed clique $K_{n}$ and have each clique node point to a fresh node outside of the clique. The dashed $n$ dashed arcs are chosen to be the target edges $T \subseteq E$. The essential graph $\mathcal{E}(G)$ is completely undirected and any permutation ordering on the clique nodes are valid. Intervening on the source $s$ of the clique is sufficient to fully orient $T$ with the aid of Meek rules. However, an adaptive adversary can always decide that vertices outside the clique have come after the the clique nodes in the ordering, and always decide that the $i^{\text {th }}$ vertex $v$ in the clique that we intervene on within the clique has ordering $\pi(v)=n-i+1$, and thus we only learn the orientations of arcs incident to $v$.
+
+To prove Theorem 23, we modify [CSB22, Algorithm 1] by only assigning non-zero weights on vertices from $V(H)$.
+
+For analysis, we rely on the following known results Lemma 46 and Lemma 47.
+Lemma 46 (Lemma 21 of [CSB22]). Fix an essential graph $\mathcal{E}\left(G^{*}\right)$ and $G \in\left[G^{*}\right]$. Then,
+
+$$
+\nu_{1}(G, E) \geq \max _{\mathcal{I} \subseteq V} \sum_{H \in C C\left(\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)\right)}\left\lfloor\frac{\omega(H)}{2}\right\rfloor
+$$
+
+Lemma 47 ([GRE84]). Let $G=(V, E)$ be a chordal graph with $|V| \geq 2$ and $p$ vertices in its largest clique. Suppose each vertex $v$ is assigned a non-negative weight $c(v) \geq 0$ such that $\sum_{v} c(v)=n$. Then, there exists a $1 / 2$-clique-separator $C$ of size $|C| \leq p-1$ such that any connected component in $G$ after the removal has total weight of no more than $\sum_{v \in V} c(v) / 2$. The clique $C$ can be computed in $\mathcal{O}(|E|)$ time.
+
+Our analysis approach mirrors [CSB22]: we first argue that Algorithm 1 terminates after $\mathcal{O}(\log |V(H)|)$ iterations, and then argue that each iteration uses at most $\mathcal{O}\left(\nu_{1}\left(G^{*}\right)\right)$ atomic interventions.
+Lemma 48. Algorithm 1 terminates after at most $\mathcal{O}(\log |\rho(\mathcal{I}, V(H))|)$ iterations.
+Proof. Note that chain components in $\mathcal{E}_{\mathcal{I}_{i}}\left(G^{*}\right)[V(H)]$ are chordal since node-induced subgraphs of a chordal graph are also chordal. By choice of $c(v)$ and Lemma 47, all connected components will have total weight. Since each vertex in $V\left(H_{C C}\right) \cap V(H)$ is assigned the same weight via $c(v)$, the number of vertices from $V(H)$ within any connected component $H_{C C}$ is at least halved per iteration. Thus, after $\mathcal{O}(\log |V(H)|)$ iterations, all connected components have at most one vertex from $V(H)$, which in turn means that all edges within the node-induced graph $H$ has been oriented.```
+Algorithm 1 SubsetSearch: Node-induced subset search algorithm via weighted graph separators.
+    Input: Interventional essential graph \(\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)\), node-induced subgraph \(H\), intervention upper bound size
+    \(k \geq 1\).
+    Output: A partially oriented interventional essential graph \(G\) such that \(G[V(H)]=G^{*}[V(H)]\).
+    Initialize \(i=0\) and \(\mathcal{I}_{0}=\emptyset\).
+    while \(\mathcal{E}_{\mathcal{I}_{i}}\left(G^{*}\right)[V(H)]\) still has undirected edges do
+        For each \(H_{C C} \in C C\left(\mathcal{E}_{\mathcal{I}_{i}}\left(G^{*}\right)\right)\) with \(\left|\rho\left(\mathcal{I}_{i} \cup \mathcal{I}, V\left(H_{C C}\right)\right)\right| \geq 2\), find a \(1 / 2\)-clique separator \(K_{H}\) using
+        Lemma 47, with respect to weight function
+```
+
+```
+\(c(v)= \begin{cases}\frac{n}{\rho\left(\mathcal{I}_{i} \cup \mathcal{I}, V\left(H_{C C}\right)\right)} & \text { for } v \in V(H)\\
+0 & \text { for } v \in V \backslash V(H)\end{cases}\)
+```
+
+6: Define $Q \subseteq V$ as the union of clique separator nodes across all $H_{C C} \in C C\left(\mathcal{E}_{\mathcal{I}_{i}}\left(G^{*}\right)\right)$.
+7: if $k=1$ or $|Q|=1$ then
+8: $\quad$ Define $C_{i+1}=Q$ as an atomic intervention set.
+9: else
+10: $\quad$ Define $k^{\prime}=\min \left\{k,|Q| / 2\right\}, a=\left\lceil|Q| / k^{\prime}\right\rceil \geq 2$, and $\ell=\left\lceil\log _{a} n\right\rceil$. Compute labelling scheme of [SKDV15, Lemma 1] on $Q$ with $\left(|Q|, k^{\prime}, a\right)$, and define $C_{i+1}=\left\{S_{x, y}\right\}_{x \in[\ell], y \in[a]}$, where $S_{x, y} \subseteq Q$ is the subset of vertices whose $x^{t h}$ letter in the label is $y$.
+11: end if
+12: Update $i \leftarrow i+1$, intervene on $C_{i}$ to obtain $\mathcal{E}_{\mathcal{I}_{i}}\left(G^{*}\right)$, and update $\mathcal{I}_{i} \leftarrow \mathcal{I}_{i-1} \cup C_{i}$.
+13: end while
+14: return $\mathcal{I}_{i} \quad \triangleright$ Note: The algorithm does not know $\mathcal{I}$. We write $\mathcal{I}_{i} \cup \mathcal{I}$ for notational purposes only.
+
+Theorem 23. Fix an interventional essential graph $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$ of an unknown underlying DAG $G^{*}$ and let $H$ be an arbitrary node-induced subgraph. There exists an algorithm that runs in polynomial time and computes an atomic intervention set $\mathcal{I}^{\prime}$ in a deterministic and adaptive manner such that $\mathcal{E}_{\mathcal{I} \cup \mathcal{I}^{\prime}}\left(G^{*}\right)[V(H)]=G^{*}[V(H)]$ and $\left|\mathcal{I}^{\prime}\right| \in \mathcal{O}\left(\log (|\rho(\mathcal{I}, V(H))|) \cdot \nu_{1}\left(G^{*}, E\right)\right)$.
+Proof. Fix an arbitrary iteration $i$ of Algorithm 1 and let $G_{i}$ be the partially oriented graph obtained after intervening on $\mathcal{I}_{i}$. By Lemma 46, $\sum_{H \in C C\left(\mathcal{E}_{\mathcal{I}_{i}}\left(G^{*}\right)\right)}\left\lfloor\frac{\omega(H)}{2}\right\rfloor \leq \nu_{1}\left(G^{*}, E\right)$. By definition of $\omega$, we always have $\left|K_{H}\right| \leq \omega(H)$. Thus, Algorithm 1 uses at most $2 \cdot \nu_{1}\left(G^{*}, E\right)$ interventions in each iteration.
+
+By Lemma 48, Algorithm 1 terminates after $\mathcal{O}\left(\log |\rho(\mathcal{I}, V(H))|\right)$ iterations and so the algorithm uses at $\operatorname{most} \mathcal{O}\left(\log \left(|\rho(\mathcal{I}, V(H))|\right) \cdot \nu_{1}\left(G^{*}, E\right)\right)$ atomic interventions in total.
+
+Theorem 24. Fix an interventional essential graph $\mathcal{E}_{\mathcal{I}}\left(G^{*}\right)$ of an unknown underlying DAG $G^{*}$ and let $H$ be an arbitrary node-induced subgraph. There exists an algorithm that runs in polynomial time and computes a bounded size intervention set $\mathcal{I}^{\prime}$, where each intervention involves at most $k \geq 1$ nodes, in a deterministic and adaptive manner such that $\mathcal{E}_{\mathcal{I} \cup \mathcal{I}^{\prime}}\left(G^{*}\right)[V(H)]=G^{*}[V(H)]$ and $\left|\mathcal{I}^{\prime}\right| \in \mathcal{O}\left(\log \left(|\rho(\mathcal{I}, V(H))|\right) \cdot \log (k) \cdot \nu_{k}\left(G^{*}, E\right)\right)$.
+
+Proof. Fix an arbitrary iteration $i$ of Algorithm 1 and let $G_{i}$ be the partially oriented graph obtained after intervening on $\mathcal{I}_{i}$. Applying exactly the same proof as [CSB22, Theorem 16], we see that $\left|C_{i}\right| \in \mathcal{O}\left(\nu_{k}\left(G^{*}, E\right) \cdot \log k\right)$. By Lemma 48, there are $\mathcal{O}\left(\log |\rho(\mathcal{I}, V(H))|\right)$ iterations and so $\mathcal{O}\left(\log \left(|\rho(\mathcal{I}, V(H))|\right) \cdot \log (k) \cdot \nu_{k}\left(G^{*}, E\right)\right)$ bounded size interventions are used by Algorithm 1.
+
+# D. 6 Interval stabbing problem on a rooted tree 
+
+Lemma 25. At least one of the following must hold for any optimal solution $\mathcal{I}$ to the interval stabbing problem with respect to ordering $\pi$ and any vertex $v \in V$ with $E_{v}=\emptyset$ :
+
+1. Either $v \in \mathcal{I}$ or $\mathcal{I}$ includes some ancestor of $v$.
+2. For $y \in \operatorname{Ch}(v)$ such that $C_{v} \cap I_{y} \neq \emptyset$, we must have $w_{v, y} \in \mathcal{I}$ for some $w_{v, y} \in \operatorname{Des}(v) \cap \operatorname{Anc}\left[b_{v, y}\right]$, where $\left[a_{v, y}, b_{v, y}\right]=\operatorname{argmin}_{[a, b] \in U \cap C_{v} \cap I_{y}}\{\pi(b)\}$.
+Proof. Consider any arbitrary vertex $v \in V$ and any child $y \in \operatorname{Ch}(v)$ such that $C_{v} \cap I_{y} \neq \emptyset$. For any $U \subseteq \mathcal{J}$, define
+
+$$
+L_{U, v, y}=\operatorname{argmin}_{[a, b] \in U \cap C_{v} \cap I_{y}}\{\pi(b)\}=\left[a_{v, y}, b_{v, y}\right]
+$$as the earliest ending interval within $U$ that is covered by $v$ in subtree $T_{y}$.
+Suppose $v \notin \mathcal{I}$ and $\mathcal{I}$ does not include any ancestor of $v$. To stab any interval in $[a, b] \in C_{v}$, we must have $w \in \mathcal{I}$ for some $w \in \operatorname{Des}(v) \cap \operatorname{Anc}[b]$. Since subtrees $T_{y}$ are disjoint, we can partition $C_{v}$ into $\dot{\cup}_{y \in \operatorname{Ch}(v)} C_{v, y}=$ $\dot{\cup}_{y \in \operatorname{Ch}(v)} C_{v} \cap I_{y}$, where $C_{v, y}$ is associated to subtree $T_{y}$. So, for each interval $[a, b] \in C_{v, y}$, we need to ensure that $w \in \mathcal{I}$ for some $w \in \operatorname{Des}(v) \cap \operatorname{Anc}[b]$. By minimality of $b_{v, y}$, stabbing $L_{U, v, y}$ ensures that all intervals in $C_{v, y}$ are stabbed and any stabbing for $C_{v, y}$ must also stab $L_{U, v, y}$.
+
+# E Efficient dynamic programming implementation of recurrence 
+
+We first recall the definitions and recurrence equations established in Section 4 before explaining how to solve Definition 12 in polynomial time via dynamic programming (DP).
+
+## E. 1 Recap
+
+Given a set of intervals $\mathcal{J}$, we define the following sets with respect to an arbitrary vertex $v \in V$ :
+
+$$
+\begin{aligned}
+E_{v} & =\left\{[a, b]_{G} \in \mathcal{J}: b=v\right\} & & \text { (End with } v \text { ) } \\
+M_{v} & =\left\{[a, b]_{G} \in \mathcal{J}: v \in(a, b)_{G}\right\} & & \text { (Middle with } v \text { ) } \\
+S_{v} & =\left\{[a, b]_{G} \in \mathcal{J}: a=v\right\} & & \text { (Start with } v \text { ) } \\
+W_{v} & =\left\{[a, b]_{G} \in \mathcal{J}: a, b \in V\left(T_{v}\right) \backslash\{v\}\right\} & & \text { (Without } v \text { ) } \\
+I_{v} & =E_{v} \cup M_{v} \cup S_{v} \cup W_{v} & & \text { (Intersect } T_{v} \\
+B_{v} & =S_{v} \cup W_{v} & & \text { (Back of } I_{v} \\
+C_{v} & =E_{v} \cup M_{v} \cup S_{v} & & \text { (Covered by } v \text { ) }
+\end{aligned}
+$$
+
+Note that $I_{v}$ includes all the intervals in $\mathcal{J}$ that intersect with the subtree $T_{v}$ (i.e. has some vertex in $V\left(T_{v}\right)$ ) and $C_{v}$ includes all the intervals that will be covered whenever $v \in \mathcal{I}$. Observe that $I_{y} \subseteq I_{v}$ for any $y \in \operatorname{Des}(v)$.
+
+For any subset $U \subseteq \mathcal{J}$ and vertex $v \in V, \operatorname{opt}(U, v)$ denotes the size of the optimum solution to stab all the intervals in $U$ using only vertices in $V\left(T_{v}\right)$ in the subtree $T_{v}$ rooted at $v$, where
+
+$$
+\begin{gathered}
+\operatorname{opt}(U, v)= \begin{cases}\infty & \text { if } U \nsubseteq I_{v} \\
+\alpha_{v} & \text { if } U \subseteq I_{v}, U \cap E_{v} \neq \emptyset \\
+\min \left\{\alpha_{v}, \beta_{v}\right\} & \text { if } U \subseteq I_{v}, U \cap E_{v}=\emptyset\end{cases} \\
+\text { where } \quad \alpha_{v}=1+\sum_{y \in \operatorname{Ch}(v)} \operatorname{opt}\left(U \cap B_{y}, y\right) \quad \text { and } \quad \beta_{v}=\sum_{y \in \operatorname{Ch}(v)} \operatorname{opt}\left(U \cap I_{y}, y\right)
+\end{gathered}
+$$
+
+That is, we must pick $v \in \mathcal{I}$ whenever $E_{v} \neq \emptyset$, while $\alpha_{v}$ and $\beta_{v}$ correspond to the decisions of picking $v$ into the output and ignoring $v$ from the output respectively. Then, $\operatorname{opt}(\mathcal{J}, r)$ is the optimum solution size to the interval stabbing problem, where $r$ as the root of the given rooted tree.
+
+## E. 2 Efficient implementation
+
+Naively computing the recurrence relation of Eq. (2) will incur an exponential blow-up in state space. Instead, we will define an ordering $\prec$ on $\mathcal{J}$ so that our state space is over the indices of a sorted array instead of a subset of intervals (see Eq. (3)), so that we can implement the recurrence as a polynomial time dynamic programming (DP) problem.
+
+Our $\prec$ ordering relies on the Euler tree data structure for rooted trees [TV84, HK95], which computes a sequence $\tau$ of vertices visited in a depth-first search (DFS) from the root. Using this sequence $\tau$, we can obtain the first $(f)$ and last $(\ell)$ times that a vertex is visited. More formally, we can define the mappings $\tau:\{1, \ldots, 2 n-1\} \rightarrow V, f: V \rightarrow\{1, \ldots, 2 n-1\}$, and $\ell: V \rightarrow\{1, \ldots, 2 n-1\}$. These mappings can be computed in linear time (via DFS) and $f(v) \leq \ell(v)$ with equality only if $v$ is a leaf of the tree. See Fig. 9 for an illustration of $\tau, f$, and $\ell$.
+
+Lemma 49 (Properties of Euler tour data structure). Given an Euler tour data structure sequence $\tau$ with corresponding $f$ and $\ell$ indices, the following statements hold:1. $V\left(T_{v}\right)=\cup_{f(v) \leq i \leq \ell(v)} \tau(i)$.
+2. If $f(v)<f(u)<\ell(v)$, then $f(v)<\ell(u)<\ell(v)$.
+3. If $f(v)<\ell(u)<\ell(v)$, then $f(v)<f(u)<\ell(v)$.
+4. If $f(v)<f(u)<\ell(v)$ or $f(v)<\ell(u)<\ell(v)$, then $f(v)<f(u), \ell(u)<\ell(v)$. That is, $u \in V\left(T_{v}\right)$.
+5. For any interval $[a, b]_{G}, f(a)<f(b) \leq \ell(b)<\ell(a)$.
+6. For any interval $[a, b]_{G}$ and any vertex $z \in V,[a, b]_{G} \in I_{z} \Longleftrightarrow b \in T_{z}$.
+
+Proof. 1. By definition of DFS traversal from the root.
+2. Suppose, for a contradiction, that $f(v)<f(u)<\ell(v)<\ell(u)$. This cannot happen in a DFS traversal on a tree.
+3. Suppose, for a contradiction, that $f(u)<f(v)<\ell(u)<\ell(v)$. This cannot happen in a DFS traversal on a tree.
+4. Combine above properties.
+5. $a \in \operatorname{Anc}[b]$ in the tree $G$ by definition of intervals.
+6. By definition of $I_{z}$ and $T_{z}$.
+
+Using the Euler tour data structure, we can efficiently remove a subset of "unnecessary intervals" from $\mathcal{J}$, whose removal will not affect the optimality of the recurrence while granting us some additional structural properties which we will exploit. We call these "unnecessary intervals" superset intervals.
+
+Definition 50 (Superset interval). We say that an interval $[c, d] \in \mathcal{J}$ is a superset interval if there exists another interval $[a, b] \in \mathcal{J}$ such that $c \in \operatorname{Anc}[a]$ and $b \in \operatorname{Anc}[d]$. Note that $a \in \operatorname{Anc}[b]$ is implied by the fact that $[a, b]$ is an interval.
+
+Observe that the removal of superset intervals will not affect the optimality of the solution because stabbing $[a, b]$ will stab $[c, d]$. For an interval $[a, b]$, we call $a$ the starting vertex and $b$ the ending vertex of the interval $[a, b]$ respectively. Using the Euler tour data structure, superset intervals can be removed in $\mathcal{O}(|\mathcal{J}| \log |\mathcal{J}|)$ time by first sorting the intervals according to the ending vertex, then only keep the intervals with the latest starting vertex amongst any pair of intervals that share the same ending vertex. After removing superset intervals, we are guaranteed that the ending vertices in $\mathcal{J}$ are unique.
+
+We now define an ordering $\prec$ on $\mathcal{J}$ using the Euler tour mapping $f$ so that $\mathcal{J}[i] \prec \mathcal{J}[i]$ for any $i<j$ :
+
+$$
+[a, b] \prec[c, d] \Longleftrightarrow f(a)<f(c) \text { or }(a=c \text { and } \ell(b)>\ell(d))
+$$
+
+We write $\mathcal{J}^{-1}([a, b])$ to refer to the index of $[a, b]$ in $\mathcal{J}$. Since $I_{y} \subseteq I_{v}$ for any $y \in \operatorname{Ch}(v)$, we are guaranteed that $\min _{[a, b] \in I_{v}} \mathcal{J}^{-1}([a, b]) \leq \min _{[a, b] \in I_{y}} \mathcal{J}^{-1}([a, b])$ for any $y \in \operatorname{Ch}(v)$. However, note that there may be intervals outside of $I_{v}$ with indices between $\min _{[a, b] \in I_{v}} \mathcal{J}^{-1}([a, b])$ and $\max _{[a, b] \in I_{v}} \mathcal{J}^{-1}([a, b])$. For any vertex $v \in V$, we define
+
+$$
+\left.\mathcal{J}_{v}=\operatorname{sorted}\left(\left\{[a, b] \in \mathcal{J} \cap I_{v}: \mathcal{J}^{-1}([a, b])\right\}\right)
+$$
+
+as the array of indices of intervals in $I_{v}$ such that $\mathcal{J}_{v}[i] \prec \mathcal{J}_{v}[j]$ for all $1 \leq i<j \leq\left|I_{v}\right|=\left|\mathcal{J}_{v}\right|$. See Fig. 10.
+
+|  | $a$ | $b$ | $c$ | $d$ | $e$ | $f$ | $g$ | $h$ | $i$ | $j$ |
+| :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+| $f$ | 1 | 2 | 8 | 12 | 3 | 5 | 9 | 13 | 14 | 16 |
+| $\ell$ | 19 | 6 | 10 | 18 | 3 | 5 | 9 | 17 | 14 | 16 |
+
+Table 1: First $(f)$ and last $(\ell)$ indices for Fig. 9
+We begin with a simple lemma relating the first time a depth-first search visits a vertex and the ancestry of vertices.
+
+Lemma 51. Consider arbitrary vertices $a, b, v \in V$ in a rooted tree $G$ with root $r$. If $a, b \in \operatorname{Anc}(v)$, then either $a \in \operatorname{Anc}[b]$ or $b \in \operatorname{Anc}[a]$. Furthermore, if $f(a) \leq f(b)$ then $a \in \operatorname{Anc}[b]$.
+
+Figure 9: Consider the rooted tree $G$ on $n=10$ vertices with intervals $\mathcal{J}=\{[a, b],[a, e],[a, h],[a, i],[c, g],[d, j]\}$. Here, $[a, e]$ is a superset interval of $[a, b]$. We see that $\operatorname{opt}(\mathcal{J}, a)=3$, where $\{a, c, d\}$ and $\{b, g, h\}$ are possible optimal sized interval covers. One possible Euler tour sequence $\tau$ is $(a, b, e, b, f, b, a, c, g, c, a, d, h, i, h, j, h, d, a)$ of length $|\tau|=2 n-1=19$. Table 1 shows the first $(f)$ and last $(\ell)$ indices within $\tau$. Observe that the leaves $e, f, g, i, j$ have the same first and last indices, and vertices $d, h, i, j \in V\left(T_{d}\right)$ have indices between $f(d)=12$ and $\ell(d)=18$. Under Eq. (3), we have $[a, h] \prec[a, i] \prec[a, b] \prec[a, e] \prec[c, g] \prec[d, j]$.
+
+
+Figure 10: Consider the rooted tree $G$ on 5 vertices with intervals $\mathcal{J}=\{[a, d],[b, c],[d, e]\}$ and the Euler tour visits $a, b, c, d, e$ in sequence. Then, $[a, d] \prec[b, c] \prec[d, e]$ and $\mathcal{J}^{-1}([a, d])=1, \mathcal{J}^{-1}([b, c])=2$, and $\mathcal{J}^{-1}([d, e])=$ 3. In this example, $I_{d}=\{[a, d],[d, e]\}$ and $\mathcal{J}_{d}=[1,3]$. Observe that $\min _{i} \mathcal{J}_{v}[i]<\mathcal{J}^{-1}([b, c])<\max _{i} \mathcal{J}_{v}[i]$ despite $[b, c] \notin I_{d}$.Proof. Since $G$ is a rooted tree, there is a unique path $P$ from $r$ to any vertex $v \in V$ that involves all ancestors of $v$. Since $a, b \in \operatorname{Anc}(v)$, then either $a$ appears before $b$ in $P$ (i.e. $a \in \operatorname{Anc}[b]$ ) or $b$ appears before $a$ in $P$ (i.e. $b \in \operatorname{Anc}[a])$. By definition of depth-first search from $r$, if we visit $a$ before $b$ (i.e. $f(a) \leq f(b)$ ), then it must be the case that $a \in \operatorname{Anc}[b]$.
+
+The next lemma tells us that unstabbed intervals form a contiguous interval in $\mathcal{J}_{v}$ and that $E_{v}$ appears first within $\mathcal{J}_{v}$.
+
+Lemma 52 (Properties of $\mathcal{J}$ with respect to $\prec$ ). Consider an arbitrary $v \in V$ where $\left|I_{v}\right| \geq 2$.
+
+- For any $1 \leq i<j \leq\left|I_{v}\right|$, if $\mathcal{J}_{v}[j]=[c, d]$ is stabbed by some $z \in \operatorname{Anc}(v)$ then $\mathcal{J}_{v}[i]=[a, b]$ is also stabbed by $z$.
+- If $E_{v} \neq \emptyset$ and $I_{v} \backslash E_{v} \neq \emptyset$, then $\max _{[a, b] \in E_{v}} \mathcal{J}^{-1}([a, b]) \leq \min _{[a, b] \in I_{v} \backslash E_{v}} \mathcal{J}^{-1}([a, b])$.
+
+Proof. We know that if $[a, b],[c, d] \in I_{v}$, then $b, d \in T_{v}$, i.e. $b, d \in \operatorname{Des}[v]$, or equivalently, $v \in \operatorname{Anc}[b]$ and $v \in \operatorname{Anc}[d]$.
+(First property) $z$ stabs $[c, d]$, so $z \in \operatorname{Des}[c] \cap \operatorname{Anc}(v)$. Since $[a, b] \prec[c, d]$, we have $f(a)<f(c)$ or $a=c$. In either case, $f(a) \leq f(c)$ and so $a \in \operatorname{Anc}[c]$ by Lemma 51. So, $z \in \operatorname{Des}[c] \cap \operatorname{Anc}(v) \subseteq \operatorname{Des}[a] \cap \operatorname{Anc}(v) \subseteq$ $\operatorname{Des}[a] \cap \operatorname{Anc}[b]$, i.e. $z$ stabs $[a, b]$.
+(Second property) It suffices to argue that $[a, b] \prec[c, d]$ for any $[a, b] \in E_{v} \subseteq I_{v}$ and $[c, d] \in I_{v} \backslash E_{v}$.
+
+Since $[a, b],[c, d] \in I_{v}$, we know that $b, d \in T_{v}$, i.e. $v \in \operatorname{Anc}[b]$ and $v \in \operatorname{Anc}[d]$. Since $[a, b] \in E_{v}$, we have $b=v$, so $a \in \operatorname{Anc}(b)=\operatorname{Anc}(v)$ and $b=v \in \operatorname{Anc}[d]$.
+
+Case 1: $c \notin \operatorname{Anc}[v]$
+Since $[c, d] \in I_{v}$, we have $c \in \operatorname{Anc}[v]$, i.e. $f(v) \leq f(c)$. Since $a \in \operatorname{Anc}(v)$, this implies that $f(a)<f(c)$.
+Case 2: $c \in \operatorname{Anc}[v]$
+Suppose, for a contradiction, that $f(a)>f(c)$. Since $a, c \in \operatorname{Anc}[v]$, Lemma 51 tells us that $c \in \operatorname{Anc}(a)$. Then, $[c, d]$ is a superset interval with respect to $[a, b]$ since $c \in \operatorname{Anc}(a), a \in \operatorname{Anc}(b)$, and $b \in \operatorname{Anc}(d)$. This is a contradiction since we have removed all superset intervals.
+
+In either case, $f(a) \leq f(c)$, so $[a, b] \prec[c, d]$.
+We now describe our DP algorithm (Algorithm 2 and Algorithm 3) where we always recurse on subsets within $I_{v}$ (e.g. see line 6 in Algorithm 3). For any vertex $v \in V$, our DP state will recurse on the smallest index of the remaining unstabbed intervals within $I_{v}$. If all intervals within $I_{v}$ are stabbed, then the recursed index will be $\infty$ and the recursion terminates.
+
+Suppose we are currently recursing on vertex $v$ and index $i$. Let $U=\left\{[a, b] \in I_{v}: J^{-1}([a, b]) \geq i\right\}$. To determine whether $U \cap E_{v}$ is empty, we can define
+
+$$
+e_{v}= \begin{cases}\max _{[a, b] \in E_{v}} \mathcal{J}^{-1}([a, b]) & \text { if } E_{v} \neq \emptyset \\ -\infty & \text { if } E_{v}=\emptyset\end{cases}
+$$
+
+and check whether $e_{v} \geq i$. This works because Lemma 52 guarantees that $E_{v}$ appears in the front of $\mathcal{J}_{v}$, so $e_{v} \geq i \Longleftrightarrow U \cap E_{v} \neq \emptyset$. Meanwhile, the appropriate index update for $U \cap B_{y}$ in the $\alpha_{v}$ case is $\max \left\{a_{y}, i\right\}$ where
+
+$$
+a_{y}= \begin{cases}\min _{[a, b] \in B_{y}} \mathcal{J}^{-1}([a, b]) & \text { if } B_{y} \neq \emptyset \\ \infty & \text { if } B_{y}=\emptyset\end{cases}
+$$
+
+Similarly, the index update $U \cap I_{y}$ in the $\beta_{v}$ case is $\max \left\{b_{v, y}, i\right\}$ where
+
+$$
+b_{v, y}= \begin{cases}\min _{[a, b] \in I_{y}} \mathcal{J}^{-1}([a, b]) & \text { if } I_{y} \neq \emptyset \\ \infty & \text { if } I_{y}=\emptyset\end{cases}
+$$
+
+One can verify that all the $e_{v}, a_{y}, b_{v, y}$ indices can be pre-computed in polynomial time before executing the DP. To extract a minimum sized stabbing set for $\mathcal{J}$ of size $\operatorname{opt}(\mathcal{J}, r)$, one can perform a standard backtracing of the memoization table.
+
+Theorem 53. Together, Algorithm 2 and Algorithm 3 correctly output $\boldsymbol{\operatorname { o p t }}(\mathcal{J}, r)$ in $\mathcal{O}\left(n^{2} \cdot|\mathcal{J}|\right)$ time.Algorithm 2 Minimum interval stab size on a rooted tree.
+1: Input: Rooted tree $G$ with root $r$, set of intervals $\mathcal{J}$.
+2: Output: $\operatorname{opt}(\mathcal{J}, r)=\operatorname{DP}(r, 0)$.
+3: Compute Euler tour mappings $f$ and $\ell$, sort $\mathcal{J}$ according to $\prec$ ordering.
+4: Remove superset intervals from $\mathcal{J}$.
+5: Pre-compute indices $e_{v}, a_{y}$ and $b_{v, y}$ for all $v \in V$ and $y \in \operatorname{Ch}(v)$.
+6: return $\mathrm{DP}(r, 0)$
+
+Algorithm 3 Dynamic programming subroutine DP.
+1: Input: Vertex $v$, index $i \in\{0,1, \ldots,|\mathcal{J}|-1\}$.
+2: Output: $\mathrm{DP}(v, i)$
+3: if $i=\infty$ then return 0
+$\triangleright$ Done processing $\mathcal{J}$
+4: $\alpha_{v}=1+\sum_{y \in \operatorname{Ch}(v)} \operatorname{DP}\left(y, \max \left\{a_{y}, i\right\}\right)$
+5: $\beta_{v}=\sum_{y \in \operatorname{Ch}(v)} \operatorname{DP}\left(y, \max \left\{b_{v, y}, i\right\}\right)$
+6: if $e_{v} \geq i$ then $\operatorname{memo}(v, i) \leftarrow \alpha_{v}$
+7: else memo $(v, i) \leftarrow \min \left\{\alpha_{v}, \beta_{v}\right\}$
+8: return memo $(v, i)$
+
+Proof. Correctness The indices $e_{v}, a_{y}, b_{v, y}$ are defined to match Eq. (2) and the correctness follows from Lemma 52 .
+
+The invariant we maintain throughout the recursion is as follows: $\mathcal{J}[i]$ has not been stabbed by $\operatorname{Anc}(v)$ whenever we are in a recursive step at some vertex $v \in V$ and index $i$. We know from Lemma 52 that any interval $[a, b]$ with $\mathcal{J}^{-1}([a, b])<i$ would have been stabbed. So, recursing on $\max \left\{a_{y}, i\right\}$ is equivalent to recursing on $U \cap I_{y}$ and $\max \left\{b_{v, y}, i\right\}$ is equivalent to recursing on $U \cap B_{y}$ in Eq. (2), for any $y \in \operatorname{Ch}(v)$. Since we immediately recurse on the $\alpha_{v}$ case whenever $U \cap E_{v} \neq \emptyset$, we avoid the $\infty$ case in Eq. (2).
+
+Runtime The computation time of Euler tour data structure can be done in $\mathcal{O}(n)$ time via depth-first-search on the rooted tree. The removal of superset intervals can be done in $\mathcal{O}(|\mathcal{J}| \log |\mathcal{J}|)$ time. Sorting of $\mathcal{J}$ according to the $\prec$ ordering can be done in $\mathcal{O}(|\mathcal{J}| \log |\mathcal{J}|)$ time. For any $v \in V$, the sets $E_{v}, M_{v}, S_{v}, W_{v}, I_{v}, B_{v}, C_{v}$ can be computed in $\mathcal{O}(|\mathcal{J}|)$ time, then the indices $e_{v}, a_{y}$ and $b_{v, y}$ can be computed in $\mathcal{O}(|\mathcal{J}| \log |\mathcal{J}|)$ time (we may need to sort to compute the minimum and maximum values). The DP has at most $\mathcal{O}(n \cdot|\mathcal{J}|)$ states and an execution of Algorithm 3 at vertex $v$ takes $\mathcal{O}(|\mathrm{Ch}(v)|)$ time (accounting for memoization), so the Algorithm 3 takes $\mathcal{O}\left(n \cdot|\mathcal{J}| \cdot \sum_{v \in V}|\operatorname{Ch}(v)|\right) \subseteq \mathcal{O}\left(n^{2} \cdot|\mathcal{J}|\right)$ time. Putting everything together, we see that the overall runtime is $\mathcal{O}\left(|\mathcal{J}| \log |\mathcal{J}|+n^{2} \cdot|\mathcal{J}|\right) \subseteq \mathcal{O}\left(n^{2} \cdot|\mathcal{J}|\right)$ since $|\mathcal{J}| \leq\binom{n}{2} \leq n^{2}$.
+
+# F Experiments and implementation 
+
+The experiments are conducted on an Ubuntu server with two AMD EPYC 7532 CPU and 256GB DDR4 RAM. Our code and entire experimental setup is available at
+https://github.com/cxjdavin/subset-verification-and-search-algorithms-for-causal-DAGs.
+
+## F. 1 Implementation details
+
+Subset verification We implemented our subset verification algorithm and tested its correctness on random trees and random Erdős-Rényi graphs with random subsets of target edges $T$. On random trees, we know that the subset verification should be 1 since intervening on the root always suffices regardless of what $T$ is. On random Erdős-Rényi graphs $G^{*}$, we chose $T$ to be a random subset of covered edges of $G^{*}$ and checked that the subset verifying set is indeed a minimum vertex cover of $T$, whose size could be smaller than the full verification number $\nu\left(G^{*}\right)$.
+
+Node-induced subset search We modified the 1/2-clique separator subroutine of [GRE84] within the clique-separator based search algorithm of [CSB22] by only assigning non-zero weights to endpoints of target edges.Other full search algorithms that are benchmarked against We modified them to take in target edges $T$ and terminate early once all edges in $T$ have been oriented.
+
+# F.1.1 Synthetic graph generation 
+
+As justified by Section 3.1, it suffices to study the performance of algorithms on connected DAGs without v-structures. Our graphs are generated in the following way:
+
+1. Fix the number of nodes $n$ and edge probability $p$
+2. Generate a random tree on $n$ nodes
+3. Generate a random Erdős-Rényi graph $G(n, p)$
+4. Combine their edgesets and orient the edges in an acyclic fashion: orient $u \rightarrow v$ whenever vertex $u$ has a smaller vertex numbering than $v$.
+5. Add arcs to remove v-structures: for every v-structure $u \rightarrow v \leftarrow w$ in the graph, we add the arc $u \rightarrow w$ whenever vertex $u$ has a smaller vertex numbering than $w$.
+
+## F. 2 Experiment 1: Subset verification number for randomly chosen target edges
+
+In this experiment, we study how the subset verification number scales when the target edges $T$ is chosen randomly.
+
+For each pair of graph parameters $(n, p)$, we generate 100 synthetic DAGs. Then, for each graph with $|E|=m$ edges, we sampled a random subset $T \subseteq E$ of sizes $\{0.3 m, 0.5 m, 0.7 m, m\}$ and ran our subset verification algorithm. Additionally, we run the verification algorithm of [CSB22] on the entire graph. As expected, the verification number exactly matches the subset verification number in the special case where $|T|=m$. We show these results in Fig. 11. Despite the trend suggested in Fig. 11, the number of target edges is typically not a good indication for the number of interventions needed to be performed and one can always construct examples where $\left|T^{\prime}\right|>|T|$ but $\nu\left(G, T^{\prime}\right) \ngtr \nu(G, T)$. For example, for a subset $T \subseteq E$, we have $\nu\left(G^{*}, T^{\prime}\right)=\nu\left(G^{*}, T\right)$ if $T^{\prime} \supset T$ is obtained by adding edges that are already oriented by orienting $T$. Instead, the number of "independent target edges" ${ }^{18}$ is a more appropriate measure.
+
+While the edge probability values may seem small, the graph is actually quite dense due to the addition of arcs to remove v-structures. We show this in Fig. 12, where we plot the number of edges of our generated graphs and compare it against the maximum number of possible edges. Observe that the generated graph is almost a complete graph when $p=0.3$.
+
+## F. 3 Experiment 2: Local causal graph discovery
+
+In this experiment, we compare node-induced subset search with full search algorithms on the task of local causal graph discovery where we only wish to orient edges around a target node of interest. Following [CSB22], we base our evaluation on the experimental framework of $\left[\mathrm{SMG}^{+} 20\right]$ which empirically compares atomic intervention policies.
+
+We compared the following atomic intervention algorithms against the atomic verification number $\nu_{1}\left(G^{*}\right)$ and atomic subset verification number $\nu_{1}\left(G^{*}, T\right)$; see Fig. 13:
+random: A baseline algorithm that repeatedly picks a random non-dominated node (a node that is incident to some unoriented edge) from the interventional essential graph
+dct: DCT Policy of $\left[\mathrm{SMG}^{+} 20\right]$
+coloring: Coloring of [SKDV15]
+separator: Clique-separator based search algorithm of [CSB22]
+
+[^0]
+[^0]:    ${ }^{18}$ Akin to "linearly independent vectors" in linear algebra.
+
+Figure 11: Plots for $p=\{0.001,0.01,0.03,0.05,0.1,0.3\}$ across $n=\{10,20,30, \ldots, 100\}$. Observe that the subset verification number increases as the size of the random subset of target edges increases. Furthermore, in the special case of $|T|=m$, the subset verification number is exactly the verification number.
+
+Figure 12: We plot the number of edges in our generated synthetic graphs and compare it against the maximum $\binom{n}{2}$ number of edges. Observe that the generated graph is almost a complete graph when $p=0.3$.
+
+SubsetSearch: Our modification of separator that treats the union of endpoints of given target edges as the vertices in the node-induced subgraph of interest. That is, we may end up increasing the set of target edges $T \subseteq E$ if the input $T$ was not already all edges within a node-induced subgraph. However, note that the given inputs $T$ for this experiment already includes all edges within a node-induced subgraph so this is not a concern.
+
+While our algorithms to construct the Hasse diagram and solve the produced interval stabbing problem is fast, we remark that the current implementation for computing $\left\{R\left(G^{*}, v\right)\right\}_{v \in V}$ in the causaldag package ${ }^{19}$ can be slow. In particular, it is not the $\mathcal{O}(d \cdot|E|)$ time algorithm of [WBL21, Algorithm 2] mentioned in Appendix A. In our experiments, computing $\left\{R\left(G^{*}, v\right)\right\}_{v \in V}$ takes up more than $98 \%$ of the running time for computing subset verification numbers for each graph $G^{*}$. However, note that in practical use case scenarios, one simply use the algorithms without actually needing computing $\left\{R\left(G^{*}, v\right)\right\}_{v \in V}$, so this is not a usability concern.
+
+
+Figure 13: SubsetSearch consistently uses less interventions than existing state-of-the-art full graph search algorithms when we only wish to orient edges within a r-hop neighborhood of a randomly chosen target node $v$, for $r \in\{1,3\}$.
+
+[^0]
+[^0]:    ${ }^{19}$ https://causaldag.readthedocs.io/en/latest/\#

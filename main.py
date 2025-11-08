@@ -9,6 +9,7 @@ from utils.codex_prompts import *
 from arxiv_api import *
 from utils.excel_service import create_excel_file
 from utils.extract_document_with_mistral import *
+from utils.test import update_excel_with_conjectures
 
 import os
 from time import sleep
@@ -75,7 +76,7 @@ def extract_documents(dossier_articles: str):
             document = upload_document(dossier_articles, file_name, client, library)
             print("Le document a bien été uploadé.")
             print(f"Id du document : {document.id}")
-            sleep(25) # il faut attendre quelques instants le temps que le fichier s'upload avant d'extraire le contenu
+            sleep(30) # il faut attendre quelques instants le temps que le fichier s'upload avant d'extraire le contenu
             print("Tentative d'extraction du contenu du document...")
             text_content = client.beta.libraries.documents.text_content(
                 library_id=library.id,
@@ -156,31 +157,31 @@ def run_deepseek(pdf_path: str):
     extract_pdf_to_text(pdf_path, "extractions")
 
 if __name__ == "__main__":
-    research_question = get_research_question_arg()
-    boolean_query_file = "boolean_queries.txt"
-    pico_prompt = get_prompt_to_generate_pico(research_question, f"PICO{research_question}.txt")
-
-    create_pico_file(pico_prompt)
-
-    pico_filename = f"PICO_{research_question}.txt"
-
-    boolean_query_prompt = get_prompt_to_generate_boolean_query(
-        pico_filename=pico_filename,
-        research_question=research_question,
-        output_file_name_boolean_queries="boolean_queries",
-        doc_boolean_queries="doc_boolean_queries",
-    )
-
-    create_boolean_queries_file(boolean_query_prompt, filename=boolean_query_file)
-
-    excel_file = "articles.xlsx"
-    sheet_name1 = "Articles"
-    sheet_name2 = "Conjectures"
-    sheet_name3 = "Parametres"
-    create_excel_file(excel_file, sheet_name1, sheet_name2, sheet_name3)
-
-    query = extract_arxiv_query_py(boolean_query_file)
-    download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
+    # research_question = get_research_question_arg()
+    # boolean_query_file = "boolean_queries.txt"
+    # pico_prompt = get_prompt_to_generate_pico(research_question, f"PICO{research_question}.txt")
+    #
+    # create_pico_file(pico_prompt)
+    #
+    # pico_filename = f"PICO_{research_question}.txt"
+    #
+    # boolean_query_prompt = get_prompt_to_generate_boolean_query(
+    #     pico_filename=pico_filename,
+    #     research_question=research_question,
+    #     output_file_name_boolean_queries="boolean_queries",
+    #     doc_boolean_queries="doc_boolean_queries",
+    # )
+    #
+    # create_boolean_queries_file(boolean_query_prompt, filename=boolean_query_file)
+    #
+    # excel_file = "articles.xlsx"
+    # sheet_name1 = "Articles"
+    # sheet_name2 = "Conjectures"
+    # sheet_name3 = "Parametres"
+    # create_excel_file(excel_file, sheet_name1, sheet_name2, sheet_name3)
+    #
+    # query = extract_arxiv_query_py(boolean_query_file)
+    # download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
 
     load_dotenv()
 
@@ -190,4 +191,4 @@ if __name__ == "__main__":
     # find_conjectures_with_codex("extraction/")
 
     # todo : mettre à jour le fichier excel avec les conjectures et les paramètres associés
-    # update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
+    update_excel_with_conjectures()
