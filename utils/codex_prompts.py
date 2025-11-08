@@ -112,17 +112,15 @@ def get_prompt_to_generate_boolean_query(
 
 def get_prompt_find_conjecture(folder: str, file: str) -> str:
     return (
-        f"dans le dossier {folder} je souhaite que tu ouvres le fichier {file} et que tu me détectes "
+        f"dans le dossier {folder} qui se trouve à la racine du projet, je souhaite que tu ouvres le fichier {file} et que tu me détectes "
             "si oui ou non il existe une ou plusieurs conjecture(s) formulées par les auteurs de cet article. On ne tiendra"
             " pas compte des conjectures citées d'autres articles. Raisonne uniquement par ton intelligence, je ne veux aucun script."
             f" Réfléchis et donne moi ta réponse. Je veux que tu trouves des conjectures pour le fichier {file}. "
             "Aussi pour chaque conjecture, je souhaite que tu définisses les paramètres utilisés. Pour les formules mathématiques "
             "ainsi que les paramètres, utilise la syntaxe latex."
-            "Une fois ta tâche terminée, je veux que tu fasses une repasses afin de faire quelques micro-retouches de notation/terminologie "
-            "pour coller exactement au papier si nécessaire. Mets un point de vigilance sur les indices par exemple."
             "Tu dois faire du mot-à-mot pour les conjectures, ce qui signifie que tu ne dois "
             "pas traduire le texte ni inventer des choses. Reste fidèle à ce que le(s) auteur(s) a/ont écrit."
-            f"Écris toutes les conjectures que tu as trouvé dans un fichier json dans le répertoire {folder}/json."
+            f"Écris toutes les conjectures que tu as trouvé dans un fichier json dans le répertoire {folder}/json. Le répertoire {folder} se trouve à la racine du projet."
             "Le fichier json que tu vas créer doit suivre exactement le schéma suivant :"
             "{\n"
             "  \"contains_conjecture\": true,\n"
@@ -141,7 +139,8 @@ def get_prompt_find_conjecture(folder: str, file: str) -> str:
             "}"
             "N'échappe pas les $ dans les formules mathématiques latex."
             f"Le nom du fichier json doit exactement être {file}.json (tu supprimeras le .txt pour que ça donne .pdf.json)."
-            "Lorsque tu auras terminé, je veux que tu écrives dans la dernière ligne du fichier JSON cela : `FIN`."
+            "Une fois ta tâche terminée, je veux que tu fasses une repasses afin de faire quelques micro-retouches de notation/terminologie "
+            "pour coller exactement au papier si nécessaire. Mets un point de vigilance sur les indices par exemple. "
+            "Et vérifie que tu n'as pas inventé des paramètres, ou fait des hallucinations quelconques."
+            "Lorsque tu auras véritablement terminé, je veux que tu écrives dans la dernière ligne du fichier JSON cela : `FIN`."
     )
-
-# certains paramètres sont inventés
