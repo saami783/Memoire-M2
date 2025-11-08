@@ -52,6 +52,7 @@ def _article_row_with_id(next_id: int, result: arxiv.Result, file_name: str):
         _safe_published_iso(result),
         SOURCE,
         result.entry_id,
+        "",
         file_name,
     ]
 

@@ -9,16 +9,22 @@ HEADERS_SHEET_ARTICLES = [
     "Date de publication",
     "Source",
     "Lien de l'article",
+    "Contient conjecture",
     "Fichier"
 ]
 
 HEADERS_SHEET_CONJECTURES = [
     "Article_id",
     "Conjecture",
-    "Page",
+    "Fichier"
 ]
 
-def create_excel_file(excel_file: str, sheet_name: str = "Feuille 1", sheet_name2: str = "Conjectures"):
+HEADERS_SHEET_PARAMETRES = [
+    "Conjecture_id",
+    "Parametre"
+]
+
+def create_excel_file(excel_file: str, sheet_name: str = "Feuille 1", sheet_name2: str = "Conjectures", sheet_name3: str = "Parametres"):
     """Crée un Excel s'il n'existe pas, avec deux feuilles et leurs en-têtes."""
     p = Path(excel_file)
     if p.exists():
@@ -31,11 +37,14 @@ def create_excel_file(excel_file: str, sheet_name: str = "Feuille 1", sheet_name
     # Feuille 2
     ws2 = wb.create_sheet(title=sheet_name2)
     ws2.append(HEADERS_SHEET_CONJECTURES)
+    # Feuille 3
+    ws2 = wb.create_sheet(title=sheet_name3)
+    ws2.append(HEADERS_SHEET_PARAMETRES)
 
     p.parent.mkdir(parents=True, exist_ok=True)
     wb.save(excel_file)
 
-def open_or_create_excel(excel_file: str, sheet_name: str = "Feuille 1", sheet_name2: str = "Conjectures"):
+def open_or_create_excel(excel_file: str, sheet_name: str = "Feuille 1", sheet_name2: str = "Conjectures", sheet_name3: str = "Parametres"):
     """Ouvre le classeur ; s’il n’existe pas, le crée avec les 2 feuilles + en-têtes.
        Garantit que les deux feuilles existent (sinon les crée)."""
     p = Path(excel_file)
@@ -49,6 +58,9 @@ def open_or_create_excel(excel_file: str, sheet_name: str = "Feuille 1", sheet_n
     if sheet_name2 not in wb.sheetnames:
         ws2 = wb.create_sheet(title=sheet_name2)
         ws2.append(HEADERS_SHEET_CONJECTURES)
+    if sheet_name3 not in wb.sheetnames:
+        ws2 = wb.create_sheet(title=sheet_name3)
+        ws2.append(HEADERS_SHEET_PARAMETRES)
 
     return wb
 
