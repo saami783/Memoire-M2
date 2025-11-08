@@ -112,7 +112,7 @@ def get_prompt_to_generate_boolean_query(
 
 def get_prompt_find_conjecture(folder: str, file: str) -> str:
     return (
-        f"dans le dossier {folder} je souhaite que tu ouvres le fichier {file} et que tu me dis "
+        f"dans le dossier {folder} je souhaite que tu ouvres le fichier {file} et que tu me détectes "
             "si oui ou non il existe une ou plusieurs conjecture(s) formulées par les auteurs de cet article. On ne tiendra"
             " pas compte des conjectures citées d'autres articles. Raisonne uniquement par ton intelligence, je ne veux aucun script."
             f" Réfléchis et donne moi ta réponse. Je veux que tu trouves des conjectures pour le fichier {file}. "
@@ -123,5 +123,25 @@ def get_prompt_find_conjecture(folder: str, file: str) -> str:
             "Tu dois faire du mot-à-mot pour les conjectures, ce qui signifie que tu ne dois "
             "pas traduire le texte ni inventer des choses. Reste fidèle à ce que le(s) auteur(s) a/ont écrit."
             f"Écris toutes les conjectures que tu as trouvé dans un fichier json dans le répertoire {folder}/json."
+            "Le fichier json que tu vas créer doit suivre exactement le schéma suivant :"
+            "{\n"
+            "  \"contains_conjecture\": true,\n"
+            "  \"conjectures\": [\n"
+            "    {\n"
+            "      \"label\": \"title/index of the conjecture\",\n"
+            "      \"conjecture\": \"the entire conjecture\",\n"
+            "      \"parameters\": [\n"
+            "        {\n"
+            "          \"name\": \"the name of the parameter\",\n"
+            "          \"definition\": \"the definition of the parameter\"\n"
+            "        }\n"
+            "      ]\n"
+            "    }\n"
+            "  ]\n"
+            "}"
+            "N'échappe pas les $ dans les formules mathématiques latex."
             "Lorsque tu auras terminé, je veux que tu écrives dans la dernière ligne du fichier JSON cela : `FIN`."
     )
+
+# il faut uniformiser le nom des fichiers
+# certains paramètres sont inventés
