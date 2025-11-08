@@ -142,5 +142,5 @@ def get_prompt_find_conjecture(folder: str, file: str) -> str:
             "Une fois ta tâche terminée, je veux que tu fasses une repasses afin de faire quelques micro-retouches de notation/terminologie "
             "pour coller exactement au papier si nécessaire. Mets un point de vigilance sur les indices par exemple. "
             "Et vérifie que tu n'as pas inventé des paramètres, ou fait des hallucinations quelconques."
-            "Lorsque tu auras véritablement terminé, je veux que tu écrives dans la dernière ligne du fichier JSON cela : `FIN`."
+            "Lorsque tu auras véritablement terminé, je veux que tu écrives dans la dernière ligne du fichier JSON cela : FIN"
     )
