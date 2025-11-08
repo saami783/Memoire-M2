@@ -1,0 +1,118 @@
+{
+  "contains_conjecture": true,
+  "conjectures": [
+    {
+      "label": "Conjecture 2.1",
+      "conjecture": "Conjecture 2.1. For all integers $r \\geq 2$, all $S \\subseteq[r]$, and all $r$-colorings of a complete graph $K$, there exists a monochromatic $(r-1)$-cover consisting entirely of subgraphs having a color in $S$ or consisting entirely of subgraphs having a color in $[r] \\backslash S$.",
+      "parameters": [
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 2$." },
+        { "name": "$S$", "definition": "$S \\subseteq [r]$." },
+        { "name": "$[r]$", "definition": "$[r]=\\{1,2,\\dots,r\\}$." },
+        { "name": "$K$", "definition": "$K$ is a complete graph." },
+        { "name": "r-coloring", "definition": "An $r$-coloring of the edges of a graph $G$ is a function $c:E(G) \\to [r]$; equivalently, a partition of $E(G)$ into (possibly empty) sets $\\{E_{1},\\ldots,E_{r}\\}$." },
+        { "name": "monochromatic cover", "definition": "In an $r$-colored graph $H$, a monochromatic cover is a set $\\mathcal{T}$ of monochromatic connected subgraphs with $V(H)=\\cup_{T \\in \\mathcal{T}} V(T)$." },
+        { "name": "monochromatic $t$-cover", "definition": "A monochromatic cover of order at most $t$." }
+      ]
+    },
+    {
+      "label": "Conjecture 2.2",
+      "conjecture": "Conjecture 2.2. For all integers $r \\geq 2$ and all $K \\in \\mathcal{K}_{r}, \\operatorname{tc}_{r-1}(K) \\leq r-1$. In particular, this implies that for every $r$-coloring of a complete graph $K$ and every color $i \\in[r]$, either there is a monochromatic $(r-1)$-cover consisting entirely of subgraphs of color $i$, or entirely of subgraphs which don't have color $i$.",
+      "parameters": [
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 2$." },
+        { "name": "$K$", "definition": "$K \\in \\mathcal{K}_{r}$ is a complete $r$-partite graph." },
+        { "name": "\\mathcal{K}_{k}", "definition": "For $k \\geq 2$, $\\mathcal{K}_{k}$ is the family of all complete $k$-partite graphs." },
+        { "name": "\\operatorname{tc}_{r}(H)", "definition": "The minimum integer $t$ such that in every $r$-coloring of the edges of $H$, there exists a monochromatic $t$-cover of $H$." },
+        { "name": "$i$", "definition": "$i \\in [r]$ is a color index." },
+        { "name": "$[r]$", "definition": "$[r]=\\{1,2,\\dots,r\\}$." }
+      ]
+    },
+    {
+      "label": "Conjecture 2.3",
+      "conjecture": "Conjecture 2.3. For all integers $r \\geq 3$ and all $K \\in \\mathcal{K}_{r-1}, \\operatorname{tc}_{r-1}(K) \\leq r-1$. In particular, this implies that for every $r$-coloring of a complete graph $K$ and every color $i \\in[r]$, either there is a monochromatic $(r-2)$-cover consisting entirely of subgraphs of color $i$, or a monochromatic $(r-1)$-cover consisting entirely of subgraphs which don't have color $i$.",
+      "parameters": [
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 3$." },
+        { "name": "$K$", "definition": "$K \\in \\mathcal{K}_{r-1}$ is a complete $(r-1)$-partite graph." },
+        { "name": "\\mathcal{K}_{k}", "definition": "For $k \\geq 2$, $\\mathcal{K}_{k}$ is the family of all complete $k$-partite graphs." },
+        { "name": "\\operatorname{tc}_{r}(H)", "definition": "The minimum integer $t$ such that in every $r$-coloring of the edges of $H$, there exists a monochromatic $t$-cover of $H$." },
+        { "name": "$i$", "definition": "$i \\in [r]$ is a color index." },
+        { "name": "$[r]$", "definition": "$[r]=\\{1,2,\\dots,r\\}$." }
+      ]
+    },
+    {
+      "label": "Conjecture 2.4",
+      "conjecture": "Conjecture 2.4. For all integers $r \\geq 2$, in every $r$-coloring of a complete graph $K$ there exists a monochromatic $(r-1)$-cover such that the monochromatic subgraphs have at most $\\lceil r / 2\\rceil$ different colors.",
+      "parameters": [
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 2$." },
+        { "name": "$K$", "definition": "$K$ is a complete graph." },
+        { "name": "r-coloring", "definition": "An $r$-coloring of the edges of a graph $G$ is a function $c:E(G) \\to [r]$; equivalently, a partition of $E(G)$ into (possibly empty) sets $\\{E_{1},\\ldots,E_{r}\\}$." },
+        { "name": "monochromatic $t$-cover", "definition": "A monochromatic cover of order at most $t$." },
+        { "name": "\\lceil r/2 \\rceil", "definition": "The ceiling of $r/2$." }
+      ]
+    },
+    {
+      "label": "Conjecture 2.8",
+      "conjecture": "Conjecture 2.8. For all $\\alpha \\geq 1$, there exists $d=d(\\alpha)$ such that for all $r \\geq 2$, if $G$ is a graph with $\\alpha(G)=\\alpha$, then in every $r$-coloring of $G$, there exists a monochromatic $(r-1) \\alpha$-cover consisting of subgraphs of diameter at most $d$.",
+      "parameters": [
+        { "name": "$\\alpha$", "definition": "$\\alpha \\geq 1$ is an integer parameter." },
+        { "name": "$d$", "definition": "$d=d(\\alpha)$ is a diameter bound depending on $\\alpha$." },
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 2$." },
+        { "name": "$G$", "definition": "$G$ is a graph with $\\alpha(G)=\\alpha$." },
+        { "name": "\\alpha(G)", "definition": "The size of a maximum independent set of vertices in $G$." },
+        { "name": "diameter", "definition": "For vertices $u,v \\in V(G)$, $d(u,v)$ is the length of the shortest $u,v$-path (or $\\infty$ if none exists); $\\operatorname{diam}(G)$ is the smallest $d$ with $d(u,v) \\le d$ for all $u,v \\in V(G)$." },
+        { "name": "monochromatic $t$-cover", "definition": "A monochromatic cover of order at most $t$." }
+      ]
+    },
+    {
+      "label": "Conjecture 2.14",
+      "conjecture": "Conjecture 2.14. There exists $d$ such that for all $r \\geq 2$, if $K \\in \\mathcal{K}_{2}$, then in every $r$-coloring of $K$, there exists a monochromatic $(2 r-2)$-cover consisting of subgraphs of diameter at most d.",
+      "parameters": [
+        { "name": "$d$", "definition": "An absolute diameter bound." },
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 2$." },
+        { "name": "$K$", "definition": "$K \\in \\mathcal{K}_{2}$ is a complete bipartite graph." },
+        { "name": "\\mathcal{K}_{k}", "definition": "For $k \\geq 2$, $\\mathcal{K}_{k}$ is the family of all complete $k$-partite graphs." },
+        { "name": "r-coloring", "definition": "An $r$-coloring of the edges of a graph $G$ is a function $c:E(G) \\to [r]$; equivalently, a partition of $E(G)$ into (possibly empty) sets $\\{E_{1},\\ldots,E_{r}\\}$." },
+        { "name": "monochromatic $t$-cover", "definition": "A monochromatic cover of order at most $t$." }
+      ]
+    },
+    {
+      "label": "Conjecture 2.19",
+      "conjecture": "Conjecture 2.19. For all $r \\geq 3$, in every $r$-coloring of $K_{n}^{r}$, there exists a monochromatic tightly connected subgraph which covers $V(K)$.",
+      "parameters": [
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 3$." },
+        { "name": "$K_{n}^{r}$", "definition": "The complete $r$-uniform hypergraph on $n$ vertices." },
+        { "name": "tightly connected", "definition": "In a $k$-uniform hypergraph $H$, $H$ is tightly connected if for every pair $u,v \\in V(H)$ there exist edges $e_{1},\\ldots,e_{p} \\in E(H)$ with $u \\in e_{1}$, $v \\in e_{p}$ and $|e_{i} \\cap e_{i+1}|=k-1$ for all $i$." },
+        { "name": "$V(K)$", "definition": "The vertex set of $K$." }
+      ]
+    },
+    {
+      "label": "Conjecture 4.3",
+      "conjecture": "Conjecture 4.3. For all $\\alpha \\geq 1$, there exists $\\delta=\\delta(\\alpha)$ such that for all $r \\geq 2$, if $G$ is a graph with $\\alpha(G)=\\alpha$, then $\\mathrm{dc}_{r}^{\\delta}(G) \\leq(r-1) \\alpha$.",
+      "parameters": [
+        { "name": "$\\alpha$", "definition": "$\\alpha \\geq 1$ is an integer parameter; $\\alpha(G)$ is the independence number of $G$." },
+        { "name": "$\\delta$", "definition": "A diameter bound depending on $\\alpha$, denoted $\\delta=\\delta(\\alpha)$." },
+        { "name": "$r$", "definition": "$r$ is an integer with $r \\geq 2$." },
+        { "name": "$G$", "definition": "$G$ is a graph with $\\alpha(G)=\\alpha$." },
+        { "name": "\\mathrm{dc}_{r}^{\\delta}(G)", "definition": "The smallest integer $t$ such that in every $r$-coloring of the edges of $G$, there exists a monochromatic $t$-cover consisting of subgraphs of diameter at most $\\delta$." }
+      ]
+    },
+    {
+      "label": "Conjecture 4.17",
+      "conjecture": "Conjecture 4.17. Let $G$ be a 3-colored complete graph. There exists a monochromatic 2-cover consisting of subgraphs of diameter at most 3.",
+      "parameters": [
+        { "name": "$G$", "definition": "A complete graph whose edges are colored with 3 colors." },
+        { "name": "monochromatic 2-cover", "definition": "A monochromatic cover of order at most $2$." },
+        { "name": "diameter bound", "definition": "Each subgraph in the cover has $\\operatorname{diam} \\le 3$." }
+      ]
+    },
+    {
+      "label": "Conjecture 4.22",
+      "conjecture": "Conjecture 4.22. Suppose $G$ is a complete 4-partite graph with vertex set partitioned as $\\left\\{V_{1}, V_{2}, V_{3}, V_{4}\\right\\}$. If $\\left[V_{i}, V_{j}\\right]$ is colored with colors from $[5] \\backslash\\{i, j\\}$ for all distinct $i, j \\in[4]$, then $G$ can be covered with at most three monochromatic subgraphs of bounded diameter.",
+      "parameters": [
+        { "name": "$G$", "definition": "A complete 4-partite graph with partition $\\{V_{1},V_{2},V_{3},V_{4}\\}$." },
+        { "name": "[$V_{i},V_{j}$]", "definition": "The complete bipartite subgraph induced by the parts $V_{i}$ and $V_{j}$." },
+        { "name": "$[5] \\backslash \\{i,j\\}$", "definition": "The set of colors used on $[V_{i},V_{j}]$ excludes the indices $i$ and $j$." },
+        { "name": "bounded diameter", "definition": "There exists an absolute constant $d$ such that each subgraph in the cover has $\\operatorname{diam} \\le d$." }
+      ]
+    }
+  ]
+}

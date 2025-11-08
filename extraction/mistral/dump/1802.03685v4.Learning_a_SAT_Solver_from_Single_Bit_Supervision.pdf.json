@@ -1,0 +1,20 @@
+{
+  "contains_conjecture": true,
+  "conjectures": [
+    {
+      "label": "Conjecture 1",
+      "conjecture": "We believe that their network's success is an instance of the phenomenon we study in this paper, namely that MPNNs can synthesize local search algorithms for constraint satisfaction problems.",
+      "parameters": []
+    },
+    {
+      "label": "Conjecture 2",
+      "conjecture": "We believe that architectures descended from NeuroSAT will be able to learn very different mechanisms and heuristics depending on the data they are trained on and the details of their objective functions.",
+      "parameters": []
+    },
+    {
+      "label": "Conjecture 3",
+      "conjecture": "We are cautiously optimistic that a descendant of NeuroSAT will one day lead to improvements to the state-of-the-art.",
+      "parameters": []
+    }
+  ]
+}

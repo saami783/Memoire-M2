@@ -1,0 +1,35 @@
+{
+  "contains_conjecture": true,
+  "conjectures": [
+    {
+      "label": "1",
+      "conjecture": "These results suggest that NeuroSAT searches for a certificate of satisfiability, and that it only guesses sat once it has found one.",
+      "parameters": []
+    },
+    {
+      "label": "2",
+      "conjecture": "This suggests that NeuroSAT has not simply found a way to approximate SP, but rather has synthesized a qualitatively different algorithm.",
+      "parameters": []
+    },
+    {
+      "label": "3",
+      "conjecture": "Upon inspection, it seems to do so by learning to recognize the unsat cores.",
+      "parameters": []
+    },
+    {
+      "label": "4",
+      "conjecture": "We believe that their network's success is an instance of the phenomenon we study in this paper, namely that MPNNs can synthesize local search algorithms for constraint satisfaction problems.",
+      "parameters": []
+    },
+    {
+      "label": "5",
+      "conjecture": "We believe that architectures descended from NeuroSAT will be able to learn very different mechanisms and heuristics depending on the data they are trained on and the details of their objective functions.",
+      "parameters": []
+    },
+    {
+      "label": "6",
+      "conjecture": "We are cautiously optimistic that a descendant of NeuroSAT will one day lead to improvements to the state-of-the-art.",
+      "parameters": []
+    }
+  ]
+}
