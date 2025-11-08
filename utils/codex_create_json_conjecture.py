@@ -46,8 +46,9 @@ def create_json_conjecture(
     prompt: str,
     watch_dir: Path,
     *,
-    ext: str = ".json",          # filtre d’extension (peut être "" pour tout)
-    term: str = "FIN",           # valeur attendue à la dernière ligne non vide
+    ext: str = ".json",
+    term: str = "FIN",
+    codex_cwd: Optional[Path] = None,
 ) -> Path | None:
     """
     Lance 'codex' dans `watch_dir`, détecte le NOUVEAU fichier créé (par défaut .json),
@@ -56,13 +57,20 @@ def create_json_conjecture(
     """
     watch_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1) Snapshot avant lancement
-    baseline = set(p.resolve() for p in watch_dir.iterdir() if p.is_file())
-    if ext:
-        baseline = {p for p in baseline if p.suffix == ext}
+    def list_files(d: Path) -> list[Path]:
+        files = [p for p in d.iterdir() if p.is_file()]
+        if ext:
+            files = [p for p in files if p.suffix == ext]
+        return files
 
-    # 2) Lancer Codex
-    proc = Popen(["codex", "--sandbox=danger-full-access", prompt], cwd=str(watch_dir))
+    baseline = set(p.resolve() for p in list_files(watch_dir))
+
+    run_dir = codex_cwd or Path.cwd()
+
+    proc = Popen(
+        ["codex", "--sandbox=danger-full-access", prompt],
+        cwd=str(run_dir),
+    )
 
     start = time.time()
     target: Optional[Path] = None

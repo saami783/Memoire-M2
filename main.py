@@ -35,17 +35,15 @@ def find_conjectures_with_codex(dossier_articles: str):
 
     deepseek_files = get_dossier_with_files(deepseek_folder, ".txt")
 
-    # todo : pour chaque fichier, intérroger codex en lui donnant le chemin du fichier dans le prompt
-    # il faut que lorsqu'il termine, pouvoir le killer pour passer au fichier suivant
-    # on peut se dire qu'il doit créer un fichier avec les conjectures, et dès lors que le fichier existe et que la dernière ligne est "finish"
-    # alors on kill le processus
-
     for idx, file_name in enumerate(mistral_files):
         print(file_name)
         print("Lecture du fichier...")
         prompt = get_prompt_find_conjecture(mistral_folder, file_name)
-        create_json_conjecture(prompt, Path(mistral_folder+"/json"))
-        # os.execvp("codex", ["codex", "--sandbox=danger-full-access", prompt])
+        create_json_conjecture(
+            prompt,
+            Path(mistral_folder + "/json"),
+            codex_cwd=Path("."),
+        )
 
     # for idx, file_name in enumerate(mistral_files):
     #     print(file_name)
@@ -60,7 +58,6 @@ def extract_documents(dossier_articles: str):
     """
     pdfs = get_dossier_with_files(dossier_articles, ".pdf")
 
-    # avec une clé classique je fais 10 uploads max avec une clé pro aussi
     api_key = os.getenv("MISTRAIL_API_KEY_PRO")
     client = Mistral(api_key=api_key)
 
@@ -94,6 +91,17 @@ def extract_documents(dossier_articles: str):
             # for reste_pdf in pdfs[idx+1:]:
             #     reste_path = f"{dossier_articles}/{reste_pdf}"
             #     run_deepseek(reste_path)
+
+                # test_pdf = r"downloads\arxiv\2508.16992v1.Online_Learning_for_Approximately_Convex_Functions_with_Long_term_Adversarial_Constraints.pdf"
+                # test_out = r"extractions"
+                # DEFAULT_PROMPT = "<image>\n<|grounding|>Convert the document to text."
+                #
+                # extract_pdf_to_text(
+                #     pdf_path=test_pdf,
+                #     out_dir=test_out,
+                #     prompt=DEFAULT_PROMPT,
+                #     quality_mode="fast",
+                # )
 
     print("Tous les PDFs ont été traités par Mistral sans bascule DeepSeek.")
 
@@ -170,33 +178,10 @@ if __name__ == "__main__":
     # query = extract_arxiv_query_py(boolean_query_file)
     # download_arxiv_pdfs(query, excel_file=excel_file, sheet_name=sheet_name1)
 
-    # todo : voir pour extraire le contenu des articles au lieu de les uploads pour contourner la limite d'upload.
-
-    # 1- trier les pdf
-    # 2- lancer l'extraction via mistral et mettre le contenu dans un fichier texte
-    # 3- si on atteint la limite alors pendre le relais avec deepseek
-
     load_dotenv()
-
-    # Id du document 2508.16992v1 : 3259c8a5-0dcd-4b29-9531-bbaad4a90e6a
 
     # extract_documents("downloads/arxiv")
 
-    # test_pdf = r"downloads\arxiv\2508.16992v1.Online_Learning_for_Approximately_Convex_Functions_with_Long_term_Adversarial_Constraints.pdf"
-    # test_out = r"extractions"
-    # DEFAULT_PROMPT = "<image>\n<|grounding|>Convert the document to text."
-    #
-    # extract_pdf_to_text(
-    #     pdf_path=test_pdf,
-    #     out_dir=test_out,
-    #     prompt=DEFAULT_PROMPT,
-    #     quality_mode="fast",
-    # )
-
-    # todo : délaisser mistral pour la détection des conjectures, je tiens une bonne piste assez fiable avec codex
-    # find_conjectures("extraction/")
     find_conjectures_with_codex("extraction/")
 
     # update_excel_with_conjectures("articles.xlsx", "Articles", "Conjectures", Path("json_articles"))
-
-    # todo : prochaine étape, faire la réfutation des conjectures.
