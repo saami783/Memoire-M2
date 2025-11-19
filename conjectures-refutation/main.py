@@ -4,6 +4,7 @@ from typing import List
 
 from helpers import scores_function
 from helpers.utility import load_conjectures
+from helpers.create_score_function import load_conjectures_from_excel
 
 from refutation_heuristics.local_search import (
     SearchConfig,
@@ -24,6 +25,12 @@ def main() -> None:
     selected: List[dict] = []
     missing: List[str] = []
     for identifier in identifiers:
+
+        if identifier == "export":
+            conjectures = load_conjectures_from_excel("../articles.xlsx")
+            selected.extend(conjectures)
+            continue
+
         match = by_identifier.get(identifier)
         if match is not None:
             entry = dict(match)
