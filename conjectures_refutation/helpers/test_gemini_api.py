@@ -14,74 +14,95 @@ config = genai.types.GenerateContentConfig(
     temperature=0.0,
 )
 
-conjecture = "\\operatorname{tc}_{r}(H)', 'definition': 'The minimum integer $t$ such that in every $r$-coloring of the edges of $H$, there exists a monochromatic $t$-cover of $H$"
+conjecture = "Conjecture 2.2. For all integers $r \geq 2$ and all $K \in \mathcal{K}_{r}, \operatorname{tc}_{r-1}(K) \leq r-1$. In particular, this implies that for every $r$-coloring of a complete graph $K$ and every color $i \in[r]$, either there is a monochromatic $(r-1)$-cover consisting entirely of subgraphs of color $i$, or entirely of subgraphs which don't have color $i$."
 invariants = get_invariants()
+index = 1
 
+# des fois le modèle donne une réponse sous ```python ... ```
 response = client.models.generate_content(
     model="gemini-3-pro-preview",
-    contents=
-            f"""
-                Voici une conjecture en théorie des graphes : {conjecture}.
+    contents=f"""
+    Tu es un système expert en théorie des graphes et en algorithmique.
 
-                Génère une fonction de score en Python qui évalue si un graphe est un contre-exemple à cette conjecture.
-                La fonction doit avoir la signature suivante : conj_1(G, min_size, max_size).
-                Ne fait aucune supposition sur les conjectures, écris la fonction de score conformément à la conjecture que je t'ai donné.
+    TA MISSION :
+    À partir d'une conjecture mathématique que je te donne, tu dois générer une fonction 
+    Python `conj_{index}(G, min_size, max_size)` capable de détecter un contre-exemple.
 
-                La fonction doit retourner None si le graphe n'est pas éligible (taille hors limites ou non conforme à la conjecture).
-                Sinon, elle doit retourner un score numérique qui est négatif si le graphe est un contre-exemple à la conjecture.
-                
-                Si tu as besoin de calculer des invariants, ajoute exactement cette instruction dans les imports de la fonction, sans rien changer
-                "from helpers.invariants import *". Elle te permet d'accéder à une liste de fonctions d'invariants qui sont les suivants :
-                {invariants}
-                
-                Voici des exemples de fonctions de score pour différente conjecture :
-                def conj_a(G, min_size, max_size):
-                    order = G.number_of_nodes()
-                    if order < min_size or order > max_size:
-                        return None
-                    if not binary_properties_functions["connected"](G):
-                        return None
-                    lambda_max = invariants_functions["largest_eigenvalue"](G)
-                    matching_number = invariants_functions["matching_number"](G)
-                    return - (math.sqrt(order - 1) + 1 - lambda_max - matching_number)
+    LA CONJECTURE UTILISATEUR :
+    "{conjecture}"
 
-                def conj_b(G, min_size, max_size):
-                    order = G.number_of_nodes()
-                    if order < min_size or order > max_size:
-                        return None
-                    if not binary_properties_functions["tree"](G):
-                        return None
-                    diameter = invariants_functions["diameter"](G)
-                    k = math.floor(2 * diameter / 3)
-                    proximity = invariants_functions["proximity"](G)
-                    kth_largest_distance_eigenvalue = invariants_functions["kth_largest_distance_eigenvalue"](G, k)
-                    return -(-proximity - kth_largest_distance_eigenvalue)
+    RÈGLES STRICTES DE LA FONCTION :
+    1. Signature : `def conj_1(G, min_size, max_size):`
+    2. Imports : Tu peux utiliser à l'intérieur de la fonction les imports suivants `networkx as nx`, `numpy as np`, `math`, `itertools`, `random`, 
+    `collections` et `from helpers.invariants import *`.
+    3. Le Score (CRUCIAL) :
+       - Retourne `None` si le graphe ne respecte pas les pré-conditions (taille, type de graphe, etc.).
+       - Retourne une valeur NÉGATIVE si et seulement si le graphe G est un CONTRE-EXEMPLE.
+       - Plus le score est négatif, plus le contre-exemple est fort (pour guider l'optimiseur).
+       - Si la conjecture est respectée, retourne une valeur positive (ex: 1.0 ou score > 0).
 
-                def conj_c(G, min_size, max_size):
-                    order = G.number_of_nodes()
-                    if order < min_size or order > max_size:
-                        return None
-                    if not binary_properties_functions["tree"](G):
-                        return None
-                    pA, pD = invariants_functions["pA"](G), invariants_functions["pD"](G)
-                    m = invariants_functions["m"](G)
-                    return -(abs(pA / m  - (1 - pD / order)) - 0.28)
+    4. GESTION DE L'OBJET G (TRES IMPORTANT) :
+       - CAS A : Conjecture sur des graphes généraux (ex: "Si G est planaire...", "Pour tout arbre T...").
+         -> Utilise l'objet `G` tel quel (ses arêtes, sa structure).
+       - CAS B : Conjecture sur des structures fixes définies par la taille (ex: "Pour tout K_n...", 
+            "Pour tout cycle C_n...", "Pour tout hypergraphe K_n^r...").
+         -> IGNORE les arêtes de `G`. Utilise seulement `n = G.number_of_nodes()` pour reconstruire mathématiquement 
+            la structure demandée (ex: génère toutes les paires pour K_n, ou toutes les combinaisons pour un hypergraphe).
 
-                def conj_d(G, min_size, max_size):
-                    order = G.number_of_nodes()
-                    if order < min_size or order > max_size:
-                        return None
-                    if not binary_properties_functions["connected"](G):
-                        return None
-                    A = nx.adjacency_matrix(G).todense()
-                    eigenvalues = np.linalg.eigvals(A)
-                    second_largest_eigenvalues = np.sort(eigenvalues)[-2]
-                    harmonic_index = invariants_functions["harmonic_index"](G)
-                    return -(second_largest_eigenvalues - harmonic_index) 
+    CATÉGORIES DE CONJECTURES (Few-Shot Learning) :
 
-                Assure-toi que la fonction est correctement indentée.
-                Ne fournis que le code de la fonction, sans commentaires ni texte supplémentaire.
-                """,
+    --- TYPE A : Inégalités d'Invariants (A <= B) ---
+    Stratégie : Retourner `-(B - A)`.
+    Exemple :
+    def conj_type_a(G, min_size, max_size):
+        order = G.number_of_nodes()
+        if order < min_size or order > max_size: return None
+        if not binary_properties_functions["connected"](G): return None
+        # Conjecture: lambda_1 <= sqrt(n-1)
+        val_left = invariants_functions["largest_eigenvalue"](G)
+        val_right = math.sqrt(order - 1)
+        return -(val_right - val_left)
+
+    --- TYPE B : Implication Structurelle (Si X alors Y) ---
+    Stratégie : Si non(X) -> None. Si X et non(Y) -> -1.0 (Contre-exemple). Sinon -> 1.0.
+    Exemple ("Si G est planaire, il est 4-coloriable") :
+    def conj_type_b(G, min_size, max_size):
+        import networkx as nx
+        if G.number_of_nodes() < min_size: return None
+        # 1. Pré-condition
+        is_planar, _ = nx.check_planarity(G)
+        if not is_planar: return None
+        # 2. Test (Heuristique pour chercher contre-exemple)
+        d = nx.coloring.greedy_color(G, strategy="largest_first")
+        if (max(d.values()) + 1) > 4: return -1.0 # Contre-exemple !
+        return 1.0
+
+    --- TYPE C : Existence Combinatoire / Hypergraphes ---
+    Stratégie : Construire la structure depuis 'n', tester (aléatoirement ou exhaustivement).
+    Exemple ("Dans tout 2-coloriage de K_n^3, il existe...") :
+    def conj_type_c(G, min_size, max_size):
+        import itertools, random
+        n = G.number_of_nodes() # On récupère juste la taille
+        if n < min_size: return None
+        # On ignore les arêtes de G, on construit un hypergraphe complet K_n^3
+        hyperedges = list(itertools.combinations(range(n), 3))
+
+        # Test sur 50 colorations aléatoires (Approche probabiliste pour rapidité)
+        for _ in range(50):
+            colors = [random.randint(0, 1) for _ in hyperedges]
+            # ... logique de vérification ...
+            found_property = False # Supposons qu'on vérifie la propriété ici
+
+            if not found_property: 
+                return -1.0 # Contre-exemple trouvé (une coloration qui n'a pas la propriété)
+        return 1.0
+
+    INVARIANTS DISPONIBLES :
+    {invariants}
+
+    GÉNÈRE MAINTENANT LE CODE PYTHON POUR LA CONJECTURE CI-DESSUS.
+    N'écris QUE le code de la fonction, sans balises markdown, sans explications.
+    """,
     config=config
 )
 
