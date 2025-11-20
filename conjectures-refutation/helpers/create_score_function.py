@@ -1,3 +1,11 @@
+from pathlib import Path
+from typing import Any, Dict, List
+from dotenv import load_dotenv
+import os
+from openpyxl import Workbook, load_workbook
+from mistralai import Mistral
+from google import genai
+
 # todo : J'interroge un LLM pour qu'il me donne une fonction de score pour chaque conjecture de mon fichier xls, et je l'exécute dynamiquement
 # en 1 : on ouvre le fichier excel, et pour chaque conjecture :
     # en 1 : Le LLM (température fixé pour la reproductibilité) génère une fonction de score sous forme de code Python pour une conjecture donnée.
@@ -18,12 +26,6 @@ par exemple "a" alors il exécutera la fonction conj_a. Dans tous les cas, il ex
 donc c'est ici qu'il faut que nous branchions notre logique, où, si dans identifiers.txt il y a marqué 'export' par exemple,
 alors c'est ma logique à moi qui sera prise en compte en exécutant la fonction de score dynamique.
 """
-from pathlib import Path
-from typing import Any, Dict, List
-from dotenv import load_dotenv
-import os
-from openpyxl import Workbook, load_workbook
-from mistralai import Mistral
 
 """
 # Supposons que le LLM génère le code suivant pour une conjecture donnée
@@ -85,6 +87,27 @@ def generate_score_function_with_llm(conjecture: str, index: int):
     # model = "ministral-8b-2410"
     model = "mistral-large-2411"
     return get_mistral_reponse(model, conjecture, index)
+
+def get_gemini_response():
+    """
+    La signature de la fonction doit obligatoirement être sous la forme suivante : conj_{index}(G, min_size, max_size).
+    """
+    load_dotenv()
+    api_key = os.getenv("GOOGLE_API_KEY")
+
+    client = genai.Client(api_key=api_key, )
+
+    config = genai.types.GenerateContentConfig(
+        temperature=0.0,
+    )
+
+    response = client.models.generate_content(
+        model="gemini-3-pro-preview",
+        contents="Explain how AI works in a few words",
+        config=config
+    )
+
+    print(response.text)
 
 def get_mistral_reponse(model: str, conjecture: str, index: int) -> str:
     """
@@ -159,7 +182,8 @@ def get_mistral_reponse(model: str, conjecture: str, index: int) -> str:
                     return -(second_largest_eigenvalues - harmonic_index)
 
                 Assurez-vous que la fonction est correctement indentée.
-                Ne fournissez que le code de la fonction, sans commentaires ni texte supplémentaire. Vraiment uniquement la fonction est rien d'autre.
+                Ne fournissez que le code de la fonction, sans commentaires ni texte supplémentaire. 
+                Vraiment uniquement la fonction est rien d'autre.
                 """
             }
         ]

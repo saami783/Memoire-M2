@@ -16,3 +16,4 @@ tokenizers==0.20.3
 img2pdf
 easydict
 numpy
+google-genai
