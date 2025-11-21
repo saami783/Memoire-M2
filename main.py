@@ -62,8 +62,11 @@ def extract_documents(dossier_articles: str):
     """
     pdfs = get_dossier_with_files(dossier_articles, ".pdf")
 
-    api_key = os.getenv("MISTRAIL_API_KEY_PRO")
-    client = Mistral(api_key=api_key)
+    api_key = os.getenv("MISTRAIL_API_KEY")
+    api_key_pro = os.getenv("MISTRAIL_API_KEY_PRO")
+    api_key_hossein = os.getenv("MISTRAIL_API_KEY_PRO_HOSSEIN")
+    api_key_piravine = os.getenv("MISTRAIL_API_KEY_PRO_PIRAVINE")
+    client = Mistral(api_key=api_key_pro)
 
     libraries = get_libraries(client)
     library = libraries[0]
