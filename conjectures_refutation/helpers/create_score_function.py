@@ -43,7 +43,7 @@ def load_conjectures_from_excel(excel_path: str) -> List[Dict[str, Any]]:
         function_name = f"conj_{index}"
 
         conjecture = {
-            "ID": f"export_{index}",
+            "ID": f"export_{index}", # si je veux reproduire une réfutation du benchmark, je dois mettre l'id de la conj pour la reproductibilité
             "conjecture": conjecture_text,
             "subclass": "",
             "score_function": globals()[function_name]
