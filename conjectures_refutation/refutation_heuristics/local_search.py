@@ -291,6 +291,7 @@ def _derive_seed(identifier: str, base_seed: int) -> int:
     """Derive a stable 32-bit seed from ``identifier`` and ``base_seed``."""
 
     payload = f"{identifier}:{base_seed}".encode("utf-8")
+    # payload = f"185:{base_seed}".encode("utf-8")
     return int.from_bytes(hashlib.sha256(payload).digest()[:4], "big")
 
 
